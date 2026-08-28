@@ -1,0 +1,12 @@
+{
+  "name": "lof-titan-platform",
+  "private": true,
+  "workspaces": [
+    "webapp"
+  ],
+  "scripts": {
+    "dev": "npm --prefix webapp run dev",
+    "build": "npm --prefix webapp run build",
+    "preview": "npm --prefix webapp run preview"
+  }
+}

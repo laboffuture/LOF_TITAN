@@ -1,0 +1,24 @@
+Invisible line patrol
+The Invisible Line Patrol Rover is an autonomous navigation robot that follows a UV light source using sensors. It continuously compares left, right, and center signal strength and adjusts motor speed to stay aligned with the strongest direction. The project introduces students to sensor-based steering, threshold logic, differential motor control, and closed-loop navigation—core principles used in modern autonomous robotic systems.
+ 
+Light Detection
+UV light carries energy that cannot be seen by the human eye but can be detected by special sensors.
+Each UV sensor converts light intensity into an electrical signal (analog value).
+Signal Comparison
+The ESP32 reads values from the UV sensors.
+By comparing these numbers, the robot determines which direction has stronger light.
+Decision Logic
+Using simple 
+if–else conditions
+, the robot decides:
+Center stronger → Move forward
+Left stronger → Turn left
+Right stronger → Turn right
+This is called rule-based autonomous control.
+Differential Steering
+Turning happens when one motor rotates faster than the other.
+Different motor speeds create torque, causing smooth directional changes.
+Continuous Feedback Loop
+The rover constantly repeats:
+Sense → Compare → Act → Repeat
+This closed-loop system allows the robot to correct its path in real time and maintain stable navigation.

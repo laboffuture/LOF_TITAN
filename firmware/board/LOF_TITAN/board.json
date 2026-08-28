@@ -1,0 +1,8 @@
+{
+  "deploy": [
+    "../ESP32_GENERIC/deploy.md"
+  ],
+  "title": "LOF_TITAN",
+  "vendor": "Lof",
+  "mcu": "esp32s3"
+}

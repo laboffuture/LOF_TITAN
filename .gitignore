@@ -1,0 +1,37 @@
+# Node / Web App
+node_modules/
+webapp/node_modules/
+webapp/dist/
+webapp/.env
+webapp/.env.local
+webapp/.vite/
+
+# Python / Firmware
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Build artifacts
+build/
+dist/
+*.bin
+*.elf
+*.map
+
+# Allow public firmware binaries for Web Serial Flasher
+!webapp/public/firmware/*.bin
+
+# ESP32 specific
+build-*/

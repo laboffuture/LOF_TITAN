@@ -1,0 +1,50 @@
+=== ENVIRONMENT INFO ===
+v1.28.0
+HEAD detached at v1.28.0
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+	modified:   lib/alif-security-toolkit (modified content)
+	modified:   lib/alif_ensemble-cmsis-dfp (modified content)
+	modified:   lib/arduino-lib (modified content)
+	modified:   lib/asf4 (modified content)
+	modified:   lib/axtls (modified content)
+	modified:   lib/berkeley-db-1.xx (modified content)
+	modified:   lib/btstack (modified content)
+	modified:   lib/cyw43-driver (modified content)
+	modified:   lib/fsp (modified content)
+	modified:   lib/libhydrogen (modified content)
+	modified:   lib/libmetal (modified content)
+	modified:   lib/lwip (modified content)
+	modified:   lib/mbedtls (modified content)
+	modified:   lib/micropython-lib (modified content)
+	modified:   lib/mynewt-nimble (modified content)
+	modified:   lib/nrfx (modified content)
+	modified:   lib/nxp_driver (modified content)
+	modified:   lib/open-amp (modified content)
+	modified:   lib/pico-sdk (modified content)
+	modified:   lib/protobuf-c (modified content)
+	modified:   lib/stm32lib (modified content)
+	modified:   py/makeqstrdefs.py
+	modified:   py/mkrules.cmake
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	ports/esp32/boards/LOF_TITAN/
+	ports/esp32/dependencies.lock
+
+no changes added to commit (use "git add" and/or "git commit -a")
+IDF_PATH: /home/mukesh_lof/esp/esp-idf
+ESP-IDF v5.5.1
+Python 3.12.3
+cmake version 3.28.3
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+1.11.1
+xtensa-esp-elf-gcc (crosstool-NG esp-14.2.0_20241119) 14.2.0
+Copyright (C) 2024 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+MicroPython v1.28.0-dirty on 2026-08-24; mpy-cross emitting mpy v6.3
