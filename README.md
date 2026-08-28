@@ -1,5 +1,10 @@
 # LOF TITAN — ESP32-S3 N16R8 Custom MicroPython Firmware & BLE System
 
+[![Deploy Web Application to GitHub Pages](https://github.com/laboffuture/LOF_TITAN/actions/workflows/deploy.yml/badge.svg)](https://github.com/laboffuture/LOF_TITAN/actions/workflows/deploy.yml)
+[![Live Web App](https://img.shields.io/badge/Live_Dashboard-LOF_TITAN-blue?style=for-the-badge&logo=github)](https://laboffuture.github.io/LOF_TITAN/)
+
+🚀 **Live Web Bluetooth IDE & Dashboard:** [https://laboffuture.github.io/LOF_TITAN/](https://laboffuture.github.io/LOF_TITAN/)
+
 Production-ready custom MicroPython firmware and Web Bluetooth IDE for the **LOF TITAN** board featuring an **ESP32-S3 N16R8** MCU (16 MB Flash, 8 MB Octal PSRAM).
 
 ---
@@ -29,7 +34,7 @@ Production-ready custom MicroPython firmware and Web Bluetooth IDE for the **LOF
 
 6. **Scan Bluetooth** on your device $\rightarrow$ look for `LOF_TITAN_XXXX` *(where `XXXX` is derived from the board's Bluetooth MAC)*.
 
-7. **Open Web IDE** by opening `webapp/index.html` in Chrome/Edge.
+7. **Open Web IDE**: Launch the live dashboard directly at [https://laboffuture.github.io/LOF_TITAN/](https://laboffuture.github.io/LOF_TITAN/) in Chrome or Edge.
 
 8. Click **Connect BLE**, select your `LOF_TITAN_XXXX`, and start programming!
 
@@ -77,11 +82,12 @@ Every board automatically derives its unique BLE identity at boot time from the 
 
 ---
 
-## Documentation
-* [System Architecture](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/ARCHITECTURE.md)
-* [BLE Protocol Specification](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/BLE_PROTOCOL.md)
-* [Hardware Pinout Guide](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/PINOUT.md)
-* [16 MB Partition Map](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/PARTITIONS.md)
-* [Build Guide](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/BUILD.md)
-* [Flashing Guide](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/FLASHING.md)
-* [Verification & Test Matrix](file:///c:/Users/TRG-LOF-112-123.TOPROCKGLOBAL/Lof%20titan%20Firmware/docs/TESTING.md)
+## Technical Documentation
+* [System Architecture](firmware/docs/ARCHITECTURE.md)
+* [BLE Protocol Specification](firmware/docs/BLE_PROTOCOL.md)
+* [Hardware Pinout Guide](firmware/docs/PINOUT.md)
+* [16 MB Partition Map](firmware/docs/PARTITIONS.md)
+* [Build Guide](firmware/docs/BUILD.md)
+* [Flashing Guide](firmware/docs/FLASHING.md)
+* [Verification & Test Matrix](firmware/docs/TESTING.md)
+
