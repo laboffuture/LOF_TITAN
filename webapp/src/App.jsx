@@ -15,7 +15,7 @@ const carouselItems = [
     id: "axes3",
     title: "Axes 3 DIY Kit",
     description: "Advanced multi-axis robotics system engineered for precision motion, intelligent telemetry, and autonomous mission control.",
-    image: "/assets/banners/banner_axes3.webp",
+    image: "assets/banners/banner_axes3.webp",
     badge: "DIY Robotics Kit",
     buttonText: "Explore Now"
   },
@@ -23,7 +23,7 @@ const carouselItems = [
     id: "aquanova",
     title: "Aqua Nova DIY Kit",
     description: "Build a fully functional sensing rover that detects motion and water to navigate unpredictable terrain and aquatic environments.",
-    image: "/assets/banners/banner_aquanova_diy.webp",
+    image: "assets/banners/banner_aquanova_diy.webp",
     badge: "DIY Sensing Kit",
     buttonText: "Explore Now"
   },
@@ -31,7 +31,7 @@ const carouselItems = [
     id: "invisible-line",
     title: "Invisible Line Patrol DIY Kit",
     description: "UV light-following 4-bar linkage walking robot engineered for autonomous line detection and kinetic robotic locomotion.",
-    image: "/assets/banners/banner_invisible_diy.webp",
+    image: "assets/banners/banner_invisible_diy.webp",
     badge: "DIY Walking Robot",
     buttonText: "Explore Now"
   },
@@ -39,7 +39,7 @@ const carouselItems = [
     id: "heat-seek-rover",
     title: "Heat Seek Rover DIY Kit",
     description: "Intelligent surrounding scanner with autonomous obstacle avoidance and integrated flame sensing technology for real-time fire detection.",
-    image: "/assets/banners/banner_heatseek_diy.webp",
+    image: "assets/banners/banner_heatseek_diy.webp",
     badge: "DIY Flame Rover",
     buttonText: "Explore Now"
   },
@@ -47,7 +47,7 @@ const carouselItems = [
     id: "heartbeat",
     title: "Heart Beat DJ Bot DIY Kit",
     description: "Interactive musical bot that detects a person's heartbeat pulse and dynamically generates rhythmic tunes and music beats.",
-    image: "/assets/banners/banner_heartbeat_diy.webp",
+    image: "assets/banners/banner_heartbeat_diy.webp",
     badge: "DIY Music Bot",
     buttonText: "Explore Now"
   }
@@ -130,7 +130,7 @@ function App() {
       <nav className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
         <div className="flex items-center justify-between w-full xl:w-auto gap-2 sm:gap-4">
           <div className="flex items-center gap-2 md:gap-4">
-            <img src="/logo.webp" alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
+            <img src="logo.webp" alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
             <h1 className="text-base sm:text-lg md:text-xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-start to-white truncate">
               LOF TITAN <span className="hidden sm:inline">Dashboard</span>
             </h1>
@@ -318,12 +318,12 @@ function App() {
                       {/* Top Thumbnail Showcase - Full Sleek Border Fit */}
                       <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
                         <img 
-                          src={p.thumbnail || p.heroImage || '/assets/invisible-line/invisible_line_main.webp'} 
+                          src={p.thumbnail || p.heroImage || 'assets/invisible-line/invisible_line_main.webp'} 
                           alt={p.name}
                           loading="lazy"
                           decoding="async"
                           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                          onError={(e) => { e.target.src = '/assets/banners/banner_invisible_diy.webp'; }}
+                          onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
                         />
                         <div className="absolute top-3 left-3">
                           <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-950/75 text-cyan-300 border border-cyan-400/40 backdrop-blur-md shadow-sm">

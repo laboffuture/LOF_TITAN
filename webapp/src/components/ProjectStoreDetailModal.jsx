@@ -166,11 +166,11 @@ export function ProjectStoreDetailModal({
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
               <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-[0_0_12px_rgba(186,230,253,0.8)] border border-sky-200 shrink-0">
                 <img 
-                  src="/assets/lunar_sphere_icon.webp" 
+                  src="assets/lunar_sphere_icon.webp" 
                   alt="LOF TITAN Lunar" 
                   decoding="async"
                   className="w-full h-full object-cover"
-                  onError={(e) => { e.target.src = "/logo.webp"; }}
+                  onError={(e) => { e.target.src = "logo.webp"; }}
                 />
               </div>
               <div className="flex items-center gap-2 truncate">
@@ -293,7 +293,7 @@ export function ProjectStoreDetailModal({
                   alt={project.name} 
                   decoding="async"
                   className="w-full h-full max-h-[380px] object-cover rounded-2xl transition-transform duration-500 hover:scale-105"
-                  onError={(e) => { e.target.src = '/assets/banners/banner_invisible_diy.webp'; }}
+                  onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
                 />
                 <div className="absolute top-4 left-4">
                   <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase bg-indigo-600 text-white shadow-sm">
@@ -465,7 +465,7 @@ export function ProjectStoreDetailModal({
                             loading="lazy"
                             decoding="async"
                             className="max-h-48 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
-                            onError={(e) => { e.target.src = '/assets/banners/banner_invisible_diy.webp'; }}
+                            onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
                           />
                         </div>
                         <div>

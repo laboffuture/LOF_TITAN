@@ -120,7 +120,7 @@ export function ProjectStoreDetail({
             alt={project.name}
             className="w-full max-h-[380px] object-contain rounded-xl transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
-              e.target.src = '/assets/banners/banner_invisible_diy.webp';
+              e.target.src = 'assets/banners/banner_invisible_diy.webp';
             }}
           />
           <div className="absolute top-4 left-4">
@@ -343,7 +343,7 @@ export function ProjectStoreDetail({
                         src={comp.image} 
                         alt={comp.name} 
                         className="max-h-48 object-contain rounded-lg shadow-md"
-                        onError={(e) => { e.target.src = '/assets/banners/banner_invisible_diy.webp'; }}
+                        onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
                       />
                     </div>
                     <div>

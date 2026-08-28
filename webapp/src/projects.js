@@ -9,8 +9,8 @@ export const projects = [
     duration: '45 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: '/assets/invisible-line/invisible_line_main.webp',
-    thumbnail: '/assets/invisible-line/invisible_line_main.webp',
+    heroImage: 'assets/invisible-line/invisible_line_main.webp',
+    thumbnail: 'assets/invisible-line/invisible_line_main.webp',
     tagline: 'UV Light Following 4-Bar Linkage 8-Leg Walking Robot',
     description: 'Going to build Invisible Line Patrol rover that detects UV light and follows it. It does not have wheels—it walks with a 4-bar linkage mechanism with a total of 8 mechanical legs.',
     
@@ -43,7 +43,7 @@ export const projects = [
       {
         id: 'uv-sensor',
         name: 'UV Light Sensor (Photodiode Module)',
-        image: '/assets/invisible-line/uv_sensor.webp',
+        image: 'assets/invisible-line/uv_sensor.webp',
         whatIsIt: 'The UV sensor is a specialized optical sensor that measures ultraviolet radiation (wavelengths between 200nm and 370nm), which is invisible to the human eye.',
         howItWorks: 'When ultraviolet photons hit the photodiode, it generates a proportional micro-current. The onboard amplifier converts this into an analog voltage reading (0 to 4095) read by the ESP32-S3 ADC.',
         pinMapping: 'Left: GPIO 2 (S1) | Center: GPIO 1 (S2) | Right: GPIO 3 (S3)',
@@ -77,7 +77,7 @@ while True:
       {
         id: 'dc-motor',
         name: 'Dual DC Motors & 4-Bar Walking Kinematics',
-        image: '/assets/invisible-line/dc_motor.webp',
+        image: 'assets/invisible-line/dc_motor.webp',
         whatIsIt: 'DC geared motors convert electrical energy into mechanical rotational torque. Instead of circular wheels, the output shafts drive 4-bar linkage cranks that mimic quadruped biological walking strides with 8 legs.',
         howItWorks: 'LOF TITAN controls motor speed with PWM (Pulse Width Modulation) and direction with dual H-bridge driver outputs (M1: GPIO 15/16, M2: GPIO 13/14). Differential steering allows the robot to turn by running one motor faster than the other.',
         pinMapping: 'Left Motor M1: GPIO 15, 16 | Right Motor M2: GPIO 13, 14',
@@ -646,8 +646,8 @@ if __name__ == '__main__':
     duration: '40 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: '/assets/banners/banner_heatseek_diy.webp',
-    thumbnail: '/assets/banners/banner_heatseek_diy.webp',
+    heroImage: 'assets/banners/banner_heatseek_diy.webp',
+    thumbnail: 'assets/banners/banner_heatseek_diy.webp',
     tagline: 'Intelligent Surrounding Scanner & Autonomous Heat Seeking Rover',
     description: 'Build an intelligent Heat Seek Rover equipped with dual IR flame sensors and ultrasonic obstacle scanning. It senses thermal IR signatures in real time, alerts with audio telemetry, and navigates towards or away from heat sources.',
 
@@ -680,7 +680,7 @@ if __name__ == '__main__':
       {
         id: 'flame-sensor',
         name: 'IR Flame Phototransistor Sensor',
-        image: '/assets/banners/banner_heatseek_diy.webp',
+        image: 'assets/banners/banner_heatseek_diy.webp',
         whatIsIt: 'The IR flame sensor detects infrared spectrum wavelengths (760nm to 1100nm) emitted by fire and heat sources.',
         howItWorks: 'Infrared radiation alters phototransistor conductivity, producing an analog voltage read by ESP32-S3 12-bit ADC (0 to 4095). Strong heat sources drop the ADC reading.',
         pinMapping: 'Left Flame: GPIO 2 (S1) | Right Flame: GPIO 1 (S2)',
@@ -709,7 +709,7 @@ while True:
       {
         id: 'obstacle-scanner',
         name: 'Ultrasonic Obstacle Scanner',
-        image: '/assets/banners/banner_heatseek_diy.webp',
+        image: 'assets/banners/banner_heatseek_diy.webp',
         whatIsIt: 'Ultrasonic sonar sensor that measures distance to nearby obstacles using 40kHz acoustic pulses.',
         howItWorks: 'Sends a 10µs pulse on Trig (GPIO 6) and measures high time on Echo (GPIO 19). Distance (cm) = duration / 58.',
         pinMapping: 'Trig: GPIO 6 | Echo: GPIO 19',
@@ -867,8 +867,8 @@ def main():
     duration: '35 Mins',
     difficulty: 'Beginner',
     age: '8+',
-    heroImage: '/assets/banners/banner_heartbeat_diy.webp',
-    thumbnail: '/assets/banners/banner_heartbeat_diy.webp',
+    heroImage: 'assets/banners/banner_heartbeat_diy.webp',
+    thumbnail: 'assets/banners/banner_heartbeat_diy.webp',
     tagline: 'Optical Pulse Sensing & Dynamic Heartbeat Synthesizer Bot',
     description: 'Build an interactive musical DJ Bot that senses human pulse beats in real time using optical sensor technology and dynamically synthesizes custom musical tempos, light rhythms, and acoustic DJ dance routines on LOF TITAN.',
 
@@ -901,7 +901,7 @@ def main():
       {
         id: 'pulse-sensor',
         name: 'MAX30102 Optical Pulse Sensor',
-        image: '/assets/banners/banner_heartbeat_diy.webp',
+        image: 'assets/banners/banner_heartbeat_diy.webp',
         whatIsIt: 'An optical heart rate monitor that measures blood volume pulses using RED and IR light absorption.',
         howItWorks: 'Emits light through skin and measures reflected intensity. Every heart contraction causes a pulse surge that is detected over I2C at address 0x57.',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
@@ -937,7 +937,7 @@ while True:
       {
         id: 'beat-synthesizer',
         name: 'Piezo DJ Tone Synthesizer',
-        image: '/assets/banners/banner_heartbeat_diy.webp',
+        image: 'assets/banners/banner_heartbeat_diy.webp',
         whatIsIt: 'Acoustic PWM sound generator capable of producing musical note frequencies from 100Hz to 5000Hz.',
         howItWorks: 'ESP32-S3 PWM timer varies frequency output on GPIO 20 to synthesize melodies, basslines, and DJ beats matched to BPM.',
         pinMapping: 'Buzzer/Speaker Pin: GPIO 20',
