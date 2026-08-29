@@ -8,5 +8,9 @@
     "dev": "npm --prefix webapp run dev",
     "build": "npm --prefix webapp run build",
     "preview": "npm --prefix webapp run preview"
+  },
+  "devDependencies": {
+    "cloudinary": "^2.11.0",
+    "dotenv": "^17.4.2"
   }
 }

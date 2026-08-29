@@ -8,6 +8,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- No crossorigin: our <img> tags fetch without it, and a preconnect that
+         disagrees opens a second connection instead of being reused. -->
+    <link rel="preconnect" href="https://res.cloudinary.com">
+
+    <!-- The first carousel slide is the LCP element, but it lives inside the JS
+         bundle, so the browser cannot discover it until ~400KB of JS parses.
+         imagesrcset/imagesizes must mirror <Img> exactly or the preload misses
+         and the image is fetched twice. -->
+    <link
+      rel="preload"
+      as="image"
+      fetchpriority="high"
+      imagesizes="100vw"
+      imagesrcset="
+        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_480/lof-titan/banners/banner-axes3 480w,
+        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_960/lof-titan/banners/banner-axes3 960w,
+        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_1440/lof-titan/banners/banner-axes3 1440w">
   </head>
   <body class="bg-slate-900 text-white min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>

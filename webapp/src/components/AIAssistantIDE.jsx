@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { asset } from '../lib/asset';
+import { cld } from '../lib/cld';
 import { 
   Bot, 
   Sparkles, 
@@ -899,7 +900,7 @@ if __name__ == '__main__':
                 />
               </div>
               <img 
-                src={asset('assets/lunar_landscape.webp')} 
+                src={cld('lof-titan/lunar-landscape')}
                 alt="Lunar Landscape" 
                 decoding="async"
                 className="absolute inset-0 w-full h-full object-cover object-bottom pointer-events-none opacity-40"

@@ -41,6 +41,7 @@ import { registerPythonGenerators, generateTitanWorkspaceCode } from '../blockly
 import { LunarTheme } from '../blockly/theme/lunarTheme';
 import { toolboxDefinition } from '../blockly/toolbox/toolboxDefinition';
 import { asset } from '../lib/asset';
+import { cld } from '../lib/cld';
 import '../blockly/blocklyCustom.css';
 
 // Register custom blocks and generators once
@@ -578,7 +579,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 backdrop-blur-md bg-slate-900/60 transition-all duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center backdrop-blur-md bg-slate-900/60 transition-all duration-300">
       
       {/* Hidden File Input for Opening Saved Projects */}
       <input 
@@ -590,7 +591,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
       />
 
       {/* Main Glassmorphic Container Card (Lunar Light Theme) */}
-      <div className="relative w-full max-w-[1440px] h-[94vh] flex flex-col rounded-[28px] bg-gradient-to-br from-[#FDFEFE] to-[#F8FAFC] border border-[#E2E8F0] shadow-[0_20px_50px_rgba(0,0,0,0.25)] overflow-hidden">
+      <div className="relative w-full h-full flex flex-col bg-gradient-to-br from-[#FDFEFE] to-[#F8FAFC] overflow-hidden">
         
         {/* Top Header Bar - Intelligent Responsive Layout */}
         <div className="flex flex-col xl:flex-row items-center justify-between border-b border-[#E2E8F0]/80 bg-white/90 backdrop-blur-md shrink-0 z-20">
@@ -601,7 +602,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-[0_0_15px_rgba(186,230,253,0.8)] border border-sky-200">
                 <img 
-                  src={asset('assets/lunar_sphere_icon.webp')} 
+                  src={cld('lof-titan/lunar-sphere-icon', 96)}
                   alt="LOF TITAN Lunar" 
                   decoding="async"
                   className="w-full h-full object-cover"
@@ -828,7 +829,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                 </div>
 
                 <img 
-                  src={asset('assets/lunar_landscape.webp')} 
+                  src={cld('lof-titan/lunar-landscape')}
                   alt="Lunar Landscape" 
                   decoding="async"
                   className="absolute inset-0 w-full h-full object-cover object-bottom pointer-events-none"

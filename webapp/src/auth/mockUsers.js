@@ -8,6 +8,7 @@
  * Keep in sync with ACCOUNTS in server/src/seed.js. Delete this file once real
  * customers exist.
  */
+import { AVAILABLE_KIT_IDS } from './kits';
 export const TEST_ACCOUNTS = [
   {
     email: 'none@test',
@@ -25,12 +26,12 @@ export const TEST_ACCOUNTS = [
     email: 'multi@test',
     name: 'Maya (two kits)',
     kits: 2,
-    caseLabel: 'Partial ownership - two unlocked, one locked',
+    caseLabel: 'Partial ownership - some kits unlocked, some locked',
   },
   {
     email: 'all@test',
     name: 'Alex (all kits)',
-    kits: 3,
+    kits: AVAILABLE_KIT_IDS.length,
     caseLabel: 'Owns everything - full access',
   },
 ];
