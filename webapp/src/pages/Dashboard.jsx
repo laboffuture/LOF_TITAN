@@ -4,7 +4,8 @@ import { Carousel } from '../components/Carousel';
 import { projects } from '../projects';
 import { useAuth } from '../auth/authContext';
 import { getKit, isAvailable } from '../auth/kits';
-import { asset } from '../lib/asset';
+import { Img } from '../components/Img';
+import { cld } from '../lib/cld';
 
 const carouselItems = [
   {
@@ -12,7 +13,7 @@ const carouselItems = [
     title: 'Axes 3 DIY Kit',
     description:
       'Advanced multi-axis robotics system engineered for precision motion, intelligent telemetry, and autonomous mission control.',
-    image: 'assets/banners/banner_axes3.webp',
+    image: 'lof-titan/banners/banner-axes3',
     badge: 'DIY Robotics Kit',
     buttonText: 'Explore Now',
   },
@@ -21,7 +22,7 @@ const carouselItems = [
     title: 'Aqua Nova DIY Kit',
     description:
       'Build a fully functional sensing rover that detects motion and water to navigate unpredictable terrain and aquatic environments.',
-    image: 'assets/banners/banner_aquanova_diy.webp',
+    image: 'lof-titan/banners/banner-aquanova-diy',
     badge: 'DIY Sensing Kit',
     buttonText: 'Explore Now',
   },
@@ -30,7 +31,7 @@ const carouselItems = [
     title: 'Invisible Line Patrol DIY Kit',
     description:
       'UV light-following 4-bar linkage walking robot engineered for autonomous line detection and kinetic robotic locomotion.',
-    image: 'assets/banners/banner_invisible_diy.webp',
+    image: 'lof-titan/banners/banner-invisible-diy',
     badge: 'DIY Walking Robot',
     buttonText: 'Explore Now',
   },
@@ -39,7 +40,7 @@ const carouselItems = [
     title: 'Heat Seek Rover DIY Kit',
     description:
       'Intelligent surrounding scanner with autonomous obstacle avoidance and integrated flame sensing technology for real-time fire detection.',
-    image: 'assets/banners/banner_heatseek_diy.webp',
+    image: 'lof-titan/banners/banner-heatseek-diy',
     badge: 'DIY Flame Rover',
     buttonText: 'Explore Now',
   },
@@ -48,7 +49,7 @@ const carouselItems = [
     title: 'Heart Beat DJ Bot DIY Kit',
     description:
       'Interactive musical bot that detects a person’s heartbeat pulse and dynamically generates rhythmic tunes and music beats.',
-    image: 'assets/banners/banner_heartbeat_diy.webp',
+    image: 'lof-titan/banners/banner-heartbeat-diy',
     badge: 'DIY Music Bot',
     buttonText: 'Explore Now',
   },
@@ -103,16 +104,18 @@ export function Dashboard() {
                 className="group rounded-3xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.07] hover:border-cyan-500/50 p-4 sm:p-5 cursor-pointer transition-all duration-300 shadow-md hover:shadow-[0_12px_35px_rgba(6,182,212,0.18)] backdrop-blur-xs flex flex-col justify-between gap-4 relative overflow-hidden"
               >
                 <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
-                  <img
-                    src={asset(p.thumbnail || p.heroImage || 'assets/invisible-line/invisible_line_main.webp')}
+                  <Img
+                    id={p.thumbnail || p.heroImage || 'lof-titan/invisible-line/invisible-line-main'}
                     alt={p.name}
-                    loading="lazy"
-                    decoding="async"
+                    sizes="(min-width: 1024px) 30vw, (min-width: 768px) 45vw, 90vw"
                     className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${
                       owned ? '' : 'opacity-70'
                     }`}
                     onError={(e) => {
-                      e.target.src = asset('assets/banners/banner_invisible_diy.webp');
+                      // Clear srcset too, or the browser re-picks from it and
+                      // the fallback src is ignored.
+                      e.target.srcset = '';
+                      e.target.src = cld('lof-titan/banners/banner-invisible-diy');
                     }}
                   />
 
@@ -173,11 +176,10 @@ export function Dashboard() {
                 className="rounded-3xl bg-white/[0.01] border border-dashed border-white/10 p-4 sm:p-5 flex flex-col justify-between gap-4 opacity-60"
               >
                 <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 grayscale">
-                  <img
-                    src={asset(item.image)}
+                  <Img
+                    id={item.image}
                     alt={item.title}
-                    loading="lazy"
-                    decoding="async"
+                    sizes="(min-width: 1024px) 30vw, (min-width: 768px) 45vw, 90vw"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-3 right-3">

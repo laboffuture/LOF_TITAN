@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { asset } from '../lib/asset';
+import { Img } from './Img';
 
 export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -41,11 +41,16 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
         {items.map((item, index) => (
           <div key={index} className="w-full h-full flex-shrink-0 relative">
             {/* Background Image */}
-            <img 
-              src={asset(item.image)} 
-              alt={item.title} 
-              loading={index === 0 ? "eager" : "lazy"}
-              decoding="async"
+            {/* eager on every slide: slides 2+ sit off-screen via translateX, so
+                lazy loading defers them until the rotation reveals them and they
+                visibly pop in. At 30-100KB each that trade is no longer worth it.
+                Only slide 0 gets high fetch priority - it is the LCP element. */}
+            <Img
+              id={item.image}
+              alt={item.title}
+              sizes="100vw"
+              priority={index === 0}
+              loading="eager"
               className="w-full h-full object-cover object-center transition-transform duration-10000 scale-100 group-hover:scale-105"
             />
             {/* Gradient Overlay for Text Readability */}

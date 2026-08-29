@@ -13,6 +13,8 @@ export const KITS = [
   { id: 'invisible-line', name: 'Invisible Line Patrol', status: 'available' },
   { id: 'heat-seek-rover', name: 'Heat Seek Rover', status: 'available' },
   { id: 'heartbeat', name: 'Heart Beat DJ Bot', status: 'available' },
+  { id: 'anemometer', name: 'Anemometer', status: 'available' },
+  { id: 'darrieus-turbine', name: 'Darrieus Turbine', status: 'available' },
   { id: 'axes3', name: 'Axes 3', status: 'coming-soon' },
   { id: 'aquanova', name: 'Aqua Nova', status: 'coming-soon' },
 ];
