@@ -1,10 +1,21 @@
+# ============================================================
+# SECRETS - this repository is PUBLIC.
+# Never commit a database URI, API key, or password.
+# .env.example files are the only env files that may be tracked.
+# ============================================================
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
 # Node / Web App
 node_modules/
 webapp/node_modules/
 webapp/dist/
-webapp/.env
-webapp/.env.local
 webapp/.vite/
+server/node_modules/
 
 # Python / Firmware
 __pycache__/

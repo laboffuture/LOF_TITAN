@@ -32,8 +32,11 @@ import {
   SquareCheck,
   RotateCcw,
   Sliders,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Lock
 } from 'lucide-react';
+import { RequireKit } from '../auth/RequireKit';
+import { asset } from '../lib/asset';
 
 export function ProjectStoreDetailModal({ 
   isOpen, 
@@ -42,7 +45,9 @@ export function ProjectStoreDetailModal({
   onUploadCode, 
   onOpenBlockCode, 
   onOpenSerialMonitor,
-  device 
+  device,
+  owned = false,
+  kitName,
 }) {
   if (!isOpen || !project) return null;
 
@@ -85,15 +90,49 @@ export function ProjectStoreDetailModal({
     }
   };
 
+  // Sections appear only when the kit actually has data for them, so a kit still
+  // awaiting content (no FAQ yet, say) shows a shorter page rather than an empty
+  // heading. Numbering is derived from this list, so hiding one never leaves a
+  // gap like "4." followed by "6.".
   const navLinks = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'safety', label: 'Safety' },
-    { id: 'components', label: 'Components Lab' },
-    { id: 'assembly', label: 'Assembly' },
-    { id: 'code', label: 'Firmware' },
-    { id: 'faq', label: 'FAQ' },
-    { id: 'challenges', label: 'Challenges' }
-  ];
+    { id: 'overview', label: 'Overview', has: true },
+    { id: 'safety', label: 'Safety', has: !!(project.safetyWarnings?.hardware?.length || project.safetyWarnings?.electronics?.length) },
+    { id: 'components', label: 'Components Lab', has: !!project.components?.length },
+    { id: 'assembly', label: 'Assembly', has: !!project.assembly?.length },
+    { id: 'code', label: 'Firmware', has: !!project.code },
+    { id: 'faq', label: 'FAQ', has: !!project.faq?.length },
+    { id: 'challenges', label: 'Challenges', has: !!project.challenges?.length },
+  ].filter((s) => s.has);
+
+  const hasSection = (id) => navLinks.some((s) => s.id === id);
+  // Overview sits at index 0 and is unnumbered, so the index doubles as the
+  // section number for everything after it.
+  const sectionNo = (id) => navLinks.findIndex((s) => s.id === id);
+
+  // Kit-specific copy. Each falls back to something generic and correct, so a kit
+  // that has not had this content written yet never shows another kit's wording.
+  const kitLabel = kitName || project.name;
+  const assemblyTitle = project.assemblyTitle || 'Mechanical Assembly';
+  const codeFilename = project.codeFilename || `${String(project.id || 'main').replace(/-/g, '_')}.py`;
+  const electronicsTitle = project.safetyWarnings?.electronicsTitle || 'Electronics & Power Safety';
+  const outroCopy =
+    project.outroCopy ||
+    `Connect your LOF TITAN board via Web Bluetooth, upload the firmware, or customise ${kitLabel} in Block Code Studio!`;
+
+  const specs =
+    project.specs?.length
+      ? project.specs
+      : [
+          project.requirements?.[0] && {
+            label: 'SENSORS',
+            value: `${project.requirements[0].qty || ''} ${project.requirements[0].name || ''}`.trim(),
+          },
+          project.requirements?.[1] && {
+            label: 'HARDWARE',
+            value: `${project.requirements[1].qty || ''} ${project.requirements[1].name || ''}`.trim(),
+          },
+          { label: 'MCU', value: 'ESP32-S3 TITAN' },
+        ].filter(Boolean);
 
   const currentNavIndex = Math.max(0, navLinks.findIndex(n => n.id === activeNav));
 
@@ -166,11 +205,11 @@ export function ProjectStoreDetailModal({
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
               <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-[0_0_12px_rgba(186,230,253,0.8)] border border-sky-200 shrink-0">
                 <img 
-                  src="assets/lunar_sphere_icon.webp" 
+                  src={asset('assets/lunar_sphere_icon.webp')} 
                   alt="LOF TITAN Lunar" 
                   decoding="async"
                   className="w-full h-full object-cover"
-                  onError={(e) => { e.target.src = "logo.webp"; }}
+                  onError={(e) => { e.target.src = asset('logo.webp'); }}
                 />
               </div>
               <div className="flex items-center gap-2 truncate">
@@ -239,32 +278,44 @@ export function ProjectStoreDetailModal({
 
             {/* Top Right Actions */}
             <div className="flex items-center gap-2 shrink-0">
-              <button 
-                onClick={() => onOpenSerialMonitor?.()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                title="Open Live Serial Monitor"
-              >
-                <Terminal size={14} className="text-emerald-600" />
-                <span className="hidden sm:inline">Serial</span>
-              </button>
+              {owned ? (
+                <>
+                  <button
+                    onClick={() => onOpenSerialMonitor?.()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                    title="Open Live Serial Monitor"
+                  >
+                    <Terminal size={14} className="text-emerald-600" />
+                    <span className="hidden sm:inline">Serial</span>
+                  </button>
 
-              <button 
-                onClick={() => onOpenBlockCode?.()}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                title="Open in Block Code Studio"
-              >
-                <Code size={14} className="text-indigo-600" />
-                <span className="hidden sm:inline">Block Studio</span>
-              </button>
+                  <button
+                    onClick={() => onOpenBlockCode?.()}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                    title="Open in Block Code Studio"
+                  >
+                    <Code size={14} className="text-indigo-600" />
+                    <span className="hidden sm:inline">Block Studio</span>
+                  </button>
 
-              <button 
-                onClick={() => onUploadCode?.(project.code)}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
-                title="Upload & Run on LOF TITAN"
-              >
-                <Upload size={13} />
-                <span>Upload & Run</span>
-              </button>
+                  <button
+                    onClick={() => onUploadCode?.(project.code)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                    title="Upload & Run on LOF TITAN"
+                  >
+                    <Upload size={13} />
+                    <span>Upload & Run</span>
+                  </button>
+                </>
+              ) : (
+                <span
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-300 shrink-0"
+                  title="Get this kit to unlock the build tools"
+                >
+                  <Lock size={13} />
+                  <span className="hidden sm:inline">Kit locked</span>
+                </span>
+              )}
 
               {/* Close Button (Visible only on Desktop in toolbar) */}
               <button 
@@ -293,7 +344,7 @@ export function ProjectStoreDetailModal({
                   alt={project.name} 
                   decoding="async"
                   className="w-full h-full max-h-[380px] object-cover rounded-2xl transition-transform duration-500 hover:scale-105"
-                  onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
+                  onError={(e) => { e.target.src = asset('assets/banners/banner_invisible_diy.webp'); }}
                 />
                 <div className="absolute top-4 left-4">
                   <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase bg-indigo-600 text-white shadow-sm">
@@ -318,18 +369,19 @@ export function ProjectStoreDetailModal({
 
                 {/* Key Spec Badges */}
                 <div className="grid grid-cols-3 gap-3.5 py-4 border-y border-slate-100">
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-2xs">
-                    <span className="block text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider mb-1">SENSORS</span>
-                    <span className="text-sm sm:text-base font-extrabold text-indigo-700">3x UV Photodiodes</span>
-                  </div>
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-2xs">
-                    <span className="block text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider mb-1">LOCOMOTION</span>
-                    <span className="text-sm sm:text-base font-extrabold text-indigo-700">8-Leg 4-Bar Link</span>
-                  </div>
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-2xs">
-                    <span className="block text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider mb-1">MCU</span>
-                    <span className="text-sm sm:text-base font-extrabold text-indigo-700">ESP32-S3 TITAN</span>
-                  </div>
+                  {specs.map((spec) => (
+                    <div
+                      key={spec.label}
+                      className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-2xs"
+                    >
+                      <span className="block text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider mb-1">
+                        {spec.label}
+                      </span>
+                      <span className="text-sm sm:text-base font-extrabold text-indigo-700">
+                        {spec.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Ratings, Duration & Difficulty Metadata at Bottom */}
@@ -357,7 +409,7 @@ export function ProjectStoreDetailModal({
           <div id="section-safety" className="max-w-[1360px] mx-auto space-y-5">
             <div className="flex items-center gap-2.5">
               <ShieldAlert size={24} className="text-amber-500" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">1. Product Safety Warnings</h2>
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('safety')}. Product Safety Warnings</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -382,7 +434,7 @@ export function ProjectStoreDetailModal({
               <div className="p-7 rounded-3xl bg-rose-50/80 border border-rose-200/90 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2.5 text-rose-950 font-bold text-base border-b border-rose-200/60 pb-3">
                   <Zap size={18} className="text-rose-600" />
-                  <span>Electronics & UV Radiation Safety</span>
+                  <span>{electronicsTitle}</span>
                 </div>
                 <ul className="space-y-3.5 text-sm sm:text-base text-rose-950/90 leading-relaxed font-medium">
                   {project.safetyWarnings?.electronics?.map((item, idx) => (
@@ -401,7 +453,7 @@ export function ProjectStoreDetailModal({
           <div id="section-components" className="max-w-[1360px] mx-auto space-y-5">
             <div className="flex items-center gap-2.5">
               <Cpu size={24} className="text-cyan-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">2. Components Introduction & Live Labs</h2>
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('components')}. Components Introduction & Live Labs</h2>
             </div>
 
             {/* Vertical Sidebar + Deep Dive Content Grid */}
@@ -414,11 +466,7 @@ export function ProjectStoreDetailModal({
                 </span>
                 {project.components?.map(comp => {
                   const isActive = activeComponentTab === comp.id;
-                  const shortName = comp.id === 'uv-sensor' 
-                    ? 'UV Sensor' 
-                    : comp.id === 'dc-motor' 
-                    ? 'Dual DC Motor' 
-                    : comp.name.split('(')[0].trim();
+                  const shortName = comp.shortName || comp.name.split('(')[0].trim();
 
                   return (
                     <button
@@ -465,7 +513,7 @@ export function ProjectStoreDetailModal({
                             loading="lazy"
                             decoding="async"
                             className="max-h-48 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
-                            onError={(e) => { e.target.src = 'assets/banners/banner_invisible_diy.webp'; }}
+                            onError={(e) => { e.target.src = asset('assets/banners/banner_invisible_diy.webp'); }}
                           />
                         </div>
                         <div>
@@ -529,22 +577,24 @@ export function ProjectStoreDetailModal({
           <div id="section-assembly" className="max-w-[1360px] mx-auto space-y-5">
             <div className="flex items-center gap-2.5">
               <Wrench size={24} className="text-indigo-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">3. 4-Bar Linkage Mechanical Assembly</h2>
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('assembly')}. {assemblyTitle}</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {project.assembly?.map(item => (
-                <div key={item.step} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
-                    {item.step}
+            <RequireKit kitId={project.id} kitName={kitName} sectionName="The assembly guide">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {project.assembly?.map(item => (
+                  <div key={item.step} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
+                    <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
+                      {item.step}
+                    </div>
+                    <div className="space-y-1.5">
+                      <h4 className="font-bold text-base text-slate-900">{item.title}</h4>
+                      <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{item.desc}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <h4 className="font-bold text-base text-slate-900">{item.title}</h4>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </RequireKit>
           </div>
 
           {/* ================= 4. FIRMWARE CODE ================= */}
@@ -552,96 +602,108 @@ export function ProjectStoreDetailModal({
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2.5">
                 <FileCode size={24} className="text-blue-600" />
-                <h2 className="text-2xl font-heading font-extrabold text-slate-900">4. Production MicroPython Firmware</h2>
+                <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('code')}. Production MicroPython Firmware</h2>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => handleCopy(project.code)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs sm:text-sm font-bold text-slate-700 border border-slate-300 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  {copiedCode ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
-                  <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
-                </button>
+              {owned && (
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => handleCopy(project.code)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs sm:text-sm font-bold text-slate-700 border border-slate-300 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    {copiedCode ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+                    <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                  </button>
 
-                <button
-                  onClick={() => onUploadCode?.(project.code)}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
-                >
-                  <Upload size={15} />
-                  <span>Upload & Run on TITAN</span>
-                </button>
-              </div>
+                  <button
+                    onClick={() => onUploadCode?.(project.code)}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    <Upload size={15} />
+                    <span>Upload & Run on TITAN</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="rounded-3xl bg-[#060911] border border-slate-800 overflow-hidden shadow-xl">
-              <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
-                <span className="font-mono text-cyan-400 font-bold">invisible_rover.py</span>
-                <span className="text-xs text-slate-500">MicroPython ESP32-S3 Firmware</span>
+            <RequireKit kitId={project.id} kitName={kitName} sectionName="The firmware source">
+              <div className="rounded-3xl bg-[#060911] border border-slate-800 overflow-hidden shadow-xl">
+                <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
+                  <span className="font-mono text-cyan-400 font-bold">{codeFilename}</span>
+                  <span className="text-xs text-slate-500">MicroPython ESP32-S3 Firmware</span>
+                </div>
+                <div className="p-5 sm:p-7 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-[440px] scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
+                  <pre className="whitespace-pre">{project.code}</pre>
+                </div>
               </div>
-              <div className="p-5 sm:p-7 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-[440px] scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
-                <pre className="whitespace-pre">{project.code}</pre>
-              </div>
-            </div>
+            </RequireKit>
           </div>
 
-          {/* ================= 5. FAQ & TROUBLESHOOTING ================= */}
+          {/* ================= FAQ & TROUBLESHOOTING ================= */}
+          {/* Hidden entirely for kits whose FAQ has not been written yet, rather
+              than rendering a heading above nothing. */}
+          {hasSection('faq') && (
           <div id="section-faq" className="max-w-[1360px] mx-auto space-y-5">
             <div className="flex items-center gap-2.5">
               <HelpCircle size={24} className="text-purple-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">5. FAQ & Hardware Troubleshooting</h2>
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('faq')}. FAQ & Hardware Troubleshooting</h2>
             </div>
 
-            <div className="space-y-4">
-              {project.faq?.map((item, idx) => (
-                <div key={idx} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
-                  <h4 className="font-bold text-base sm:text-lg text-indigo-900 flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold shrink-0">Q</span>
-                    <span>{item.q}</span>
-                  </h4>
-                  <p className="text-sm sm:text-base text-slate-600 pl-8 leading-relaxed font-normal">{item.a}</p>
-                </div>
-              ))}
-            </div>
+            <RequireKit kitId={project.id} kitName={kitName} sectionName="Troubleshooting">
+              <div className="space-y-4">
+                {project.faq?.map((item, idx) => (
+                  <div key={idx} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+                    <h4 className="font-bold text-base sm:text-lg text-indigo-900 flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold shrink-0">Q</span>
+                      <span>{item.q}</span>
+                    </h4>
+                    <p className="text-sm sm:text-base text-slate-600 pl-8 leading-relaxed font-normal">{item.a}</p>
+                  </div>
+                ))}
+              </div>
+            </RequireKit>
           </div>
+          )}
 
-          {/* ================= 6. CODING CHALLENGES ================= */}
+          {/* ================= CODING CHALLENGES ================= */}
           <div id="section-challenges" className="max-w-[1360px] mx-auto space-y-5">
             <div className="flex items-center gap-2.5">
               <Trophy size={24} className="text-amber-500" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">6. Robotics Mission Challenges</h2>
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('challenges')}. Robotics Mission Challenges</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {project.challenges?.map(ch => (
-                <div key={ch.id} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-5 hover:border-indigo-300 transition-all">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
-                        ch.level === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
-                        ch.level === 'Intermediate' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
-                      }`}>
-                        {ch.level}
-                      </span>
+            <RequireKit kitId={project.id} kitName={kitName} sectionName="Mission challenges">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {project.challenges?.map(ch => (
+                  <div key={ch.id} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-5 hover:border-indigo-300 transition-all">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
+                          ch.level === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
+                          ch.level === 'Intermediate' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {ch.level}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-base text-slate-900">{ch.title}</h4>
+                      <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{ch.goal}</p>
                     </div>
-                    <h4 className="font-bold text-base text-slate-900">{ch.title}</h4>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{ch.goal}</p>
-                  </div>
 
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                    <strong className="text-indigo-700">💡 Hint:</strong> {ch.hint}
-                  </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                      <strong className="text-indigo-700">💡 Hint:</strong> {ch.hint}
+                    </div>
 
-                  <button
-                    onClick={() => onOpenBlockCode?.()}
-                    className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Code size={15} />
-                    <span>Solve in Block Studio</span>
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button
+                      onClick={() => onOpenBlockCode?.()}
+                      className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Code size={15} />
+                      <span>Solve in Block Studio</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </RequireKit>
           </div>
 
           {/* Bottom Completion & Launch Card */}
@@ -649,25 +711,34 @@ export function ProjectStoreDetailModal({
             <div className="space-y-2 text-center md:text-left">
               <h3 className="text-2xl font-heading font-extrabold">Ready to Build & Deploy {project.name}?</h3>
               <p className="text-sm text-blue-100 max-w-xl leading-relaxed font-normal">
-                Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or customize the 8-leg walking algorithm in Block Code Studio!
+                {outroCopy}
               </p>
             </div>
-            <div className="flex items-center gap-3 shrink-0 flex-wrap justify-center">
-              <button
-                onClick={() => onOpenBlockCode?.()}
-                className="px-6 py-3 rounded-full text-sm font-bold bg-white text-indigo-700 hover:bg-blue-50 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-              >
-                <Code size={16} />
-                <span>Open Block Studio</span>
-              </button>
-              <button
-                onClick={() => onUploadCode?.(project.code)}
-                className="px-6 py-3 rounded-full text-sm font-bold bg-indigo-950 text-white hover:bg-slate-900 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-              >
-                <Upload size={16} />
-                <span>Upload to Rover</span>
-              </button>
-            </div>
+            {owned ? (
+              <div className="flex items-center gap-3 shrink-0 flex-wrap justify-center">
+                <button
+                  onClick={() => onOpenBlockCode?.()}
+                  className="px-6 py-3 rounded-full text-sm font-bold bg-white text-indigo-700 hover:bg-blue-50 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                >
+                  <Code size={16} />
+                  <span>Open Block Studio</span>
+                </button>
+                <button
+                  onClick={() => onUploadCode?.(project.code)}
+                  className="px-6 py-3 rounded-full text-sm font-bold bg-indigo-950 text-white hover:bg-slate-900 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                >
+                  <Upload size={16} />
+                  <span>Upload to Rover</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 shrink-0 flex-wrap justify-center">
+                <span className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-white/15 text-white border border-white/25">
+                  <Lock size={16} />
+                  <span>Get this kit to build it</span>
+                </span>
+              </div>
+            )}
           </div>
 
         </div>

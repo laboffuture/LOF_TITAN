@@ -12,10 +12,23 @@ export const projects = [
     heroImage: 'assets/invisible-line/invisible_line_main.webp',
     thumbnail: 'assets/invisible-line/invisible_line_main.webp',
     tagline: 'UV Light Following 4-Bar Linkage 8-Leg Walking Robot',
+    // Kit-specific page copy. Omit any of these and the detail page falls back to
+    // a generic equivalent rather than showing another kit's wording.
+    codeFilename: 'invisible_rover.py',
+    assemblyTitle: '4-Bar Linkage Mechanical Assembly',
+    outroCopy: 'Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or customize the 8-leg walking algorithm in Block Code Studio!',
+    specs: [
+      { label: 'SENSORS', value: '3x UV Photodiodes' },
+      { label: 'LOCOMOTION', value: '8-Leg 4-Bar Link' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
     description: 'Going to build Invisible Line Patrol rover that detects UV light and follows it. It does not have wheels—it walks with a 4-bar linkage mechanism with a total of 8 mechanical legs.',
     
     // 2. Product Safety Warnings
     safetyWarnings: {
+      // Overrides the generic "Electronics & Power Safety" heading; this kit ships
+      // a UV source, so the warning card is titled accordingly.
+      electronicsTitle: 'Electronics & UV Radiation Safety',
       hardware: [
         '⚠️ Keep fingers and loose objects clear of the 4-bar leg linkages and gearboxes while motors are active to avoid pinch hazards.',
         '⚠️ Ensure all screws and mechanical pivot joints are securely fastened before running walking sequences on rough or elevated surfaces.',
@@ -649,6 +662,14 @@ if __name__ == '__main__':
     heroImage: 'assets/banners/banner_heatseek_diy.webp',
     thumbnail: 'assets/banners/banner_heatseek_diy.webp',
     tagline: 'Intelligent Surrounding Scanner & Autonomous Heat Seeking Rover',
+    codeFilename: 'heat_seek_rover.py',
+    assemblyTitle: 'Rover Chassis & Sensor Assembly',
+    outroCopy: 'Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or customize the flame-seeking and obstacle-avoidance logic in Block Code Studio!',
+    specs: [
+      { label: 'SENSORS', value: '2x IR Flame Sensors' },
+      { label: 'SCANNER', value: 'Ultrasonic Ranging' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
     description: 'Build an intelligent Heat Seek Rover equipped with dual IR flame sensors and ultrasonic obstacle scanning. It senses thermal IR signatures in real time, alerts with audio telemetry, and navigates towards or away from heat sources.',
 
     // Safety Warnings
@@ -870,6 +891,14 @@ def main():
     heroImage: 'assets/banners/banner_heartbeat_diy.webp',
     thumbnail: 'assets/banners/banner_heartbeat_diy.webp',
     tagline: 'Optical Pulse Sensing & Dynamic Heartbeat Synthesizer Bot',
+    codeFilename: 'heartbeat_dj_bot.py',
+    assemblyTitle: 'DJ Bot Frame & Sensor Assembly',
+    outroCopy: 'Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or remix the beat-synthesis logic in Block Code Studio!',
+    specs: [
+      { label: 'SENSORS', value: 'MAX30102 Pulse' },
+      { label: 'AUDIO', value: 'Piezo Synthesizer' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
     description: 'Build an interactive musical DJ Bot that senses human pulse beats in real time using optical sensor technology and dynamically synthesizes custom musical tempos, light rhythms, and acoustic DJ dance routines on LOF TITAN.',
 
     // Safety Warnings

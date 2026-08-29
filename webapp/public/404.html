@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>LOF TITAN</title>
+    <script>
+      // GitHub Pages serves static files only and knows nothing about client-side
+      // routes, so a deep link like /LOF_TITAN/code arrives here as a 404. Stash the
+      // requested path and bounce to the app, which restores it before React mounts.
+      (function () {
+        try {
+          sessionStorage.setItem(
+            'titan-spa-redirect',
+            location.pathname + location.search + location.hash
+          );
+        } catch (e) {
+          // Storage blocked - fall through to the dashboard.
+        }
+        location.replace('/LOF_TITAN/');
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
