@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { asset } from '../lib/asset';
 import { 
   Bot, 
   Sparkles, 
@@ -891,14 +892,14 @@ if __name__ == '__main__':
             <div className="shrink-0 flex flex-col items-center bg-white border-t border-slate-100 select-none overflow-hidden relative h-16">
               <div className="w-full px-4 pt-1 z-10 flex items-center justify-center">
                 <img 
-                  src="assets/lab_of_future_logo.webp" 
+                  src={asset('assets/lab_of_future_logo.webp')} 
                   alt="Lab of Future - Be Curious" 
                   decoding="async"
                   className="w-28 h-auto object-contain drop-shadow-xs"
                 />
               </div>
               <img 
-                src="assets/lunar_landscape.webp" 
+                src={asset('assets/lunar_landscape.webp')} 
                 alt="Lunar Landscape" 
                 decoding="async"
                 className="absolute inset-0 w-full h-full object-cover object-bottom pointer-events-none opacity-40"

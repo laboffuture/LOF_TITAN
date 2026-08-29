@@ -371,10 +371,13 @@ export function useDevice() {
       const loader = await esploader.main();
       
       setProgress({ state: 'Downloading firmware files...', percent: 8 });
+      // BASE_URL, not a root-absolute path: the site is served from a subpath
+      // (/LOF_TITAN/) on GitHub Pages, where '/firmware/...' would 404.
+      const fw = `${import.meta.env.BASE_URL}firmware`;
       const [bootloaderData, partitionsData, appData] = await Promise.all([
-        fetch('/firmware/bootloader.bin').then(r => r.arrayBuffer()),
-        fetch('/firmware/partitions.bin').then(r => r.arrayBuffer()),
-        fetch('/firmware/micropython.bin').then(r => r.arrayBuffer())
+        fetch(`${fw}/bootloader.bin`).then(r => r.arrayBuffer()),
+        fetch(`${fw}/partitions.bin`).then(r => r.arrayBuffer()),
+        fetch(`${fw}/micropython.bin`).then(r => r.arrayBuffer())
       ]);
       
       setProgress({ state: 'Flashing...', percent: 10 });

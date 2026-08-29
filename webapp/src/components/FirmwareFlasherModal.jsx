@@ -42,10 +42,13 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
 
       // 2. Fetch firmware files
       appendLog('[FLASHER] Downloading bootloader, partitions, and micropython binaries...');
+      // BASE_URL, not a root-absolute path: the site is served from a subpath
+      // (/LOF_TITAN/) on GitHub Pages, where '/firmware/...' would 404.
+      const fw = `${import.meta.env.BASE_URL}firmware`;
       const [bootloaderRes, partitionsRes, appRes] = await Promise.all([
-        fetch('/firmware/bootloader.bin'),
-        fetch('/firmware/partitions.bin'),
-        fetch('/firmware/micropython.bin')
+        fetch(`${fw}/bootloader.bin`),
+        fetch(`${fw}/partitions.bin`),
+        fetch(`${fw}/micropython.bin`)
       ]);
 
       if (!bootloaderRes.ok || !partitionsRes.ok || !appRes.ok) {

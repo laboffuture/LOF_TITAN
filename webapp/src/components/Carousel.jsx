@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { asset } from '../lib/asset';
 
 export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -41,7 +42,7 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
           <div key={index} className="w-full h-full flex-shrink-0 relative">
             {/* Background Image */}
             <img 
-              src={item.image} 
+              src={asset(item.image)} 
               alt={item.title} 
               loading={index === 0 ? "eager" : "lazy"}
               decoding="async"

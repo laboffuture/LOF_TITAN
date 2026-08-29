@@ -11,6 +11,22 @@
   </head>
   <body class="bg-slate-900 text-white min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>
+    <script>
+      // Restore a deep link that public/404.html stashed on its way through
+      // GitHub Pages' 404 handler. Must run before React mounts so the router
+      // sees the real path.
+      (function () {
+        try {
+          var target = sessionStorage.getItem('titan-spa-redirect');
+          if (target) {
+            sessionStorage.removeItem('titan-spa-redirect');
+            history.replaceState(null, '', target);
+          }
+        } catch (e) {
+          // Storage blocked - stay on the dashboard.
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
