@@ -9,8 +9,8 @@ export const projects = [
     duration: '45 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: 'assets/invisible-line/invisible_line_main.webp',
-    thumbnail: 'assets/invisible-line/invisible_line_main.webp',
+    heroImage: 'lof-titan/invisible-line/invisible-line-main',
+    thumbnail: 'lof-titan/invisible-line/invisible-line-main',
     tagline: 'UV Light Following 4-Bar Linkage 8-Leg Walking Robot',
     // Kit-specific page copy. Omit any of these and the detail page falls back to
     // a generic equivalent rather than showing another kit's wording.
@@ -56,7 +56,7 @@ export const projects = [
       {
         id: 'uv-sensor',
         name: 'UV Light Sensor (Photodiode Module)',
-        image: 'assets/invisible-line/uv_sensor.webp',
+        image: 'lof-titan/invisible-line/uv-sensor',
         whatIsIt: 'The UV sensor is a specialized optical sensor that measures ultraviolet radiation (wavelengths between 200nm and 370nm), which is invisible to the human eye.',
         howItWorks: 'When ultraviolet photons hit the photodiode, it generates a proportional micro-current. The onboard amplifier converts this into an analog voltage reading (0 to 4095) read by the ESP32-S3 ADC.',
         pinMapping: 'Left: GPIO 2 (S1) | Center: GPIO 1 (S2) | Right: GPIO 3 (S3)',
@@ -90,7 +90,7 @@ while True:
       {
         id: 'dc-motor',
         name: 'Dual DC Motors & 4-Bar Walking Kinematics',
-        image: 'assets/invisible-line/dc_motor.webp',
+        image: 'lof-titan/invisible-line/dc-motor',
         whatIsIt: 'DC geared motors convert electrical energy into mechanical rotational torque. Instead of circular wheels, the output shafts drive 4-bar linkage cranks that mimic quadruped biological walking strides with 8 legs.',
         howItWorks: 'LOF TITAN controls motor speed with PWM (Pulse Width Modulation) and direction with dual H-bridge driver outputs (M1: GPIO 15/16, M2: GPIO 13/14). Differential steering allows the robot to turn by running one motor faster than the other.',
         pinMapping: 'Left Motor M1: GPIO 15, 16 | Right Motor M2: GPIO 13, 14',
@@ -659,8 +659,8 @@ if __name__ == '__main__':
     duration: '40 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: 'assets/banners/banner_heatseek_diy.webp',
-    thumbnail: 'assets/banners/banner_heatseek_diy.webp',
+    heroImage: 'lof-titan/banners/banner-heatseek-diy',
+    thumbnail: 'lof-titan/banners/banner-heatseek-diy',
     tagline: 'Intelligent Surrounding Scanner & Autonomous Heat Seeking Rover',
     codeFilename: 'heat_seek_rover.py',
     assemblyTitle: 'Rover Chassis & Sensor Assembly',
@@ -701,7 +701,7 @@ if __name__ == '__main__':
       {
         id: 'flame-sensor',
         name: 'IR Flame Phototransistor Sensor',
-        image: 'assets/banners/banner_heatseek_diy.webp',
+        image: 'lof-titan/banners/banner-heatseek-diy',
         whatIsIt: 'The IR flame sensor detects infrared spectrum wavelengths (760nm to 1100nm) emitted by fire and heat sources.',
         howItWorks: 'Infrared radiation alters phototransistor conductivity, producing an analog voltage read by ESP32-S3 12-bit ADC (0 to 4095). Strong heat sources drop the ADC reading.',
         pinMapping: 'Left Flame: GPIO 2 (S1) | Right Flame: GPIO 1 (S2)',
@@ -730,7 +730,7 @@ while True:
       {
         id: 'obstacle-scanner',
         name: 'Ultrasonic Obstacle Scanner',
-        image: 'assets/banners/banner_heatseek_diy.webp',
+        image: 'lof-titan/banners/banner-heatseek-diy',
         whatIsIt: 'Ultrasonic sonar sensor that measures distance to nearby obstacles using 40kHz acoustic pulses.',
         howItWorks: 'Sends a 10µs pulse on Trig (GPIO 6) and measures high time on Echo (GPIO 19). Distance (cm) = duration / 58.',
         pinMapping: 'Trig: GPIO 6 | Echo: GPIO 19',
@@ -888,8 +888,8 @@ def main():
     duration: '35 Mins',
     difficulty: 'Beginner',
     age: '8+',
-    heroImage: 'assets/banners/banner_heartbeat_diy.webp',
-    thumbnail: 'assets/banners/banner_heartbeat_diy.webp',
+    heroImage: 'lof-titan/banners/banner-heartbeat-diy',
+    thumbnail: 'lof-titan/banners/banner-heartbeat-diy',
     tagline: 'Optical Pulse Sensing & Dynamic Heartbeat Synthesizer Bot',
     codeFilename: 'heartbeat_dj_bot.py',
     assemblyTitle: 'DJ Bot Frame & Sensor Assembly',
@@ -930,7 +930,7 @@ def main():
       {
         id: 'pulse-sensor',
         name: 'MAX30102 Optical Pulse Sensor',
-        image: 'assets/banners/banner_heartbeat_diy.webp',
+        image: 'lof-titan/banners/banner-heartbeat-diy',
         whatIsIt: 'An optical heart rate monitor that measures blood volume pulses using RED and IR light absorption.',
         howItWorks: 'Emits light through skin and measures reflected intensity. Every heart contraction causes a pulse surge that is detected over I2C at address 0x57.',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
@@ -966,7 +966,7 @@ while True:
       {
         id: 'beat-synthesizer',
         name: 'Piezo DJ Tone Synthesizer',
-        image: 'assets/banners/banner_heartbeat_diy.webp',
+        image: 'lof-titan/banners/banner-heartbeat-diy',
         whatIsIt: 'Acoustic PWM sound generator capable of producing musical note frequencies from 100Hz to 5000Hz.',
         howItWorks: 'ESP32-S3 PWM timer varies frequency output on GPIO 20 to synthesize melodies, basslines, and DJ beats matched to BPM.',
         pinMapping: 'Buzzer/Speaker Pin: GPIO 20',
@@ -1120,6 +1120,309 @@ def main():
 if __name__ == '__main__':
     main()
 `
+  },
+  {
+    id: 'anemometer',
+    name: 'Anemometer',
+    category: 'Weather & Environment',
+    badge: 'DIY Weather Kit',
+    rating: 4.9,
+    reviews: 0,
+    duration: '45 Mins',
+    difficulty: 'Builder',
+    age: '10+',
+    heroImage: 'lof-titan/banners/banner-cosmic',
+    thumbnail: 'lof-titan/banners/banner-cosmic',
+    tagline: 'Wind Speed Measurement & Live Weather Telemetry',
+    assemblyTitle: 'Anemometer Assembly & Integration',
+    description:
+      'Build an anemometer that measures and displays wind speed. As the wind spins the rotating cups, the system calculates how fast the air is moving. You will learn how wind-driven rotation can be converted into measurable wind-speed data.',
+    // Two cards: the Wrench/amber card renders `hardware`, the Zap/rose card
+    // renders `electronics`. Titles are overridable per kit.
+    safetyWarnings: {
+      hardwareTitle: 'Fabrication & Mechanical Safety',
+      electronicsTitle: 'Hardware & Electrical Precautions',
+      hardware: [
+        '⚠️ Make sure the rotating cups and shaft are fixed securely before testing.',
+        '⚠️ Keep fingers, hair, and loose clothing away from the rotating parts.',
+        '⚠️ Tighten screws and brass inserts carefully without damaging the 3D printed parts.',
+        '⚠️ Test the anemometer in a clear area so the rotating assembly does not hit nearby objects.'
+      ],
+      electronics: [
+        '⚠️ Switch off the power before connecting or removing the OLED, encoder, battery, or other electronic parts.',
+        '⚠️ Check all connectors and cable orientation before powering the system.',
+        '⚠️ Use only the recommended battery and adapter for charging and powering the project.',
+        '⚠️ Keep the electronics away from water or excessive moisture during wind-speed testing.'
+      ]
+    },
+
+    // Only name/whatIsIt/howItWorks supplied so far. image, pinMapping and
+    // experiment are omitted deliberately - the detail page hides the visual
+    // column and the calibration lab when a component lacks them.
+    components: [
+      {
+        id: 'as5600-encoder',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/anemometer/as5600-encoder',
+        image: '',
+        shortName: 'AS5600 Encoder',
+        name: 'AS5600 Magnetic Encoder',
+        whatIsIt: 'The AS5600 is a magnetic rotary sensor used to detect how much and how fast the anemometer shaft rotates.',
+        howItWorks: 'A magnet rotates above the sensor along with the anemometer. The sensor tracks the changing angle, allowing the system to calculate rotational speed.'
+      },
+      {
+        id: 'esp32-s3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/anemometer/esp32-s3',
+        image: '',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        whatIsIt: 'The ESP32-S3 is the main controller of the anemometer.',
+        howItWorks: 'It reads the rotation data, calculates the rotational speed, converts it into a calibrated wind-speed value, and sends the result to the display.'
+      },
+      {
+        id: 'oled-display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/anemometer/oled-display',
+        image: '',
+        shortName: 'OLED Display',
+        name: '1.3-inch OLED Display',
+        whatIsIt: 'The OLED is a compact screen used to display the measured wind speed.',
+        howItWorks: 'It receives the calculated wind-speed data from the controller and displays the value in m/s.'
+      }
+    ],
+
+    assembly: [
+      {
+        step: 1,
+        title: 'Assemble the Rotor Mechanism',
+        desc: 'Connect the three-arm rotor to the central shaft, secure the three removable cups to the arms and check that the rotor spins smoothly.'
+      },
+      {
+        step: 2,
+        title: 'Install Magnetic Encoder',
+        desc: 'Fit the rotor shaft into the bearing and position the AS5600 encoder below it. Keep the magnet centred above the sensor for accurate rotation sensing.'
+      },
+      {
+        step: 3,
+        title: 'Mount LOF TITAN & OLED System',
+        desc: 'Secure the LOF TITAN, OLED display, and battery inside the body. Connect the encoder and display, then arrange the wiring neatly.'
+      },
+      {
+        step: 4,
+        title: 'Assemble Outer Enclosure',
+        desc: 'Fit the enclosure panels around the internal components and secure them with screws. Ensure the rotor remains free to rotate after closing the body.'
+      }
+    ],
+
+    faq: [
+      {
+        q: 'The cups are spinning, but the display shows 0 m/s. Why?',
+        a: 'Check the magnet position and make sure it is aligned closely above the AS5600 sensor.'
+      },
+      {
+        q: 'The cups are not spinning freely. What should I check?',
+        a: 'Check the shaft and bearing alignment and make sure no part is rubbing against the enclosure.'
+      },
+      {
+        q: 'The wind-speed value keeps changing even with steady airflow. Why?',
+        a: 'Check for shaft wobble, loose cups, or poor magnet alignment.'
+      },
+      {
+        q: 'The displayed wind speed seems too low. What should I check?',
+        a: 'Check that the rotor spins freely and verify the wind-speed calibration in the program.'
+      },
+      {
+        q: 'The OLED is ON, but the value does not change. Why?',
+        a: 'Check the AS5600 connection and confirm that the rotor magnet is moving above the sensor.'
+      }
+    ],
+
+    challengesTitle: 'Aero Mission Challenges',
+    challenges: [
+      {
+        id: 'live-wind-speed',
+        level: 'Easy',
+        title: 'Challenge 1: Live Wind Speed',
+        goal: 'Program the anemometer to measure rotation and display the current wind speed in m/s on the OLED.',
+        hint: 'Read the encoder continuously and update the OLED with the calculated wind-speed value.'
+      },
+      {
+        id: 'wind-speed-zones',
+        level: 'Intermediate',
+        title: 'Challenge 2: Wind Speed Zones',
+        goal: 'Classify the measured wind as Low, Medium, or High based on different wind-speed ranges and show the result on the OLED.',
+        hint: 'Use conditional blocks to compare the wind-speed value with selected limits.'
+      },
+      {
+        id: 'peak-wind-tracker',
+        level: 'Advanced',
+        title: 'Challenge 3: Peak Wind Tracker',
+        goal: 'Program the system to remember and display the highest wind speed recorded during the test.',
+        hint: 'Compare the current reading with the stored maximum value and update it only when a higher speed is detected.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING. Deep sections are deliberately absent rather than
+    // filled with guesses about the hardware. The detail page hides any
+    // section with no data and renumbers the rest, so this renders
+    // correctly as-is. Add these as the content team delivers them:
+    //   requirements[]   code
+    // Optional page copy: assemblyTitle, codeFilename, outroCopy, specs[]
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'darrieus-turbine',
+    name: 'Darrieus Turbine',
+    category: 'Wind Energy',
+    badge: 'DIY Wind Energy Kit',
+    rating: 4.9,
+    reviews: 0,
+    duration: '45 Mins',
+    difficulty: 'Builder',
+    age: '10+',
+    // Stand-in artwork. Replace once real banner art is uploaded as
+    // lof-titan/darrieus-turbine/darrieus-main
+    heroImage: 'lof-titan/banners/banner-aquanova',
+    thumbnail: 'lof-titan/banners/banner-aquanova',
+    tagline: 'Vertical-Axis Wind Turbine & Rotational Energy',
+    description:
+      'Build a Darrieus vertical-axis wind turbine that converts wind energy into electrical energy. As the wind rotates the turbine, electricity is generated and passed through a power module for usable output. You will learn how wind-driven rotation can be converted into electrical power.',
+    assemblyTitle: 'Darrieus Turbine Assembly & Integration',
+
+    safetyWarnings: {
+      hardwareTitle: 'Fabrication & Mechanical Safety',
+      electronicsTitle: 'Hardware & Electrical Precautions',
+      hardware: [
+        '⚠️ Keep fingers, hair, and loose clothing away from the rotating turbine blades.',
+        '⚠️ Make sure the blades, shaft, magnets, and bearings are fixed securely before testing.',
+        '⚠️ Use the blower from a safe distance and keep it stable while the turbine is running.',
+        '⚠️ Handle the stainless-steel rods, magnets, and sanded parts carefully to avoid injury.'
+      ],
+      electronics: [
+        '⚠️ Switch off the system before connecting the battery, charging PCB, coil, or other electrical parts.',
+        '⚠️ Check all wiring and polarity before powering or charging the system.',
+        '⚠️ Use only the recommended battery and charging module for the project.',
+        '⚠️ Avoid touching exposed coil wires or electrical connections while testing the output.'
+      ]
+    },
+
+    components: [
+      {
+        id: 'smart-charging-pcb',
+        shortName: 'Charging PCB',
+        name: 'Smart Charging PCB',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/darrieus-turbine/smart-charging-pcb',
+        image: '',
+        whatIsIt: 'The smart charging PCB manages the electrical power generated by the turbine.',
+        howItWorks: 'It regulates the generated output and directs suitable power to the rechargeable battery.'
+      },
+      {
+        id: 'copper-coil',
+        shortName: 'Copper Coil',
+        name: 'Copper Coil',
+        //   image: 'lof-titan/darrieus-turbine/copper-coil',
+        image: '',
+        whatIsIt: 'A copper coil is a wire wound into multiple turns to help generate electrical energy.',
+        howItWorks: 'When the magnetic field changes near the coil, a voltage is induced and electrical output is produced.'
+      },
+      {
+        id: 'magnet',
+        shortName: 'Magnet',
+        name: 'Magnet',
+        //   image: 'lof-titan/darrieus-turbine/magnet',
+        image: '',
+        whatIsIt: 'A permanent magnet provides the magnetic field required for electricity generation.',
+        howItWorks: 'As the turbine rotates, the magnet moves relative to the coil, creating a changing magnetic field that generates voltage.'
+      }
+    ],
+
+    assembly: [
+      {
+        step: 1,
+        title: 'Assemble the Rotor & Magnet',
+        desc: 'Install the magnet, assemble the turbine blades, and secure the rotating structure around the central shaft.'
+      },
+      {
+        step: 2,
+        title: 'Install the Coil & Turbine Structure',
+        desc: 'Place the copper coil in its holder, mount it on the base, position the rotor above it, and secure the PVC side supports.'
+      },
+      {
+        step: 3,
+        title: 'Integrate the Power System',
+        desc: 'Connect the coil to the AC input, install the battery, mount the smart charging PCB, and complete the required DC connections.'
+      },
+      {
+        step: 4,
+        title: 'Complete the Turbine Assembly',
+        desc: 'Fit the enclosure panels around the internal components and secure them with screws. Ensure the rotor remains free to rotate after closing the body.'
+      }
+    ],
+
+    faq: [
+      {
+        q: 'The cups are spinning, but the display shows 0 m/s. Why?',
+        a: 'Check the magnet position and make sure it is aligned closely above the AS5600 sensor.'
+      },
+      {
+        q: 'The cups are not spinning freely. What should I check?',
+        a: 'Check the shaft and bearing alignment and make sure no part is rubbing against the enclosure.'
+      },
+      {
+        q: 'The wind-speed value keeps changing even with steady airflow. Why?',
+        a: 'Check for shaft wobble, loose cups, or poor magnet alignment.'
+      },
+      {
+        q: 'The displayed wind speed seems too low. What should I check?',
+        a: 'Check that the rotor spins freely and verify the wind-speed calibration in the program.'
+      },
+      {
+        q: 'The OLED is ON, but the value does not change. Why?',
+        a: 'Check the AS5600 connection and confirm that the rotor magnet is moving above the sensor.'
+      }
+    ],
+
+    challengesTitle: 'Aero Mission Challenges',
+    challenges: [
+      {
+        id: 'live-wind-speed',
+        level: 'Easy',
+        title: 'Challenge 1: Live Wind Speed',
+        goal: 'Program the anemometer to measure rotation and display the current wind speed in m/s on the OLED.',
+        hint: 'Read the encoder continuously and update the OLED with the calculated wind-speed value.'
+      },
+      {
+        id: 'wind-speed-zones',
+        level: 'Intermediate',
+        title: 'Challenge 2: Wind Speed Zones',
+        goal: 'Classify the measured wind as Low, Medium, or High based on different wind-speed ranges and show the result on the OLED.',
+        hint: 'Use conditional blocks to compare the wind-speed value with selected limits.'
+      },
+      {
+        id: 'peak-wind-tracker',
+        level: 'Advanced',
+        title: 'Challenge 3: Peak Wind Tracker',
+        goal: 'Program the system to remember and display the highest wind speed recorded during the test.',
+        hint: 'Compare the current reading with the stored maximum value and update it only when a higher speed is detected.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING. Deep sections are deliberately absent rather than
+    // filled with guesses about the hardware. The detail page hides any
+    // section with no data and renumbers the rest, so this renders
+    // correctly as-is. Add these as the content team delivers them:
+    //   requirements[]   code
+    // NOTE: faq[] and challenges[] below are the Anemometer texts, applied
+    // verbatim at the content owner's request on 2026-08-28. They reference
+    // cups, an AS5600 encoder, an OLED and m/s readings - none of which are
+    // part of this kit. Swap for turbine-specific copy when available.
+    // Optional copy: assemblyTitle, challengesTitle, faqTitle, codeFilename,
+    //   outroCopy, specs[], safetyWarnings{}
+    // Also confirm: duration, difficulty, age (placeholders above).
+    // ---------------------------------------------------------------
   }
 ];
-
