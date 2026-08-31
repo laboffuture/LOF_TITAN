@@ -1,11 +1,14 @@
-import { useNavigate } from 'react-router-dom';
-import { Cpu, ChevronRight, Lock, Check, Clock } from 'lucide-react';
+import { useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Cpu, ChevronRight, Lock, Check, Clock, Search } from 'lucide-react';
 import { Carousel } from '../components/Carousel';
 import { projects } from '../projects';
 import { useAuth } from '../auth/authContext';
 import { getKit, isAvailable } from '../auth/kits';
 import { Img } from '../components/Img';
 import { cld } from '../lib/cld';
+import { KitFilterBar } from '../components/KitFilterBar';
+import { buildFacets, filterKits, hasActiveFilters } from '../lib/kitSearch';
 
 const carouselItems = [
   {
@@ -64,12 +67,44 @@ const slides = carouselItems.map((item) => ({
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { entitlements } = useAuth();
+  const { entitlements, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const openKit = (kitId) => {
     if (!isAvailable(kitId)) return;
     navigate(`/kit/${kitId}`);
   };
+
+  // Filters live in the URL so a filtered view can be linked, bookmarked and
+  // survives a reload or a trip into a kit and back.
+  const filters = useMemo(
+    () => ({
+      q: searchParams.get('q') || '',
+      level: searchParams.get('level') || '',
+      duration: searchParams.get('duration') || '',
+      age: searchParams.get('age') || '',
+      ownership: searchParams.get('own') || 'all',
+    }),
+    [searchParams]
+  );
+
+  const setFilters = (next) => {
+    const params = {};
+    if (next.q?.trim()) params.q = next.q;
+    if (next.level) params.level = next.level;
+    if (next.duration) params.duration = next.duration;
+    if (next.age) params.age = next.age;
+    if (next.ownership && next.ownership !== 'all') params.own = next.ownership;
+    // replace, not push - typing in the search box should not fill the back stack
+    setSearchParams(params, { replace: true });
+  };
+
+  const filtersActive = hasActiveFilters(filters);
+  const facets = useMemo(() => buildFacets(projects), []);
+  const visible = useMemo(
+    () => filterKits(projects, filters, entitlements),
+    [filters, entitlements]
+  );
 
   return (
     <>
@@ -92,8 +127,35 @@ export function Dashboard() {
           </span>
         </div>
 
+        <KitFilterBar
+          filters={filters}
+          facets={facets}
+          onChange={setFilters}
+          total={projects.length}
+          shown={visible.length}
+          signedIn={Boolean(user)}
+        />
+
+        {visible.length === 0 && (
+          <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500">
+              <Search size={26} />
+            </div>
+            <h3 className="font-heading font-extrabold text-lg text-white">No kits match that</h3>
+            <p className="text-sm text-gray-400 max-w-sm">
+              Try a different search term, or clear the filters to see all {projects.length} kits.
+            </p>
+            <button
+              onClick={() => setFilters({ q: '', level: '', duration: '', age: '', ownership: 'all' })}
+              className="mt-1 px-5 py-2 rounded-full text-xs font-bold bg-white/10 text-white border border-white/15 hover:bg-white/20 transition-colors"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((p) => {
+          {visible.map((p) => {
             const owned = entitlements.includes(p.id);
             const kitName = getKit(p.id)?.name || p.name;
 
@@ -167,10 +229,13 @@ export function Dashboard() {
             );
           })}
 
-          {/* Advertised but not yet built */}
-          {carouselItems
-            .filter((item) => !isAvailable(item.id))
-            .map((item) => (
+          {/* Advertised but not yet built. Hidden while any filter is active -
+              these have no content to match a query against, so leaving them in
+              a filtered result set looks like the filter is ignoring them. */}
+          {!filtersActive &&
+            carouselItems
+              .filter((item) => !isAvailable(item.id))
+              .map((item) => (
               <div
                 key={item.id}
                 className="rounded-3xl bg-white/[0.01] border border-dashed border-white/10 p-4 sm:p-5 flex flex-col justify-between gap-4 opacity-60"

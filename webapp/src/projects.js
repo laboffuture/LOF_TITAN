@@ -1736,5 +1736,195 @@ if __name__ == '__main__':
     // Component images: slots above are ready, upload masters to
     //   lof-titan/hydraulic-landing-gear/<component-id>
     // ---------------------------------------------------------------
+  },
+  {
+    id: 'rc-plane',
+    name: 'RC Plane',
+    category: 'Aerospace & Flight',
+    badge: 'DIY Aircraft Kit',
+    rating: 4.9,
+    reviews: 0,
+    duration: '45 Mins',
+    difficulty: 'Engineer',
+    age: '10+',
+    // Stand-in artwork - every real banner is now claimed, so this one is shared
+    // with the Aqua Nova carousel slide. Replace once art is uploaded as
+    // lof-titan/rc-plane/rc-plane-main
+    heroImage: 'lof-titan/banners/banner-aquanova-diy',
+    thumbnail: 'lof-titan/banners/banner-aquanova-diy',
+    tagline: '4-Channel Foam Board Aircraft & Flight Control',
+    description:
+      'Build a 4-channel RC plane using foam board and integrate the systems needed for thrust, pitch, yaw, and roll control. You will learn how aerodynamics, aircraft structure, propulsion, and control surfaces work together to achieve controlled flight.',
+
+    specs: [
+      { label: 'PROPULSION', value: 'BLDC Motor + Propeller + ESC' },
+      { label: 'ACTUATION', value: 'Servo Motors' },
+      { label: 'CONTROLS', value: '4-Channel RC Control' },
+    ],
+
+    assemblyTitle: 'RC Plane Assembly & Integration',
+    challengesTitle: 'RC Plane Mission Challenges',
+
+    safetyWarnings: {
+      hardwareTitle: 'Propeller & Flight Safety',
+      electronicsTitle: 'Hardware & Electrical Precautions',
+      hardware: [
+        '⚠️ Keep hands, hair, and loose clothing away from the propeller at all times.',
+        '⚠️ Never power the motor while your hands are near the propeller.',
+        '⚠️ Test the RC plane only in a clear open area away from people and obstacles.',
+        '⚠️ Check that the control surfaces move correctly before every flight.'
+      ],
+      electronics: [
+        '⚠️ Disconnect the battery before connecting or adjusting the motor, ESC, servos, or receiver.',
+        '⚠️ Check all wiring and polarity before powering the RC plane.',
+        '⚠️ Use only the recommended battery, ESC, motor, and propeller combination.',
+        '⚠️ Keep the electronics dry and secure all connections before flight.'
+      ]
+    },
+
+    components: [
+      {
+        id: 'bldc-motor',
+        shortName: 'BLDC Motor',
+        name: 'BLDC Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/rc-plane/bldc-motor',
+        image: '',
+        whatIsIt: 'A high-speed motor used to generate thrust for the aircraft.',
+        howItWorks: 'It spins the propeller at high speed to push air backward and move the plane forward.'
+      },
+      {
+        id: 'propeller',
+        shortName: 'Propeller',
+        name: '5" Propeller',
+        //   image: 'lof-titan/rc-plane/propeller',
+        image: '',
+        whatIsIt: 'A rotating blade attached to the motor shaft.',
+        howItWorks: 'Its blades push air backward, producing the thrust needed for flight.'
+      },
+      {
+        id: 'esc',
+        shortName: 'ESC',
+        name: 'Electronic Speed Controller (ESC)',
+        //   image: 'lof-titan/rc-plane/esc',
+        image: '',
+        whatIsIt: 'An electronic controller that manages the BLDC motor speed.',
+        howItWorks: 'It regulates power from the battery to the motor based on the throttle command.'
+      },
+      {
+        id: 'servo-motor',
+        shortName: 'Servo Motor',
+        name: 'Servo Motor',
+        //   image: 'lof-titan/rc-plane/servo-motor',
+        image: '',
+        whatIsIt: 'A small motor used to move the aircraft control surfaces.',
+        howItWorks: 'The servos move the elevator, rudder, and ailerons to control pitch, yaw, and roll.'
+      },
+      {
+        id: 'rc-transmitter',
+        shortName: 'Transmitter',
+        name: 'RC Transmitter',
+        //   image: 'lof-titan/rc-plane/rc-transmitter',
+        image: '',
+        whatIsIt: 'A handheld controller used to control the RC plane wirelessly.',
+        howItWorks: 'It sends throttle, elevator, rudder, and aileron commands to the receiver on the aircraft.'
+      },
+      {
+        id: 'rc-receiver',
+        shortName: 'Receiver',
+        name: 'RC Receiver',
+        //   image: 'lof-titan/rc-plane/rc-receiver',
+        image: '',
+        whatIsIt: 'A device that receives control commands from the transmitter.',
+        howItWorks: 'It sends the throttle and control commands to the ESC and servos.'
+      },
+      {
+        id: 'battery',
+        shortName: 'Battery',
+        name: 'Battery',
+        //   image: 'lof-titan/rc-plane/battery',
+        image: '',
+        whatIsIt: 'The main power source of the RC plane.',
+        howItWorks: 'It supplies electrical power to the ESC, motor, servos, and control system.'
+      }
+    ],
+
+    assembly: [
+      {
+        step: 1,
+        title: 'Install Motor & Propeller',
+        desc: 'Mount the BLDC motor securely and attach the 5" propeller in the correct orientation.'
+      },
+      {
+        step: 2,
+        title: 'Connect the ESC',
+        desc: 'Connect the ESC to the BLDC motor and position it securely for reliable motor control.'
+      },
+      {
+        step: 3,
+        title: 'Install the Servo Motors',
+        desc: 'Mount the three servos and link them to the aileron, elevator, and rudder for control-surface movement.'
+      },
+      {
+        step: 4,
+        title: 'Integrate the RC Control System',
+        desc: 'Connect the ESC and servos to the receiver, pair it with the transmitter, secure the battery in position.'
+      }
+    ],
+
+    faq: [
+      {
+        q: 'The motor does not spin when throttle is increased. What should I check?',
+        a: 'Check the battery, ESC connection, and motor wiring.'
+      },
+      {
+        q: 'The propeller spins, but the plane produces very little thrust. Why?',
+        a: 'Check the propeller direction and make sure it is fitted in the correct orientation.'
+      },
+      {
+        q: 'A control surface is moving in the wrong direction. What should I do?',
+        a: 'Reverse that control channel in the transmitter settings.'
+      },
+      {
+        q: 'One servo is not responding. What should I check?',
+        a: 'Check the servo connection and confirm it is connected to the correct receiver channel.'
+      },
+      {
+        q: 'The plane feels unbalanced before flight. What should I check?',
+        a: 'Check the battery and component positions and adjust them until the aircraft balances at the recommended centre of gravity.'
+      }
+    ],
+
+    challenges: [
+      {
+        id: 'payload-flight',
+        level: 'Beginner',
+        title: 'Challenge 1: Payload Flight Challenge',
+        goal: 'Design a removable lightweight payload holder near the aircraft centre of gravity. Add small loads gradually and observe how increasing weight affects take-off, stability, and flight performance.',
+        hint: 'Keep the payload close to the centre of gravity and increase the weight in small steps.'
+      },
+      {
+        id: 'wingtip-modification',
+        level: 'Intermediate',
+        title: 'Challenge 2: Wingtip Modification Challenge',
+        goal: 'Design and fabricate removable wingtip extensions or winglets for the existing RC plane. Test the original and modified versions and compare their stability and turning behaviour.',
+        hint: 'Keep both wingtip modifications symmetrical and lightweight.'
+      },
+      {
+        id: 'build-your-own-aircraft',
+        level: 'Advanced',
+        title: 'Challenge 3: Build Your Own RC Aircraft',
+        goal: 'Choose a real aircraft, study its overall shape and structure, then design and build your own RC plane inspired by it.',
+        hint: 'Keep the aircraft lightweight, balanced, and compatible with the existing electronics.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials).
+    // No `code` - this kit is flown from an RC transmitter and does not run
+    // firmware on the TITAN board, so the Firmware section stays hidden.
+    // Component images: slots above are ready, upload masters to
+    //   lof-titan/rc-plane/<component-id>
+    // ---------------------------------------------------------------
   }
 ];
