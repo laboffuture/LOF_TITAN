@@ -47,6 +47,22 @@ import { cld } from '../lib/cld';
  * without /u only the first code unit is stripped, leaving an invisible U+FE0F
  * that renders as a stray mark at the start of the line.
  */
+/**
+ * Challenge difficulty badge colours.
+ *
+ * Kits use different vocabularies - Invisible Line and Anemometer say "Easy",
+ * Darrieus says "Beginner". Both mean the entry level, so both must read green;
+ * with a plain ternary "Beginner" fell through to the same purple as "Advanced"
+ * and the three tiers were indistinguishable.
+ */
+const LEVEL_BADGE = {
+  Easy: 'bg-emerald-100 text-emerald-800',
+  Beginner: 'bg-emerald-100 text-emerald-800',
+  Intermediate: 'bg-amber-100 text-amber-800',
+  Advanced: 'bg-purple-100 text-purple-800',
+  _default: 'bg-purple-100 text-purple-800',
+};
+
 function stripLeadingIcon(text) {
   return String(text ?? '').replace(/^[⚠⚡🔦️s]+/u, '');
 }
@@ -754,10 +770,7 @@ export function ProjectStoreDetailModal({
                           like a rendering fault, so drop the badge entirely. */}
                       {ch.level && (
                         <div className="flex items-center justify-between">
-                          <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
-                            ch.level === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
-                            ch.level === 'Intermediate' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
-                          }`}>
+                          <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${LEVEL_BADGE[ch.level] || LEVEL_BADGE._default}`}>
                             {ch.level}
                           </span>
                         </div>
