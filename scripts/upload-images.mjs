@@ -7,30 +7,23 @@ import { fileURLToPath } from 'url';
 /**
  * Uploads kit imagery to Cloudinary and prints the path -> public-id mapping.
  *
- * Idempotent: `overwrite` updates an existing asset in place rather than
- * creating a duplicate, so this is safe to re-run whenever art changes.
+ * Sources come from art-masters/, which is GITIGNORED. That is deliberate: no
+ * image bytes belong in this repo. Put the highest-resolution original you have
+ * in there - Cloudinary derives every delivered size from it, so a 4000px master
+ * costs nothing extra to store here and gives sharp output on large displays.
+ *
+ * Public ids are derived from the path relative to art-masters/, so the folder
+ * layout IS the id scheme. Renaming a file changes its id and breaks the code
+ * that references it.
  *
  *   node scripts/upload-images.mjs --dry    # show what would happen
  *   node scripts/upload-images.mjs          # actually upload
  */
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const PUBLIC_ASSETS = join(ROOT, 'webapp/public/assets');
+const SOURCE = join(ROOT, process.env.ART_MASTERS || 'art-masters');
 const FOLDER = 'lof-titan';
 const DRY = process.argv.includes('--dry');
-
-// Files that ship as downscaled derivatives but have a higher-resolution
-// master elsewhere in the repo. Upload the master and let Cloudinary derive
-// every size, rather than uploading an already-lossy 1200px copy.
-const HD_MASTERS = {
-  'invisible-line/image (12).webp': 'webapp/src/assets/invisible-line/image (12).png',
-  'invisible-line/image (13).webp': 'webapp/src/assets/invisible-line/image (13).png',
-  'invisible-line/image (14).webp': 'webapp/src/assets/invisible-line/image (14).png',
-};
-
-// Small UI chrome where a CDN round-trip costs more than the bytes save. The
-// nav logo (public/logo.webp) sits outside this folder and is never walked.
-const KEEP_LOCAL = ['lab_of_future_logo.webp'];
 
 // Cloudinary public ids cannot contain spaces or parentheses.
 const slug = (s) =>
@@ -45,7 +38,7 @@ function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) walk(p, out);
-    else if (/\.(webp|png|jpe?g)$/i.test(e.name)) out.push(p);
+    else if (/\.(webp|png|jpe?g|avif|tiff?)$/i.test(e.name)) out.push(p);
   }
   return out;
 }
@@ -54,28 +47,35 @@ if (!process.env.CLOUDINARY_URL) {
   console.error('CLOUDINARY_URL is not set. Add it to .env at the repo root.');
   process.exit(1);
 }
+if (!existsSync(SOURCE)) {
+  console.error(`No art-masters/ directory at ${SOURCE}.`);
+  console.error('Put your source images there (it is gitignored), or set ART_MASTERS.');
+  process.exit(1);
+}
+
 cloudinary.config({ secure: true });
 
-const jobs = walk(PUBLIC_ASSETS)
-  .map((file) => {
-    const rel = relative(PUBLIC_ASSETS, file).replace(/\\/g, '/');
-    const masterRel = HD_MASTERS[rel];
-    const master = masterRel && existsSync(join(ROOT, masterRel)) ? join(ROOT, masterRel) : null;
-    return {
-      rel,
-      source: master || file,
-      usingMaster: Boolean(master),
-      publicId: `${FOLDER}/${slug(rel)}`,
-    };
-  })
-  .filter((j) => !KEEP_LOCAL.includes(j.rel));
+const jobs = walk(SOURCE).map((file) => {
+  const rel = relative(SOURCE, file).split('\\').join('/');
+  return { rel, source: file, publicId: `${FOLDER}/${slug(rel)}` };
+});
 
-console.log(`${jobs.length} images${DRY ? '  (DRY RUN - nothing will be uploaded)' : ''}\n`);
+// Two files that slug to the same id would silently overwrite each other.
+const clashes = Object.entries(
+  jobs.reduce((acc, j) => ((acc[j.publicId] ??= []).push(j.rel), acc), {})
+).filter(([, v]) => v.length > 1);
+if (clashes.length) {
+  console.error('Public id collision - rename one of each pair:');
+  clashes.forEach(([id, files]) => console.error(`  ${id}  <-  ${files.join(', ')}`));
+  process.exit(1);
+}
+
+console.log(`${jobs.length} images${DRY ? '  (DRY RUN - nothing uploaded)' : ''}\n`);
 
 const done = [];
 for (const j of jobs) {
   if (DRY) {
-    console.log(`  ${j.rel}${j.usingMaster ? '  [HD master]' : ''}\n      -> ${j.publicId}`);
+    console.log(`  ${j.rel}\n      -> ${j.publicId}`);
     continue;
   }
   const res = await cloudinary.uploader.upload(j.source, {
@@ -87,14 +87,14 @@ for (const j of jobs) {
   done.push({ ...j, w: res.width, h: res.height, kb: Math.round(res.bytes / 1024) });
   console.log(
     `  ${String(res.width).padStart(4)}x${String(res.height).padEnd(5)}` +
-      `${String(Math.round(res.bytes / 1024)).padStart(5)}KB  ${j.rel}${j.usingMaster ? '  [HD master]' : ''}`
+      `${String(Math.round(res.bytes / 1024)).padStart(6)}KB  ${j.rel}`
   );
 }
 
 if (DRY) {
   console.log('\nRe-run without --dry to upload.');
 } else {
-  const map = Object.fromEntries(done.map((d) => [`assets/${d.rel}`, d.publicId]));
+  const map = Object.fromEntries(done.map((d) => [d.rel, d.publicId]));
   writeFileSync(join(ROOT, 'scripts/image-map.json'), JSON.stringify(map, null, 2));
-  console.log(`\nWrote scripts/image-map.json (${done.length} entries) for the code migration.`);
+  console.log(`\nWrote scripts/image-map.json (${done.length} entries).`);
 }

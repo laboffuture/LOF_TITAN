@@ -20,7 +20,6 @@ import {
   Globe, 
   RotateCcw, 
   RotateCw, 
-  Moon, 
   Play, 
   Square,
   Upload, 
@@ -600,9 +599,9 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
           <div className="flex items-center justify-between w-full xl:w-auto h-14 sm:h-16 px-3 sm:px-5">
             {/* Top Left: Glowing Moon Sphere Icon & LOF TITAN Logo */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-[0_0_15px_rgba(186,230,253,0.8)] border border-sky-200">
+              <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden shadow-[0_0_15px_rgba(186,230,253,0.8)] border border-sky-200">
                 <img 
-                  src={cld('lof-titan/lunar-sphere-icon', 96)}
+                  src={cld('lof-titan/lof-silver', 192)}
                   alt="LOF TITAN Lunar" 
                   decoding="async"
                   className="w-full h-full object-cover"
@@ -612,10 +611,9 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-heading font-extrabold text-base tracking-wider text-slate-700">
+                <span className="font-heading font-extrabold text-lg tracking-wider text-slate-700">
                   LOF TITAN
                 </span>
-                <Sparkles size={14} className="text-slate-400 fill-slate-300/40" />
               </div>
             </div>
 
@@ -747,13 +745,6 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
               <span>Run on TITAN</span>
             </button>
 
-            {/* Lunar Light Theme Pill */}
-            <div className="hidden xl:flex frosted-pill px-3 py-1.5 rounded-full items-center gap-1.5 text-xs font-semibold text-slate-600 shrink-0">
-              <Moon size={13} className="text-indigo-500" />
-              <span>Lunar Light</span>
-              <Sparkles size={11} className="text-purple-400" />
-            </div>
-
             {/* Close Button (Visible only on Desktop in toolbar) */}
             <button 
               onClick={onClose} 
@@ -769,10 +760,10 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
         <div className="flex-1 flex overflow-hidden relative">
           
           {/* Left Custom Sidebar (Clean White Theme) */}
-          <div className="w-[230px] shrink-0 bg-white border-r border-[#E2E8F0] flex flex-col justify-between relative overflow-hidden select-none z-10">
+          <div className="w-[64px] sm:w-[230px] shrink-0 bg-white border-r border-[#E2E8F0] flex flex-col justify-between relative overflow-hidden select-none z-10">
             
             {/* Category List */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="flex-1 overflow-y-auto px-1.5 sm:px-3 py-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-200">
               {categories.map((cat) => {
                 const IconComponent = cat.icon;
                 const isActive = selectedCategory === cat.name;
@@ -780,7 +771,8 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                   <button
                     key={cat.name}
                     onClick={() => handleCategoryClick(cat)}
-                    className={`category-pill w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
+                    title={cat.name}
+                    className={`category-pill w-full flex items-center justify-center sm:justify-between px-2 sm:px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
                       isActive 
                         ? 'bg-slate-50 shadow-[0_2px_8px_rgba(148,163,184,0.2)] border-slate-200' 
                         : 'bg-transparent border-transparent hover:bg-slate-50/70 hover:border-slate-200/60'
@@ -793,11 +785,15 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                       >
                         <IconComponent size={16} strokeWidth={2.2} />
                       </div>
-                      <span 
-                        style={{ 
-                          color: cat.name === 'LOF TITAN' 
-                            ? '#334155' 
-                            : cat.color 
+                      {/* Below sm the sidebar is a 64px icon rail; the label would
+                          not fit, so the icon carries the meaning and title=
+                          provides the name on hover/long-press. */}
+                      <span
+                        className="hidden sm:inline"
+                        style={{
+                          color: cat.name === 'LOF TITAN'
+                            ? '#334155'
+                            : cat.color
                         }}
                       >
                         {cat.name}
@@ -805,7 +801,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                     </div>
 
                     {cat.hasChevron && (
-                      <ChevronRight size={12} className="text-slate-400" />
+                      <ChevronRight size={12} className="hidden sm:block text-slate-400" />
                     )}
                   </button>
                 );
@@ -930,7 +926,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
           {/* Right Slide-over Python Code Drawer */}
           {showPythonDrawer && (
-            <div className="w-[420px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-20 animate-fade-in shadow-2xl shrink-0">
+            <div className="absolute inset-0 w-full sm:static sm:w-[420px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
               
               <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">

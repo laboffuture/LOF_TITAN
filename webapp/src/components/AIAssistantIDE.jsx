@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { asset } from '../lib/asset';
 import { cld } from '../lib/cld';
 import { 
-  Bot, 
   Sparkles, 
   Send, 
   Code, 
@@ -276,7 +275,7 @@ export function AIAssistantIDE({ isOpen, onClose, device, onUploadCode }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "👋 **Welcome to LOF TITAN AI Code Studio!**\n\nI have complete knowledge of your LOF TITAN ESP32-S3 pin mappings, 4-channel motor drivers, push buttons (39-42), sensors (S1-S5), ultrasonic, OLED, and buzzer.\n\nTell me what you'd like your TITAN rover to do, or pick a starter template below!"
+      text: "👋 **Welcome to LOF TITAN AI Code Studio!**\n\nI know your board inside out — ESP32-S3 pin mappings, the 4-channel motor driver, push buttons (GPIO 39-42), sensors S1-S5, ultrasonic, OLED and buzzer.\n\nTell me what you want your TITAN build to do and I'll write the MicroPython for it — or pick a starter prompt below."
     }
   ]);
 
@@ -591,7 +590,7 @@ if __name__ == '__main__':
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 backdrop-blur-md bg-slate-900/65 transition-all duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center backdrop-blur-md bg-slate-900/65 transition-all duration-300">
       
       {/* Hidden File Input for Opening Saved Python Files */}
       <input 
@@ -603,7 +602,7 @@ if __name__ == '__main__':
       />
 
       {/* Main Glassmorphic Container Card - Pure White Lunar Light Theme */}
-      <div className="relative w-full max-w-[1520px] h-[94vh] flex flex-col rounded-[28px] bg-white border border-slate-200/80 shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden text-slate-800">
+      <div className="relative w-full h-full flex flex-col bg-white overflow-hidden text-slate-800">
         
         {/* Top Header Bar - Intelligent Responsive Layout */}
         <div className="flex flex-col xl:flex-row items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md shrink-0 z-20">
@@ -612,15 +611,21 @@ if __name__ == '__main__':
           <div className="flex items-center justify-between w-full xl:w-auto h-14 sm:h-16 px-3 sm:px-5">
             {/* Top Left: Logo & TITAN AI Brand */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-xs border border-slate-200 flex items-center justify-center bg-gradient-to-br from-amber-400 to-orange-500 text-white">
-                <Bot size={20} />
+              {/* object-cover here, unlike the Serial Monitor badge: this source
+                  is a wide 2752x1536 JPEG with the mark centred and no alpha, so
+                  the centre-square crop keeps all of it and fills the circle. */}
+              <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full overflow-hidden shadow-xs border border-slate-200 bg-white">
+                <img
+                  src={cld('lof-titan/lof-gold', 192)}
+                  alt="LOF TITAN"
+                  decoding="async"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.src = asset('logo.webp'); }}
+                />
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-heading font-extrabold text-base tracking-wider text-slate-700">
+                <span className="font-heading font-extrabold text-lg tracking-wider text-slate-700">
                   LOF TITAN
-                </span>
-                <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                  <Sparkles size={10} className="text-amber-500" /> AI Studio
                 </span>
               </div>
             </div>
@@ -803,8 +808,17 @@ if __name__ == '__main__':
                   <div key={i} className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
                     
                     {!isUser && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0 mt-1 shadow-xs">
-                        <Bot size={16} />
+                      <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 mt-1 shadow-xs border border-slate-200 bg-white">
+                        {/* Same cld() URL as the header badge, so the browser
+                            serves every avatar in the thread from cache instead
+                            of refetching a second derivative per message. */}
+                        <img
+                          src={cld('lof-titan/lof-gold', 192)}
+                          alt="LOF TITAN AI"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = asset('logo.webp'); }}
+                        />
                       </div>
                     )}
 
@@ -875,7 +889,7 @@ if __name__ == '__main__':
                   type="text"
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
-                  placeholder="Ask AI to write rover code (e.g. 'Line follower on S1, S2 with smooth turns')..."
+                  placeholder="Ask AI…"
                   className="flex-1 bg-slate-50 text-slate-800 placeholder-slate-400 text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-sans"
                 />
                 <button
@@ -986,7 +1000,7 @@ if __name__ == '__main__':
 
           {/* Right Slide-over Python Code Drawer (Toggleable hide/view like Block Code) */}
           {showPythonDrawer && (
-            <div className="w-[460px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-20 animate-fade-in shadow-2xl shrink-0">
+            <div className="absolute inset-0 w-full sm:static sm:w-[460px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
               
               {/* Drawer Header */}
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">

@@ -235,9 +235,9 @@ export function ProjectStoreDetailModal({
           <div className="flex items-center justify-between w-full xl:w-auto h-14 sm:h-16 px-3 sm:px-6">
             {/* Top Left: Logo & Project Identity */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shadow-[0_0_12px_rgba(186,230,253,0.8)] border border-sky-200 shrink-0">
+              <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden shadow-[0_0_12px_rgba(186,230,253,0.8)] border border-sky-200 shrink-0">
                 <img
-                  src={cld('lof-titan/lunar-sphere-icon', 96)}
+                  src={cld('lof-titan/lof-silver', 192)}
                   alt="LOF TITAN Lunar"
                   decoding="async"
                   className="w-full h-full object-cover"

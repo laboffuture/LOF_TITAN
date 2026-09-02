@@ -46,3 +46,20 @@ dist/
 
 # ESP32 specific
 build-*/
+
+# ============================================================
+# IMAGES - kit imagery lives on Cloudinary, not in git.
+# History already carries 78 MB of deleted images; do not add more.
+# Upload with: node scripts/upload-images.mjs
+# ============================================================
+
+# Source masters. Put the highest-resolution original you have here.
+/art-masters/
+
+# Everything the app used to serve locally is now a Cloudinary public id.
+# lab_of_future_logo is the one exception - small chrome inside the IDE modals.
+webapp/public/assets/**
+!webapp/public/assets/lab_of_future_logo.webp
+
+# Build outputs that were being committed as zips (24 MB).
+webapp/releases/

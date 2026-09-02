@@ -18,6 +18,7 @@ export const KITS = [
   { id: 'anti-icing-systems', name: 'Anti-Icing Systems', status: 'available' },
   { id: 'hydraulic-landing-gear', name: 'Hydraulic Landing Gear', status: 'available' },
   { id: 'rc-plane', name: 'RC Plane', status: 'available' },
+  { id: 'terrain-trek', name: 'Terrain Trek', status: 'available' },
   { id: 'axes3', name: 'Axes 3', status: 'coming-soon' },
   { id: 'aquanova', name: 'Aqua Nova', status: 'coming-soon' },
 ];

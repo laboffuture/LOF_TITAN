@@ -20,10 +20,9 @@ const TOOL_LINKS = [
 ];
 
 function StatusPill({ device, compact }) {
-  const dot = compact ? 'w-1.5 h-1.5' : 'w-2 h-2';
   return (
     <span
-      className={`font-bold flex items-center justify-end gap-1.5 ${compact ? 'text-[11px] sm:text-xs' : 'text-sm'} ${
+      className={`font-bold flex items-center justify-end gap-1.5 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} ${
         device.status === 'RUNNING'
           ? 'text-emerald-400 animate-pulse'
           : device.connected || device.status === 'CONNECTED_IDLE'
@@ -34,7 +33,7 @@ function StatusPill({ device, compact }) {
       }`}
     >
       <span
-        className={`${dot} rounded-full ${
+        className={`w-1.5 h-1.5 rounded-full ${
           device.connected ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-gray-500'
         }`}
       />
@@ -51,6 +50,10 @@ function App() {
   // The routed screens present as full-screen overlays; pause the WebGL
   // background while one is open so it isn't burning frames behind them.
   const overlayOpen = location.pathname !== '/';
+  // The nav belongs to the dashboard only. Every other route is either a
+  // full-screen overlay that covers it anyway, or /login, which has its own
+  // "Back to kits" link.
+  const isHome = location.pathname === '/';
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-[#060911] text-white relative overflow-x-hidden">
@@ -72,133 +75,144 @@ function App() {
         />
       </div>
 
-      <nav className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
-        <div className="flex items-center justify-between w-full xl:w-auto gap-2 sm:gap-4">
-          <Link to="/" className="flex items-center gap-2 md:gap-4">
-            <img src={asset('logo.webp')} alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
-            <h1 className="text-base sm:text-lg md:text-xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-start to-white truncate">
-              LOF TITAN <span className="hidden sm:inline">Dashboard</span>
-            </h1>
-          </Link>
-
-          <div className="flex flex-col text-right xl:hidden">
-            <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase truncate max-w-[100px] sm:max-w-[150px]">
-              {device.deviceName || (device.connected ? 'TITAN' : 'Offline')}
-            </span>
-            <StatusPill device={device} compact />
-          </div>
-        </div>
-
-        <div className="flex flex-col xl:flex-row items-center gap-3 xl:gap-4 w-full xl:w-auto">
-          <div className="hidden xl:flex flex-col text-right">
-            <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">
-              {device.deviceName || (device.connected ? 'LOF TITAN' : 'Device Offline')}
-            </span>
-            <StatusPill device={device} />
-          </div>
-
-          <div className="flex flex-wrap xl:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 w-full xl:w-auto">
-            {TOOL_LINKS.map(({ to, label, title, Icon, tint }) => (
-              <Link
-                key={to}
-                to={to}
-                title={title}
-                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <Icon size={16} className={`${tint} sm:w-[18px] sm:h-[18px]`} />
-                <span className="hidden sm:inline">{label}</span>
-              </Link>
-            ))}
-
-            <Link
-              to="/flash"
-              title="Open Dedicated Firmware Flasher"
-              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-300 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 transition-all duration-300 shadow-sm hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] text-xs sm:text-sm"
-            >
-              <Cpu size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
-              <span className="hidden sm:inline">Flash</span>
+      {isHome && (
+        <nav className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
+          {/* The brand is centred in its row rather than pinned left. On mobile
+              the status sits absolutely to the right so it cannot push the
+              wordmark off-centre; from xl the nav is a single row and the brand
+              centres between the status block and the action buttons. */}
+          <div className="relative flex items-center justify-center w-full xl:w-auto gap-2 sm:gap-4">
+            <Link to="/" className="flex items-center gap-2 md:gap-4">
+              <img src={asset('logo.webp')} alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
+              <h1 className="text-lg sm:text-xl md:text-2xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-start to-white truncate">
+                LOF TITAN
+              </h1>
             </Link>
 
-            {device.isConnected ? (
-              <>
-                <button
-                  onClick={device.runCode}
-                  title="Run Program"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  <Play size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">Run</span>
-                </button>
-                <button
-                  onClick={device.stopExecution}
-                  title="Stop Program"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  <Square size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">Stop</span>
-                </button>
-                <button
-                  onClick={device.softReset}
-                  title="Soft Reset Board"
+            <div className="absolute right-0 flex flex-col text-right xl:hidden">
+              <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase truncate max-w-[100px] sm:max-w-[150px]">
+                {device.deviceName || (device.connected ? 'TITAN' : 'Offline')}
+              </span>
+              <StatusPill device={device} compact />
+            </div>
+          </div>
+
+          <div className="flex flex-col xl:flex-row items-center gap-3 xl:gap-4 w-full xl:w-auto">
+            <div className="hidden xl:flex flex-col text-right">
+              <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase">
+                {device.deviceName || (device.connected ? 'LOF TITAN' : 'Device Offline')}
+              </span>
+              <StatusPill device={device} />
+            </div>
+
+            <div className="flex flex-wrap xl:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 w-full xl:w-auto">
+              {TOOL_LINKS.map(({ to, label, title, Icon, tint }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  title={title}
                   className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
                 >
-                  <RotateCcw size={16} className="sm:w-[18px] sm:h-[18px]" />
-                </button>
-                <button
-                  onClick={device.disconnectBLE}
-                  title="Disconnect"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  Disconnect
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={device.connectSerial}
-                  title="Connect via Web Serial (USB)"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-surface border border-white/10 hover:bg-white/5 text-gray-300 text-xs sm:text-sm"
-                >
-                  <Usb size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">USB</span>
-                </button>
-                <button
-                  onClick={device.connectBLE}
-                  title="Connect via Bluetooth LE"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-gradient-to-r from-primary-start to-primary-end hover:shadow-glow text-white text-xs sm:text-sm"
-                >
-                  <Bluetooth size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  BLE
-                </button>
-              </>
-            )}
+                  <Icon size={16} className={`${tint} sm:w-[18px] sm:h-[18px]`} />
+                  <span className="hidden sm:inline">{label}</span>
+                </Link>
+              ))}
 
-            <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
-
-            {user ? (
-              <button
-                onClick={signOut}
-                title={`Signed in as ${user.name}`}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <LogOut size={16} className="text-emerald-400 sm:w-[18px] sm:h-[18px]" />
-                <span className="hidden sm:inline">{user.name.split(' ')[0]}</span>
-              </button>
-            ) : (
               <Link
-                to="/login"
-                title="Sign in"
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                to="/flash"
+                title="Open Dedicated Firmware Flasher"
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-300 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 transition-all duration-300 shadow-sm hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] text-xs sm:text-sm"
               >
-                <LogIn size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
-                <span className="hidden sm:inline">Sign in</span>
+                <Cpu size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
+                <span className="hidden sm:inline">Flash</span>
               </Link>
-            )}
-          </div>
-        </div>
-      </nav>
 
-      <main className="flex-1 p-4 grid grid-cols-12 gap-6 max-w-screen-2xl mx-auto w-full">
+              {device.isConnected ? (
+                <>
+                  <button
+                    onClick={device.runCode}
+                    title="Run Program"
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all duration-300 text-xs sm:text-sm"
+                  >
+                    <Play size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">Run</span>
+                  </button>
+                  <button
+                    onClick={device.stopExecution}
+                    title="Stop Program"
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all duration-300 text-xs sm:text-sm"
+                  >
+                    <Square size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">Stop</span>
+                  </button>
+                  <button
+                    onClick={device.softReset}
+                    title="Soft Reset Board"
+                    className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                  >
+                    <RotateCcw size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </button>
+                  <button
+                    onClick={device.disconnectBLE}
+                    title="Disconnect"
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-300 text-xs sm:text-sm"
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={device.connectSerial}
+                    title="Connect via Web Serial (USB)"
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-surface border border-white/10 hover:bg-white/5 text-gray-300 text-xs sm:text-sm"
+                  >
+                    <Usb size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">USB</span>
+                  </button>
+                  <button
+                    onClick={device.connectBLE}
+                    title="Connect via Bluetooth LE"
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-gradient-to-r from-primary-start to-primary-end hover:shadow-glow text-white text-xs sm:text-sm"
+                  >
+                    <Bluetooth size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    BLE
+                  </button>
+                </>
+              )}
+
+              <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
+
+              {user ? (
+                <button
+                  onClick={signOut}
+                  title={`Signed in as ${user.name}`}
+                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                >
+                  <LogOut size={16} className="text-emerald-400 sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">{user.name.split(' ')[0]}</span>
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  title="Sign in"
+                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                >
+                  <LogIn size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">Sign in</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        </nav>
+      )}
+
+      {/* relative z-10 is load-bearing: the Galaxy behind is `fixed z-0`, which
+          makes it a POSITIONED element. Without a stacking context of its own,
+          <main> is non-positioned and therefore paints BENEATH it - the galaxy
+          washed over the kit cards at 90% opacity. z-10 keeps content above the
+          background while staying under the sticky nav (z-50). */}
+      <main className="relative z-10 flex-1 p-4 grid grid-cols-12 gap-6 max-w-screen-2xl mx-auto w-full">
         <div className="col-span-12 flex flex-col gap-6">
           <Routes>
             <Route path="/" element={<Dashboard />} />

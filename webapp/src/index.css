@@ -10,7 +10,7 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-surface/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl;
+    @apply bg-surface/80 backdrop-blur-md border border-white rounded-2xl shadow-xl;
   }
   
   .btn-primary {

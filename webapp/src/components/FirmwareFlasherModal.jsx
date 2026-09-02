@@ -159,17 +159,17 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#111827] border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#111827] w-full h-full overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-purple-900/40 via-blue-900/30 to-surface/40">
+        <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-3 bg-gradient-to-r from-purple-900/40 via-blue-900/30 to-surface/40">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white shadow-lg">
               <Cpu size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-heading font-bold text-white flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-heading font-bold text-white flex flex-wrap items-center gap-2">
                 LOF TITAN Firmware Flasher
                 <span className="text-xs font-mono font-normal bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
                   ESP32-S3 N16R8
@@ -189,7 +189,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         </div>
 
         {/* Body Content */}
-        <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5 sm:gap-6 w-full max-w-3xl mx-auto">
           
           {/* Flashing Progress Card (Always Visible) */}
           <div className="bg-surface/60 p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
@@ -242,14 +242,14 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
           )}
 
           {/* Flasher Terminal Output */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 flex-1 min-h-0">
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center justify-between">
               <span>Flasher Log</span>
               {logs.length > 0 && <span className="font-mono text-[10px] text-gray-500">{logs.length} lines</span>}
             </div>
             <div 
               ref={logContainerRef}
-              className="h-48 bg-black/60 font-mono text-xs text-emerald-400 p-3 rounded-xl border border-white/5 overflow-y-auto break-all whitespace-pre-wrap select-text"
+              className="flex-1 min-h-[12rem] bg-black/60 font-mono text-xs text-emerald-400 p-3 rounded-xl border border-white/5 overflow-y-auto break-all whitespace-pre-wrap select-text"
             >
               {logs.length === 0 ? (
                 <span className="text-gray-600 italic">Logs will appear here once flashing begins...</span>
@@ -262,7 +262,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-5 border-t border-white/10 bg-surface/30 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-t border-white/10 bg-surface/30 flex flex-wrap items-center justify-between gap-3 w-full max-w-3xl mx-auto">
           <button 
             disabled={flashing}
             onClick={onClose}

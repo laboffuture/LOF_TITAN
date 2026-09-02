@@ -1,6 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// GitHub Pages serves this repo from /LOF_TITAN/, so the production build needs
+// that base. Dev does NOT - it is served from the root, and using the subpath
+// there only means http://localhost:5173/ shows Vite's "did you mean
+// /LOF_TITAN/?" notice instead of the app.
+//
+// import.meta.env.BASE_URL follows this automatically, so router basename,
+// asset() and the firmware fetches stay correct in both modes.
+const PROD_BASE = '/LOF_TITAN/'
+
 // The API port. NOT 3000 - Docker Desktop binds that on Windows and answers
 // every request with a 404, which is indistinguishable from a broken API.
 const API_TARGET = process.env.VITE_API_TARGET || 'http://localhost:4000'
@@ -15,12 +24,8 @@ const proxy = {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  // Absolute base, not './'. With nested routes (/kit/:id) a relative base would
-  // resolve asset URLs against the current route instead of the site root, so
-  // e.g. ./firmware/bootloader.bin would 404 from /LOF_TITAN/kit/invisible-line.
-  // This also makes import.meta.env.BASE_URL a stable '/LOF_TITAN/'.
-  base: '/LOF_TITAN/',
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? PROD_BASE : '/',
   plugins: [react()],
   server: {
     watch: {
@@ -29,9 +34,8 @@ export default defineConfig({
     },
     proxy
   },
-  // `vite preview` does NOT inherit server.proxy, so without this the built app
-  // has no API at all when previewed locally.
+  // `vite preview` serves the built output, so it uses the production base.
   preview: {
     proxy
   }
-})
+}))

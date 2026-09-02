@@ -10,9 +10,9 @@ const ERROR_TEXT = {
   INVALID_EMAIL: 'That does not look like a valid email address.',
   PASSWORD_TOO_SHORT: 'Password must be at least 8 characters.',
   EMAIL_TAKEN: 'An account with that email already exists. Try signing in instead.',
-  NETWORK_ERROR: 'Could not reach the API. Start it with "npm run dev" in server/.',
+  NETWORK_ERROR: 'Could not reach the API. Start both processes with "npm run dev" from the project root.',
   BAD_API_RESPONSE:
-    'Something other than the LOF TITAN API answered. Check the API is running, and that no other service (Docker Desktop uses port 3000) holds its port.',
+    'The API is not responding. It runs as a separate process - start both with "npm run dev" from the project root, not from webapp/.',
   TOO_MANY_LOGIN_ATTEMPTS: 'Too many failed sign-in attempts.',
   TOO_MANY_REGISTRATIONS: 'Too many accounts created from this connection.',
   RATE_LIMITED: 'Too many requests.',
@@ -84,7 +84,7 @@ export function Login() {
     }`;
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-10 flex flex-col gap-6">
+    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-10 flex flex-col gap-5 sm:gap-6">
       <Link
         to="/"
         className="self-start flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-white/5 hover:bg-white/10 text-gray-300 transition-all border border-white/10"
@@ -92,13 +92,13 @@ export function Login() {
         <ArrowLeft size={16} /> Back to kits
       </Link>
 
-      <div className="glass-panel rounded-3xl p-8 sm:p-10 space-y-7">
+      <div className="glass-panel rounded-3xl p-5 sm:p-8 lg:p-10 space-y-6 sm:space-y-7">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-start to-primary-end flex items-center justify-center text-white shadow-glow">
             {isRegister ? <UserPlus size={24} /> : <LogIn size={24} />}
           </div>
           <div>
-            <h1 className="text-2xl font-heading font-extrabold text-white">
+            <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-white">
               {isRegister ? 'Create an account' : 'Sign in'}
             </h1>
             <p className="text-sm text-gray-400">

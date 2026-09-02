@@ -1926,5 +1926,37 @@ if __name__ == '__main__':
     // Component images: slots above are ready, upload masters to
     //   lof-titan/rc-plane/<component-id>
     // ---------------------------------------------------------------
+  },
+  {
+    id: 'terrain-trek',
+    name: 'Terrain Trek',
+    category: 'Mobility & Terrain',
+    badge: 'DIY Terrain Kit',
+    rating: 4.9,
+    reviews: 0,
+    // PLACEHOLDER - confirm with the content team.
+    duration: '45 Mins',
+    difficulty: 'Builder',
+    age: '10+',
+    // Stand-in artwork, and the LAST unclaimed banner. It is also the Invisible
+    // Line Patrol carousel slide, so the two now share an image. Replace once
+    // real art is uploaded as lof-titan/terrain-trek/terrain-trek-main
+    heroImage: 'lof-titan/banners/banner-invisible-diy',
+    thumbnail: 'lof-titan/banners/banner-invisible-diy',
+    tagline: 'All-Terrain Mobility & Chassis Design',
+    // PLACEHOLDER description. Deliberately makes no claim about the drive
+    // system, sensors or chassis - none of that is known yet.
+    description:
+      'Build a vehicle that can travel across uneven ground, and explore what lets a chassis stay stable and keep moving over rough terrain.',
+    // ---------------------------------------------------------------
+    // CONTENT PENDING. Deep sections are deliberately absent rather than
+    // filled with guesses about the hardware. The detail page hides any
+    // section with no data and renumbers the rest, so this renders
+    // correctly as-is. Add these as the content team delivers them:
+    //   requirements[]  components[]  assembly[]  code  faq[]  challenges[]
+    // Optional copy: assemblyTitle, challengesTitle, faqTitle, codeFilename,
+    //   outroCopy, specs[], safetyWarnings{}
+    // Also confirm: duration, difficulty, age, badge (placeholders above).
+    // ---------------------------------------------------------------
   }
 ];

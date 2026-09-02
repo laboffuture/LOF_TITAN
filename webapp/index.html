@@ -2,7 +2,11 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/webp" href="logo.webp" />
+    <!-- Leading slash so Vite rewrites it with the deploy base. Without it the
+         href resolves against the current route, so a deep link like
+         /LOF_TITAN/kit/rc-plane asked for /LOF_TITAN/kit/favicon.png. -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LOF TITAN Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">

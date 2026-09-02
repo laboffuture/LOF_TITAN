@@ -14,6 +14,8 @@ import {
   Check, 
   Copy 
 } from 'lucide-react';
+import { cld } from '../lib/cld';
+import { asset } from '../lib/asset';
 
 export function SerialMonitorModal({ isOpen, onClose, device }) {
   const [serialInput, setSerialInput] = useState('');
@@ -44,21 +46,30 @@ export function SerialMonitorModal({ isOpen, onClose, device }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/65 transition-all duration-300">
+    <div className="fixed inset-0 z-[160] flex items-center justify-center backdrop-blur-md bg-slate-900/65 transition-all duration-300">
       
       {/* Main Container Card with Clean White Bezel/Chassis */}
-      <div className="relative w-full max-w-4xl h-[86vh] flex flex-col rounded-[22px] bg-white border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.18)] overflow-hidden text-slate-800">
+      <div className="relative w-full h-full flex flex-col bg-white overflow-hidden text-slate-800">
         
         {/* Top Header Bar - Clean White Lunar Header */}
-        <div className="h-14 px-5 flex items-center justify-between border-b border-slate-200/80 bg-white shrink-0 z-20 gap-3">
+        <div className="h-14 sm:h-16 px-4 sm:px-5 flex items-center justify-between border-b border-slate-200/80 bg-white shrink-0 z-20 gap-3">
           
-          {/* Top Left: Terminal Icon & TITAN Branding */}
+          {/* Top Left: LOF TITAN Logo & Branding */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="relative w-8 h-8 rounded-full overflow-hidden shadow-xs border border-slate-200 flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-              <Terminal size={17} />
+            {/* bg-white and object-contain, not object-cover: the source is a
+                transparent 342x360 PNG, so cover would crop it and the alpha
+                would otherwise show whatever sits behind the circle. */}
+            <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full overflow-hidden shadow-xs border border-slate-200 bg-white flex items-center justify-center">
+              <img
+                src={cld('lof-titan/lof-normal', 192)}
+                alt="LOF TITAN"
+                decoding="async"
+                className="w-full h-full object-contain p-1"
+                onError={(e) => { e.target.src = asset('logo.webp'); }}
+              />
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-heading font-extrabold text-sm tracking-wider text-slate-700">
+              <span className="font-heading font-extrabold text-lg tracking-wider text-slate-700">
                 LOF TITAN
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">

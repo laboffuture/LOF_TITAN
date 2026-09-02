@@ -5,12 +5,17 @@
     "webapp"
   ],
   "scripts": {
-    "dev": "npm --prefix webapp run dev",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --prefix server run dev",
+    "dev:web": "npm --prefix webapp run dev",
     "build": "npm --prefix webapp run build",
-    "preview": "npm --prefix webapp run preview"
+    "preview": "npm --prefix webapp run preview",
+    "seed": "npm --prefix server run seed",
+    "install:all": "npm install && npm --prefix webapp install && npm --prefix server install"
   },
   "devDependencies": {
     "cloudinary": "^2.11.0",
+    "concurrently": "^10.0.5",
     "dotenv": "^17.4.2"
   }
 }
