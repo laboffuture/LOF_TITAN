@@ -559,7 +559,7 @@ export function ProjectStoreDetailModal({
                 return (
                   <div className="md:col-span-8 lg:col-span-9 p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/90 shadow-md space-y-6">
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-7 items-start">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-7 items-center">
                       
                       {/* Component Visual & Pinout.
                           In production the column disappears when a component has
@@ -569,12 +569,12 @@ export function ProjectStoreDetailModal({
                       {(comp.image || comp.pinMapping || import.meta.env.DEV) && (
                         <div className="sm:col-span-5 space-y-4">
                           {comp.image ? (
-                            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shadow-inner">
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shadow-inner">
                               <Img
                                 id={comp.image}
                                 alt={comp.name}
                                 sizes="(min-width: 640px) 40vw, 90vw"
-                                className="max-h-48 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
+                                className="w-full h-auto max-h-72 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
                                 onError={(e) => {
                                   e.target.srcset = '';
                                   e.target.src = cld('lof-titan/banners/banner-invisible-diy');

@@ -1131,8 +1131,12 @@ if __name__ == '__main__':
     duration: '45 Mins',
     difficulty: 'Builder',
     age: '10+',
-    heroImage: 'lof-titan/banners/banner-cosmic',
-    thumbnail: 'lof-titan/banners/banner-cosmic',
+    // Version-pinned: Cloudinary serves a replaced asset from the SAME url
+    // with Cache-Control max-age=2592000, so a browser that saw the old art
+    // keeps it for 30 days. The vNNN segment changes when the bytes do.
+    // Get it from the upload response and bump it whenever you re-upload.
+    heroImage: 'v1788331984/lof-titan/banners/banner-anemometer',
+    thumbnail: 'v1788331984/lof-titan/banners/banner-anemometer',
     tagline: 'Wind Speed Measurement & Live Weather Telemetry',
     assemblyTitle: 'Anemometer Assembly & Integration',
     description:
@@ -1156,15 +1160,13 @@ if __name__ == '__main__':
       ]
     },
 
-    // Only name/whatIsIt/howItWorks supplied so far. image, pinMapping and
-    // experiment are omitted deliberately - the detail page hides the visual
-    // column and the calibration lab when a component lacks them.
+    // All three components have artwork. A component missing image/pinMapping/
+    // experiment still renders fine - the detail page hides the visual column
+    // and the calibration lab for it - so partial data stays safe to ship.
     components: [
       {
         id: 'as5600-encoder',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/anemometer/as5600-encoder',
-        image: '',
+        image: 'v1788328972/lof-titan/anemometer/as5600-encoder',
         shortName: 'AS5600 Encoder',
         name: 'AS5600 Magnetic Encoder',
         whatIsIt: 'The AS5600 is a magnetic rotary sensor used to detect how much and how fast the anemometer shaft rotates.',
@@ -1172,9 +1174,7 @@ if __name__ == '__main__':
       },
       {
         id: 'esp32-s3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/anemometer/esp32-s3',
-        image: '',
+        image: 'v1788330132/lof-titan/anemometer/esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
         whatIsIt: 'The ESP32-S3 is the main controller of the anemometer.',
@@ -1182,9 +1182,7 @@ if __name__ == '__main__':
       },
       {
         id: 'oled-display',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/anemometer/oled-display',
-        image: '',
+        image: 'v1788330365/lof-titan/anemometer/oled-display',
         shortName: 'OLED Display',
         name: '1.3-inch OLED Display',
         whatIsIt: 'The OLED is a compact screen used to display the measured wind speed.',

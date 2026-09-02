@@ -189,7 +189,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         </div>
 
         {/* Body Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5 sm:gap-6 w-full max-w-3xl mx-auto">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5 sm:gap-6 w-full">
           
           {/* Flashing Progress Card (Always Visible) */}
           <div className="bg-surface/60 p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
@@ -262,7 +262,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-white/10 bg-surface/30 flex flex-wrap items-center justify-between gap-3 w-full max-w-3xl mx-auto">
+        <div className="p-4 sm:p-5 border-t border-white/10 bg-surface/30 flex flex-wrap items-center justify-between gap-3 w-full">
           <button 
             disabled={flashing}
             onClick={onClose}

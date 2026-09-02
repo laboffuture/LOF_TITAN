@@ -165,7 +165,7 @@ export function Dashboard() {
                 onClick={() => openKit(p.id)}
                 className="group rounded-3xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.07] hover:border-cyan-500/50 p-4 sm:p-5 cursor-pointer transition-all duration-300 shadow-md hover:shadow-[0_12px_35px_rgba(6,182,212,0.18)] backdrop-blur-xs flex flex-col justify-between gap-4 relative overflow-hidden"
               >
-                <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
                   <Img
                     id={p.thumbnail || p.heroImage || 'lof-titan/invisible-line/invisible-line-main'}
                     alt={p.name}
@@ -240,7 +240,7 @@ export function Dashboard() {
                 key={item.id}
                 className="rounded-3xl bg-white/[0.01] border border-dashed border-white/10 p-4 sm:p-5 flex flex-col justify-between gap-4 opacity-60"
               >
-                <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 grayscale">
+                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 grayscale">
                   <Img
                     id={item.image}
                     alt={item.title}
