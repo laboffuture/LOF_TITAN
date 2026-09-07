@@ -895,23 +895,24 @@ def main():
     assemblyTitle: 'DJ Bot Frame & Sensor Assembly',
     outroCopy: 'Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or remix the beat-synthesis logic in Block Code Studio!',
     specs: [
-      { label: 'SENSORS', value: 'MAX30102 Pulse' },
-      { label: 'AUDIO', value: 'Piezo Synthesizer' },
+      { label: 'SENSORS', value: 'MAX30102 Heartbeat Sensor' },
       { label: 'MCU', value: 'ESP32-S3 TITAN' },
     ],
-    description: 'Build an interactive musical DJ Bot that senses human pulse beats in real time using optical sensor technology and dynamically synthesizes custom musical tempos, light rhythms, and acoustic DJ dance routines on LOF TITAN.',
+    description: 'Requires finger detection using a pulse sensor and timer-based mode switching, with the OLED showing expressions and the DFPlayer playing different sounds based on changing conditions.',
 
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Place finger gently on optical pulse sensor window without applying heavy pressure for accurate beat reading.',
-        '⚠️ Ensure buzzer frequency levels and speaker volume are within comfortable listening limits.',
-        '⚠️ Keep clear of moving motor joints during dynamic rhythmic dance routines.'
+        '⚠️ Use the screwdriver carefully while fitting the M3 screws and brass inserts. Avoid excessive force that may crack the 3D-printed parts.',
+        '⚠️ Tighten the screws only until the parts are securely fixed; over-tightening can damage the PCB or mounting points.',
+        '⚠️ Route the sensor, OLED, DFPlayer, and speaker cables neatly so that they are not pinched, pulled, or trapped under screws.'
       ],
       electronics: [
-        '⚡ Double-check I2C bus wiring: SDA to GPIO 7 and SCL to GPIO 8 on LOF TITAN.',
-        '⚡ Never short-circuit motor outputs M1 (GPIO 15/16) or M2 (GPIO 13/14) during beat-synchronized spins.',
-        '⚡ Always power off board before connecting optical sensor breakout boards.'
+        '⚡ Switch OFF the ESP32-S3 before connecting or changing the MAX30102, OLED, DFPlayer, speaker, or RMC cables.',
+        '⚡ Check the battery polarity and rocker-switch wiring before powering the project.',
+        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials that could short the terminals.',
+        '⚡ Keep the speaker volume at a comfortable level, especially during repeated sound and mode-switching tests.',
+        '⚡ Insert and remove the microSD card gently and avoid removing it while the DFPlayer is actively reading or playing audio.'
       ]
     },
 
@@ -928,77 +929,59 @@ def main():
     // Component Labs
     components: [
       {
-        id: 'pulse-sensor',
-        name: 'MAX30102 Optical Pulse Sensor',
-        image: 'lof-titan/banners/banner-heartbeat-diy',
-        whatIsIt: 'An optical heart rate monitor that measures blood volume pulses using RED and IR light absorption.',
-        howItWorks: 'Emits light through skin and measures reflected intensity. Every heart contraction causes a pulse surge that is detected over I2C at address 0x57.',
+        id: 'max30102-sensor',
+        shortName: 'MAX30102',
+        name: 'MAX30102 Heartbeat Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/heartbeat/max30102-sensor',
+        image: '',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
-        experiment: {
-          title: 'Live Heartbeat Pulse Detector Lab',
-          instruction: '1. Connect MAX30102 to SDA (GPIO 7) and SCL (GPIO 8).\n2. Upload test code below.\n3. Gently place index finger on optical sensor and watch pulse wave telemetry live in Serial Monitor!',
-          testCode: `# ================= LOF TITAN PULSE SENSOR TEST =================
-import time
-from machine import Pin, SoftI2C
-from supervisor.led_buzzer import hw
-
-i2c = SoftI2C(scl=Pin(8), sda=Pin(7), freq=100000)
-devices = i2c.scan()
-
-print("--- LOF TITAN DJ BOT HEARTBEAT LAB ---")
-print("I2C Devices Found:", [hex(d) for d in devices])
-hw.play_startup_tone()
-
-# Read device ID registers if MAX30102 (0x57) is present
-if 0x57 in devices:
-    print("MAX30102 Optical Sensor Detected at 0x57!")
-else:
-    print("Simulating pulse wave test...")
-
-bpm = 72
-while True:
-    print(f"Heartbeat Pulse -> BPM: {bpm} | Rhythm: BEAT {'❤️' if bpm % 2 == 0 else '🤍'}")
-    bpm = 65 + (int(time.ticks_ms() / 500) % 25)
-    time.sleep_ms(300)
-`
-        }
+        whatIsIt: 'An optical sensor used to detect finger presence and measure pulse-related changes in blood flow.',
+        howItWorks: 'The MAX30102 uses red and infrared light to detect changes in reflected light from the finger. The ESP32-S3 reads these changes through I2C communication and uses them to identify heartbeat activity.'
       },
       {
-        id: 'beat-synthesizer',
-        name: 'Piezo DJ Tone Synthesizer',
-        image: 'lof-titan/banners/banner-heartbeat-diy',
-        whatIsIt: 'Acoustic PWM sound generator capable of producing musical note frequencies from 100Hz to 5000Hz.',
-        howItWorks: 'ESP32-S3 PWM timer varies frequency output on GPIO 20 to synthesize melodies, basslines, and DJ beats matched to BPM.',
-        pinMapping: 'Buzzer/Speaker Pin: GPIO 20',
-        experiment: {
-          title: 'DJ Beat Synthesizer Tone Lab',
-          instruction: 'Upload sound test script to play dynamic musical note progressions and DJ rhythms!',
-          testCode: `# ================= LOF TITAN DJ SYNTHESIZER TEST =================
-import time
-from machine import Pin, PWM
-from supervisor.led_buzzer import hw
-
-_pwm_pool = {}
-def tone(pin, freq, duration_ms):
-    if freq <= 0: return
-    p = _pwm_pool.get(pin) or PWM(Pin(pin), freq=freq, duty=512)
-    _pwm_pool[pin] = p
-    p.freq(freq)
-    p.duty(512)
-    time.sleep_ms(duration_ms)
-    p.duty(0)
-
-# DJ Note Scale (C4, E4, G4, A4, C5)
-notes = [262, 330, 392, 440, 523]
-print("Playing DJ Beat Synthesizer Groove...")
-
-for f in notes:
-    tone(20, f, 150)
-    time.sleep_ms(50)
-
-print("DJ Synthesizer Test Complete!")
-`
-        }
+        id: 'dfplayer-mini',
+        shortName: 'DFPlayer Mini',
+        name: 'DFPlayer Mini',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/heartbeat/dfplayer-mini',
+        image: '',
+        pinMapping: 'UART COMMUNICATION | microSD AUDIO',
+        whatIsIt: 'A compact audio module used to play stored sound and music files from a microSD card.',
+        howItWorks: 'The ESP32-S3 sends playback commands to the DFPlayer. The module reads the selected audio file from the microSD card and sends the audio signal to the connected speaker.'
+      },
+      {
+        id: 'speaker-8ohm',
+        shortName: '8 Ohm Speaker',
+        name: '8 Ohm Speaker',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/heartbeat/speaker-8ohm',
+        image: '',
+        pinMapping: 'DFPLAYER AUDIO OUTPUT',
+        whatIsIt: 'A small speaker used to produce the music and sound feedback of the Heartbeat DJ Bot.',
+        howItWorks: 'The DFPlayer converts the stored audio file into an electrical audio signal. The speaker converts this signal into audible sound.'
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: '1.3 Inch OLED Display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/heartbeat/oled-display',
+        image: '',
+        pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
+        whatIsIt: 'A compact OLED screen used to display expressions, symbols, and the current operating state of the DJ Bot.',
+        howItWorks: 'The ESP32-S3 sends display information to the OLED through I2C communication. The OLED activates individual pixels to show the programmed facial expressions and feedback.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/heartbeat/esp32-s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | UART | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Heartbeat DJ Bot.',
+        howItWorks: 'The ESP32-S3 reads the MAX30102 sensor, manages timer-based mode changes, controls the OLED expressions, and sends commands to the DFPlayer to select the required audio.'
       }
     ],
 
@@ -1011,10 +994,41 @@ print("DJ Synthesizer Test Complete!")
     ],
 
     // Challenges
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the Heartbeat DJ Bot not detecting a finger?',
+        a: 'Place the fingertip steadily over the MAX30102 sensing area and avoid pressing too hard or moving the finger during detection. Make sure the sensor surface is clean and receiving stable contact.'
+      },
+      {
+        q: 'Why is the DFPlayer not playing any sound?',
+        a: 'Check that the microSD card is inserted correctly and contains the required audio files. Also verify the DFPlayer and speaker connections before running the sound test.'
+      },
+      {
+        q: 'Why does the OLED expression not change when the operating mode changes?',
+        a: 'Check whether the ESP32-S3 is correctly receiving the sensor input and completing the programmed timer condition. If the mode does not change in the program, the corresponding OLED expression will also remain unchanged.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
     challenges: [
-      { id: 'heart-ch-1', title: 'Challenge 1: BPM Pulse Monitor', desc: 'Display live human pulse rate in Serial Monitor with acoustic heartbeat ticks.' },
-      { id: 'heart-ch-2', title: 'Challenge 2: Dynamic Tempo Synthesizer', desc: 'Automatically speed up or slow down music synth tempo based on heart rate.' },
-      { id: 'heart-ch-3', title: 'Challenge 3: Full DJ Bot Dance Party', desc: 'Synchronize motor dance spins, LED flashes, and synthesized DJ beat drops to your heartbeat!' }
+      {
+        id: 'digital-soundboard-console',
+        level: 'Easy',
+        title: 'Challenge 1: Digital Soundboard Console',
+        goal: 'Create a digital soundboard where the learner enters a command or number through the Laptop/PC Serial Monitor. The ESP32 identifies the command, displays the corresponding sound/message on the OLED, and plays the assigned audio track through the DFPlayer Mini and speaker. The sliding switch enables or disables audio playback.',
+        hint: [
+          'Store the entered command in a variable and use if / else if conditions or a switch-case block to select the correct track and OLED message.',
+          'Use the PCB sliding switch as a condition before playback: Switch ON = audio allowed, Switch OFF = silent mode.'
+        ]
+      },
+      {
+        id: 'finger-tap-music-selector',
+        level: 'Intermediate',
+        title: 'Challenge 2: Finger-Tap Music Selector',
+        goal: 'Use the MAX30102 mainly to detect when a finger is placed and removed. Each short finger tap changes to the next audio track, while a long finger hold selects and plays the displayed track. The OLED shows the current track number/name, and the DFPlayer Mini plays the selected sound through the speaker.',
+        hint: 'Use the MAX30102 IR value to detect finger contact: when IR > 50000, save startTime = millis(), and when the IR value falls below the threshold, save endTime = millis(). Calculate duration = endTime - startTime; treat about 50-400 ms as a Short Tap and more than 1000 ms as a Long Press. Adjust the IR threshold during calibration if your sensor gives different readings.'
+      }
     ],
 
     // MicroPython Main Script
@@ -1338,6 +1352,14 @@ if __name__ == '__main__':
         image: 'v1788343249/lof-titan/darrieus-turbine/neodymium-magnet',
         whatIsIt: 'A strong permanent magnet used to provide the magnetic field for electricity generation.',
         howItWorks: 'As the turbine rotates, the magnet moves relative to the copper coil, creating a changing magnetic field that induces voltage.'
+      },
+      {
+        id: 'multimeter',
+        shortName: 'Multimeter',
+        name: 'Multimeter',
+        image: 'v1788498759/lof-titan/darrieus-turbine/multimeter',
+        whatIsIt: 'A measuring instrument used to check the electrical output generated by the turbine.',
+        howItWorks: 'It measures values such as voltage and helps compare the turbine’s electrical performance during testing.'
       }
     ],
 
@@ -1413,7 +1435,7 @@ if __name__ == '__main__':
 
     // ---------------------------------------------------------------
     // CONTENT PENDING: requirements[] (bill of materials) and code.
-    // Component images: all three uploaded.
+    // Component images: all four uploaded.
     // ---------------------------------------------------------------
   },
   {
@@ -1465,9 +1487,7 @@ if __name__ == '__main__':
         id: 'lof-titan-esp32s3',
         shortName: 'LOF TITAN',
         name: 'LOF TITAN (ESP32-S3)',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/anti-icing-systems/lof-titan-esp32s3',
-        image: '',
+        image: 'v1788499373/lof-titan/anti-icing-systems/lof-titan-esp32s3',
         whatIsIt: 'The main controller of the anti-icing system.',
         howItWorks: 'It reads the temperature, controls the heating response, and updates the display.'
       },
@@ -1475,8 +1495,7 @@ if __name__ == '__main__':
         id: 'oled-display',
         shortName: 'OLED Display',
         name: '1.3-inch OLED Display',
-        //   image: 'lof-titan/anti-icing-systems/oled-display',
-        image: '',
+        image: 'v1788499566/lof-titan/anti-icing-systems/oled-display',
         whatIsIt: 'A compact display used to show temperature and system status.',
         howItWorks: 'It displays the temperature reading and whether the heating system is active.'
       },
@@ -1484,8 +1503,7 @@ if __name__ == '__main__':
         id: 'ds18b20-sensor',
         shortName: 'DS18B20 Sensor',
         name: 'DS18B20 Temperature Sensor',
-        //   image: 'lof-titan/anti-icing-systems/ds18b20-sensor',
-        image: '',
+        image: 'v1788499862/lof-titan/anti-icing-systems/ds18b20-sensor',
         whatIsIt: 'A waterproof digital sensor used to measure the temperature near the wing surface.',
         howItWorks: 'It continuously sends temperature readings to the controller so the system can identify cold conditions.'
       },
@@ -1493,8 +1511,7 @@ if __name__ == '__main__':
         id: 'silicone-heater-pad',
         shortName: 'Heater Pad',
         name: '12V Silicone Heater Pad',
-        //   image: 'lof-titan/anti-icing-systems/silicone-heater-pad',
-        image: '',
+        image: 'v1788500409/lof-titan/anti-icing-systems/silicone-heater-pad',
         whatIsIt: 'A flexible heating element used to warm the wing surface.',
         howItWorks: 'When powered, it converts electrical energy into heat to help prevent or remove ice formation.'
       }
@@ -1586,11 +1603,11 @@ if __name__ == '__main__':
     duration: '45 Mins',
     difficulty: 'Innovator',
     age: '10+',
-    // Stand-in artwork, and the last distinct banner available - it is also the
-    // Axes 3 carousel slide, so the two now share an image. Replace once real
-    // art is uploaded as lof-titan/hydraulic-landing-gear/landing-gear-main
-    heroImage: 'lof-titan/banners/banner-axes3',
-    thumbnail: 'lof-titan/banners/banner-axes3',
+    // 16:9 master in a 3:2 card box, so object-cover trims ~8% off each
+    // side. The rig sits well inside that, only corridor background is lost.
+    // Version-pinned: bump vNNN whenever the artwork is re-uploaded.
+    heroImage: 'v1788501755/lof-titan/banners/banner-hydraulic-landing-gear',
+    thumbnail: 'v1788501755/lof-titan/banners/banner-hydraulic-landing-gear',
     tagline: 'Aircraft Landing Gear Deploy & Retract',
     description:
       'Build a hydraulic landing gear system that demonstrates how aircraft wheels deploy and retract during landing operations. You will learn how fluid pressure can be used to move mechanical parts smoothly and control the landing gear mechanism.',
@@ -1626,9 +1643,7 @@ if __name__ == '__main__':
         id: 'dc-motor-30rpm',
         shortName: 'DC Motor',
         name: '12V 30 RPM DC Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/hydraulic-landing-gear/dc-motor-30rpm',
-        image: '',
+        image: 'v1788502121/lof-titan/hydraulic-landing-gear/dc-motor-30rpm',
         whatIsIt: 'A geared motor that provides controlled mechanical movement.',
         howItWorks: 'It drives the mechanism that operates the hydraulic system.'
       },
@@ -1636,8 +1651,7 @@ if __name__ == '__main__':
         id: 'hydraulic-syringe',
         shortName: 'Hydraulic Syringe',
         name: 'Hydraulic Syringe',
-        //   image: 'lof-titan/hydraulic-landing-gear/hydraulic-syringe',
-        image: '',
+        image: 'v1788502402/lof-titan/hydraulic-landing-gear/hydraulic-syringe',
         whatIsIt: 'A syringe that acts as the hydraulic cylinder.',
         howItWorks: 'Fluid pressure moves the plunger to operate the landing gear mechanism.'
       },
@@ -1645,8 +1659,7 @@ if __name__ == '__main__':
         id: 'silicone-tube',
         shortName: 'Silicone Tube',
         name: 'Silicone Tube',
-        //   image: 'lof-titan/hydraulic-landing-gear/silicone-tube',
-        image: '',
+        image: 'v1788502607/lof-titan/hydraulic-landing-gear/silicone-tube',
         whatIsIt: 'A flexible tube that carries fluid through the hydraulic system.',
         howItWorks: 'It transfers fluid pressure between the hydraulic sections.'
       }
@@ -1951,5 +1964,1637 @@ if __name__ == '__main__':
     //   outroCopy, specs[], safetyWarnings{}
     // Also confirm: duration, difficulty, age, badge (placeholders above).
     // ---------------------------------------------------------------
-  }
+  },
+  {
+    id: 'aquanova',
+    name: 'AquaNova',
+    category: 'Sensing & Safety Rover',
+    badge: 'DIY Sensing Kit',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    // Stand-in artwork - banner-aquanova was freed when Darrieus got its own art.
+    heroImage: 'lof-titan/banners/banner-aquanova',
+    thumbnail: 'lof-titan/banners/banner-aquanova',
+    tagline: 'Motion & Water Sensing Rover with OLED and Blynk Alerts',
+    description:
+      'Integrates PIR and water sensing with ESP32-based input processing, using an OLED and Blynk alerts along with motor control to help the rover respond safely to changing conditions.',
+
+    specs: [
+      { label: 'SENSORS', value: 'PIR Motion Sensor, Water Level Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Secure the custom PCB, OLED, PIR sensor, and water sensor firmly so that they do not loosen while the rover is moving.',
+        '⚠️ Keep fingers, hair, loose wires, and objects away from the wheels and moving motor parts while testing the rover.',
+        '⚠️ Route sensor and motor cables neatly so they cannot become pinched, pulled, or caught near the wheels.',
+        '⚠️ Place the rover on a stable testing surface before checking its automatic movement responses.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the rover before connecting or changing the OLED, PIR sensor, water sensor, motors, or other PCB connections.',
+        '⚡ Keep the ESP32-S3 PCB and OLED dry. Only the sensing area of the water sensor should be exposed during water-detection tests.',
+        '⚡ Check all power and sensor connections carefully before switching the system ON to prevent incorrect wiring or short circuits.',
+        '⚡ Avoid leaving the water sensor continuously immersed or allowing water to reach its connector and electronic circuitry.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'custom-pcb-esp32s3',
+        shortName: 'Custom PCB',
+        name: 'Custom PCB with ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/aquanova/custom-pcb-esp32s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | Wi-Fi',
+        whatIsIt: 'A custom controller board with an ESP32-S3 that acts as the main processing and communication unit of AquaNova.',
+        howItWorks: 'The ESP32-S3 reads the PIR and water sensor inputs, processes the detected conditions, updates the OLED, communicates with Blynk through Wi-Fi, and controls the rover motors.'
+      },
+      {
+        id: 'pir-motion-sensor',
+        shortName: 'PIR Sensor',
+        name: 'PIR Motion Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/aquanova/pir-motion-sensor',
+        image: '',
+        pinMapping: 'PIR INPUT | GPIO 2',
+        whatIsIt: 'A sensor used to detect movement from people or other warm objects within its sensing area.',
+        howItWorks: 'The PIR sensor detects changes in infrared energy caused by movement. It sends a signal to the ESP32-S3, which uses the input to trigger the programmed rover response and alerts.'
+      },
+      {
+        id: 'water-sensor',
+        shortName: 'Water Sensor',
+        name: 'Water Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/aquanova/water-sensor',
+        image: '',
+        pinMapping: 'WATER INPUT | GPIO 4',
+        whatIsIt: 'A sensor used to detect the presence of water or moisture on its sensing surface.',
+        howItWorks: 'When water contacts the sensing tracks, the electrical response of the sensor changes. The ESP32-S3 reads this change and activates the required warning or movement behaviour.'
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: 'OLED Display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/aquanova/oled-display',
+        image: '',
+        pinMapping: 'I2C DISPLAY',
+        whatIsIt: 'A compact screen used to display the current condition and status of the AquaNova system.',
+        howItWorks: 'The ESP32-S3 processes the sensor information and sends the required text or status data to the OLED through I2C communication.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the PIR sensor detecting motion even when nobody is moving?',
+        a: 'Allow the PIR sensor a short stabilisation period after powering ON and keep it away from rapidly changing heat sources. Movement close to the sensor during startup may also cause unwanted detection.'
+      },
+      {
+        q: 'Why is the water sensor not giving an alert when water touches it?',
+        a: 'Check that water is reaching the sensing tracks and that the sensor connection to the custom PCB is secure. Also make sure the sensing surface is clean and free from insulating dirt or residue.'
+      },
+      {
+        q: 'Why are the OLED and Blynk showing different system conditions?',
+        a: 'Check that the ESP32-S3 has a stable Wi-Fi connection and that the Blynk dashboard is receiving updated data. The OLED may update locally even when internet communication is interrupted.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'motion-visitor-counter',
+        level: 'Easy',
+        title: 'Challenge 1: Motion Visitor Counter',
+        goal: 'Every time the PIR detects a new movement event, increase a counter and display the total number of detections on the OLED.',
+        hint: 'Use a variable such as visitorCount and increase it by 1 for every confirmed new motion event.'
+      },
+      {
+        id: 'dual-hazard-alert-station',
+        level: 'Intermediate',
+        title: 'Challenge 2: Dual-Hazard Alert Station',
+        goal: 'Use the PCB switch to activate the monitoring system. When motion is detected, the Red LED turns ON, and the buzzer beeps twice. When water is detected, the Green LED turns ON, and the buzzer gives continuous repeated beeps. When neither motion nor water is detected, both Red and Green LEDs remain ON, and the buzzer alternates between two different beep patterns to indicate normal monitoring mode.',
+        hint: [
+          'Keep separate variables for motionDetected and waterDetected, then decide the LED and buzzer outputs based on the combination of these two states.',
+          'For the normal monitoring state, create two different buzzer patterns and alternate between them using millis() instead of long delay() functions.'
+        ]
+      },
+      {
+        id: 'wet-surface-safety',
+        level: 'Advanced',
+        title: 'Challenge 3: Wet-Surface Safety Challenge',
+        goal: 'Move AquaNova from the normal dry lab floor to a slightly wet/slippery test surface prepared safely for the rover. AquaNova can detect water correctly, but when it tries to stop, reverse or turn, the wheels may slip. The rover may travel farther than expected even after the ESP32 gives the stop command.',
+        hint: 'Test different PWM values on the wet surface and select the highest speed at which the rover can still stop and turn without excessive wheel slip.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'axes3',
+    name: 'Axes 3',
+    category: 'Robotic Arm & Motion Control',
+    badge: 'DIY Robotics Kit',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-axes3',
+    thumbnail: 'lof-titan/banners/banner-axes3',
+    tagline: 'Multi-Servo Robotic Arm with Pick & Place Control',
+    description:
+      'Develops multi-servo robotic arm control using the base, arm link, and gripper, enabling accurate rotation, lifting, lowering, gripping, movement, and object placement.',
+
+    specs: [
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Keep fingers away from the arm joints, servo horns, and gripper while the robotic arm is moving.',
+        '⚠️ Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or arm joints.',
+        '⚠️ Make sure the arm structure and servo motors are firmly mounted before testing lifting, rotation, or gripping movements.',
+        '⚠️ Use lightweight objects during gripping and placement tests to avoid placing excessive load on the servos.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, or servo motor connections.',
+        '⚡ Check the servo connections and channel positions on the PCA9685 before powering the robotic arm.',
+        '⚡ Avoid commanding a servo beyond its safe angle range, as continuous stalling can cause the servo to heat up or become damaged.',
+        '⚡ Do not connect or disconnect servo motors while they are actively moving. Stop the program and power OFF the system first.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/axes3/esp32-s3',
+        image: '',
+        pinMapping: 'I2C | SERVO CONTROL | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Axes 3 robotic arm.',
+        howItWorks: 'The ESP32-S3 sends movement commands to the PCA9685 servo driver, allowing the robotic arm to rotate, lift, lower, grip, and place objects according to the programmed sequence.'
+      },
+      {
+        id: 'pca9685-servo-driver',
+        shortName: 'PCA9685 Driver',
+        name: 'PCA9685 Servo Driver',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/axes3/pca9685-servo-driver',
+        image: '',
+        pinMapping: 'I2C | MULTI-SERVO CONTROL',
+        whatIsIt: 'A multi-channel servo controller used to operate several servo motors from the ESP32-S3.',
+        howItWorks: 'The ESP32-S3 sends position commands to the PCA9685 through I2C communication. The PCA9685 then generates the control signals required to move each connected servo to its selected angle.'
+      },
+      {
+        id: 'mg995-servo',
+        shortName: 'MG995 Servo',
+        name: 'MG995 Servo Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/axes3/mg995-servo',
+        image: '',
+        pinMapping: 'PCA9685 SERVO CHANNEL',
+        whatIsIt: 'A high-torque servo motor used for robotic arm movements that require greater turning force.',
+        howItWorks: 'The PCA9685 sends a control signal that determines the servo position. The servo rotates its shaft to the required angle and holds the robotic arm joint in position.'
+      },
+      {
+        id: 'mg90s-servo',
+        shortName: 'MG90S Servo',
+        name: 'MG90S Servo Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/axes3/mg90s-servo',
+        image: '',
+        pinMapping: 'PCA9685 SERVO CHANNEL',
+        whatIsIt: 'A compact metal-geared servo motor used for smaller and more precise robotic arm movements.',
+        howItWorks: 'The PCA9685 controls the servo angle by sending timed position signals. The MG90S moves to the commanded position to support controlled movement of smaller arm mechanisms such as the gripper.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is one servo not moving while the other servos work?',
+        a: 'Check that the servo is connected to the correct PCA9685 channel and that the same channel number is being used in the program. Also inspect the servo connector for a loose connection.'
+      },
+      {
+        q: 'Why does the robotic arm shake or move unevenly?',
+        a: 'Check that the servo horns and arm joints are firmly fixed and that the programmed angle changes are not too sudden. Moving the servos in smaller steps can produce smoother motion.'
+      },
+      {
+        q: 'Why is the gripper unable to hold an object properly?',
+        a: 'Check the gripper servo angle and object position. Avoid commanding the servo too far when the gripper is already closed, as this can cause unnecessary strain on the servo.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'one-touch-pick-and-place',
+        level: 'Advanced',
+        title: 'Challenge 3: One-Touch Pick & Place Arm',
+        goal: 'Use the PCB switch to start a complete pick-and-place routine. The arm moves to a pickup position, closes the gripper, lifts the object, rotates to a second position and releases it automatically.',
+        hint: 'Calibrate the pickup and drop angles with the actual object and target position before running the full automatic routine.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'magnet-security-rover',
+    name: 'Magnet Security Rover',
+    category: 'Security & Navigation Rover',
+    badge: 'DIY Security Rover',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-cosmic',
+    thumbnail: 'lof-titan/banners/banner-cosmic',
+    tagline: 'Magnetometer Heading Control & Thermal Intrusion Detection',
+    codeFilename: 'magnetic_security_rover.py',
+    description:
+      'Integrates magnetometer-based heading control, thermal intrusion detection, threshold logic, and LED alerts, allowing the rover to patrol, detect heat, realign, and automatically resume its route.',
+
+    specs: [
+      { label: 'SENSORS', value: 'QMC5883L Magnetometer, AMG8833 Thermal Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Secure the custom PCB, sensors, motor driver, and motors firmly so they do not loosen while the rover is moving.',
+        '⚠️ Keep fingers, hair, loose wires, and objects away from the wheels and rotating N20 motor shafts during testing.',
+        '⚠️ Route motor and sensor cables so they are not pulled, pinched, or caught near moving wheels.',
+        '⚠️ Test automatic turning and realignment on a clear, level surface with enough space for the rover to rotate safely.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the rover before connecting or changing the QMC5883L, AMG8833, motor driver, motors, or ESP32-S3 connections.',
+        '⚡ Keep the QMC5883L away from strong magnets or large metal objects when taking normal heading readings, as they can disturb the magnetic measurement.',
+        '⚡ Avoid touching or covering the AMG8833 sensing area during thermal measurements, as this can affect its temperature readings.',
+        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the system is powered.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'qmc5883l-magnetometer',
+        shortName: 'QMC5883L',
+        name: 'QMC5883L Magnetometer',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/magnet-security-rover/qmc5883l-magnetometer',
+        image: '',
+        pinMapping: 'I2C | MAGNETIC HEADING',
+        whatIsIt: 'A magnetic-field sensor used to determine the rover\'s heading and detect changes in surrounding magnetic fields.',
+        howItWorks: 'The QMC5883L measures magnetic-field strength along different axes. The ESP32-S3 processes these readings to estimate direction and help the rover realign with its required heading.'
+      },
+      {
+        id: 'amg8833-thermal-sensor',
+        shortName: 'AMG8833',
+        name: 'AMG8833 Thermal Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/magnet-security-rover/amg8833-thermal-sensor',
+        image: '',
+        pinMapping: 'I2C | THERMAL DETECTION',
+        whatIsIt: 'A thermal sensor used to detect temperature differences and identify warm objects within its viewing area.',
+        howItWorks: 'The AMG8833 measures temperatures across a small grid of sensing points. The ESP32-S3 compares these values with programmed limits to detect possible thermal intrusion.'
+      },
+      {
+        id: 'tb6612fng-motor-driver',
+        shortName: 'TB6612FNG',
+        name: 'TB6612FNG Motor Driver',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/magnet-security-rover/tb6612fng-motor-driver',
+        image: '',
+        pinMapping: 'MOTOR CONTROL INTERFACE',
+        whatIsIt: 'An electronic driver used to control the rover\'s motor direction and movement.',
+        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver controls the N20 motors so the rover can move, stop, turn, realign, and resume its patrol.'
+      },
+      {
+        id: 'n20-gear-motors',
+        shortName: 'N20 Motors',
+        name: 'N20 Gear Motors',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/magnet-security-rover/n20-gear-motors',
+        image: '',
+        pinMapping: 'DC MOTOR OUTPUT',
+        whatIsIt: 'Compact geared DC motors used to drive the wheels of the Magnet Security Rover.',
+        howItWorks: 'Electrical power from the motor driver rotates the motors. Their internal gears reduce speed and increase torque, helping the rover move and turn in a controlled manner.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/magnet-security-rover/esp32-s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | MOTOR CONTROL',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Magnet Security Rover.',
+        howItWorks: 'The ESP32-S3 reads heading data from the magnetometer and thermal data from the AMG8833, compares them with programmed conditions, and controls the rover\'s motors and alert responses.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why does the rover show the wrong direction or keep correcting its heading?',
+        a: 'Check whether the QMC5883L is close to magnets, motors, metal parts, or other magnetic sources. Move these influences away and recalibrate the heading sensor if required.'
+      },
+      {
+        q: 'Why is the AMG8833 detecting heat when no person is nearby?',
+        a: 'Warm electronics, sunlight, lamps, or other heated objects can appear in the thermal sensor\'s view. Test the rover away from these heat sources and check the programmed temperature threshold.'
+      },
+      {
+        q: 'Why does the rover detect a heading or thermal change but not realign or move?',
+        a: 'Check the TB6612FNG and N20 motor connections and confirm that the motor-control signals are reaching the driver. Sensor detection can work correctly even when the motor-control section has a connection problem.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'magnetic-turn-challenge',
+        level: 'Easy',
+        title: 'Challenge 1: Magnetic Turn Challenge',
+        goal: 'Make the rover perform accurate turns using magnetometer heading instead of fixed timing. Example: start at 0° → turn to 90° → stop.',
+        hint: [
+          'Continuously read the magnetometer while turning and stop the motors when the heading enters a small tolerance range, such as 90° ± 3°.',
+          'Handle the 0°/360° boundary correctly; for example, turning from 350° to 10° should require only about a 20° turn, not 340°.'
+        ]
+      },
+      {
+        id: 'serial-compass-direction-rover',
+        level: 'Intermediate',
+        title: 'Challenge 2: Serial Compass Direction Rover',
+        goal: 'Enter a compass direction such as NORTH, EAST, SOUTH or WEST through the Laptop/PC Serial Monitor. The ESP32-S3 reads the command, uses the QMC5883L magnetometer to determine the rover\'s current heading, and rotates the rover until it faces the requested direction. Once aligned, the rover stops, the built-in green LED turns ON, and the built-in buzzer gives a confirmation sound.',
+        hint: 'Reduce the motor PWM as the rover gets close to the target heading to prevent it from overshooting the required direction.'
+      },
+      {
+        id: 'magnetic-interference-navigation',
+        level: 'Advanced',
+        title: 'Challenge 3: Magnetic Interference Navigation Challenge',
+        goal: 'Operate the rover near metal doors, steel furniture, speakers, electrical equipment, lifts, or other strong magnetic sources. The QMC5883L heading may shift or fluctuate, causing the rover to turn incorrectly or fail to maintain its patrol direction. Compare heading readings in a normal area and near magnetic interference, then modify the rover so it can maintain or recover its intended heading more reliably.',
+        hint: 'Define a small heading tolerance, such as ±3° to ±5°, so minor fluctuations do not make the rover continuously adjust its direction.'
+      }
+    ],
+
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — Intelligent Continuous-PID Magnetic Security Rover
+# Speed Range: 0% to 30% Full Dynamic Envelope
+# Real-Time Trajectory Control: Continuous Heading Lock (+/-2° Tolerance) Throughout 20s
+# Hardware: ESP32-S3 | Motors: M1 (15,16) & M2 (13,14) | I2C: SDA 7, SCL 8
+# Sensors: AMG8833 (0x69) 8x8 IR Thermal & QMC5883L (0x0D) Digital Compass
+# Web Server: WiFi Hotspot (192.168.4.1) Live Heatmap & Dual-Heading Telemetry
+# ==============================================================================
+
+import time
+import math
+import struct
+import network
+import socket
+import select
+import ujson
+from machine import Pin, PWM, SoftI2C
+
+# ================= 1. SINGLETON PWM MOTOR INTERFACE (0% - 30% RANGE) =================
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try: _pwm_pool[pin].freq(freq)
+        except Exception: pass
+    return _pwm_pool[pin]
+
+def _raw_m1(duty_pct, fwd=True):
+    # Absolute dynamic range: 0% to 30%
+    capped_pct = max(0.0, min(30.0, duty_pct))
+    duty = int(capped_pct * 1023 / 100) if capped_pct > 0 else 0
+    p15 = _get_pwm(15); p16 = _get_pwm(16)
+    if duty == 0: p15.duty(0); p16.duty(0)
+    elif fwd: p15.duty(duty); p16.duty(0)
+    else: p15.duty(0); p16.duty(duty)
+
+def _raw_m2(duty_pct, fwd=True):
+    # Absolute dynamic range: 0% to 30%
+    capped_pct = max(0.0, min(30.0, duty_pct))
+    duty = int(capped_pct * 1023 / 100) if capped_pct > 0 else 0
+    p13 = _get_pwm(13); p14 = _get_pwm(14)
+    if duty == 0: p13.duty(0); p14.duty(0)
+    elif fwd: p13.duty(duty); p14.duty(0)
+    else: p13.duty(0); p14.duty(duty)
+
+def set_buzzer(active):
+    buz = _get_pwm(20, freq=2400)
+    buz.duty(512 if active else 0)
+
+
+# ================= 2. ULTRA-SMOOTH SLEW ACCELERATION CONTROLLER =================
+_current_m1 = 0.0
+_current_m2 = 0.0
+
+def smooth_motors(target_m1, target_m2, max_step=1.8):
+    """
+    Slew-rate limiter from 0% to 30%:
+    Smoothly ramps motor speed without sudden jolts or loss of wheel traction.
+    """
+    global _current_m1, _current_m2
+    
+    target_m1 = max(-30.0, min(30.0, target_m1))
+    target_m2 = max(-30.0, min(30.0, target_m2))
+    
+    # Smooth ramp M1
+    if _current_m1 < target_m1:
+        _current_m1 = min(target_m1, _current_m1 + max_step)
+    elif _current_m1 > target_m1:
+        _current_m1 = max(target_m1, _current_m1 - max_step)
+        
+    # Smooth ramp M2
+    if _current_m2 < target_m2:
+        _current_m2 = min(target_m2, _current_m2 + max_step)
+    elif _current_m2 > target_m2:
+        _current_m2 = max(target_m2, _current_m2 - max_step)
+        
+    _raw_m1(abs(_current_m1), fwd=(_current_m1 >= 0))
+    _raw_m2(abs(_current_m2), fwd=(_current_m2 >= 0))
+
+def stop_smooth():
+    global _current_m1, _current_m2
+    for _ in range(12):
+        smooth_motors(0, 0, max_step=4.0)
+        time.sleep_ms(15)
+    _raw_m1(0); _raw_m2(0)
+    _current_m1 = 0.0; _current_m2 = 0.0
+
+
+# ================= 3. I2C SENSORS (COMPASS & THERMAL CAMERA) =================
+class _TitanQMC5883L:
+    def __init__(self, addr=0x0D):
+        self.addr = addr
+        self.i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=100000, timeout=1000)
+        self.x = 0; self.y = 0; self.z = 0
+        self.heading = 0.0
+        self.direction = "N"
+        self.temp = 25.0
+        self._h_buf = [0.0, 0.0, 0.0]
+        self.init_sensor()
+
+    def _w(self, reg, val):
+        try: self.i2c.writeto_mem(self.addr, reg, bytearray([val]))
+        except Exception: pass
+
+    def _r(self, reg, n=1):
+        try: return self.i2c.readfrom_mem(self.addr, reg, n)
+        except Exception: pass
+        return bytearray(n)
+
+    def init_sensor(self):
+        self._w(0x0A, 0x80)
+        time.sleep_ms(20)
+        self._w(0x0B, 0x01)
+        self._w(0x09, 0x1D)
+
+    def update(self):
+        data = self._r(0x00, 6)
+        if len(data) == 6:
+            raw_x, raw_y, raw_z = struct.unpack('<hhh', data)
+            self.x = raw_x; self.y = raw_y; self.z = raw_z
+            rad = math.atan2(self.y, self.x)
+            deg = math.degrees(rad)
+            if deg < 0: deg += 360.0
+            
+            # 3-sample median filter
+            self._h_buf.pop(0)
+            self._h_buf.append(deg)
+            sorted_h = sorted(self._h_buf)
+            self.heading = round(sorted_h[1], 1)
+            
+            dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+            idx = int((self.heading + 22.5) / 45.0) % 8
+            self.direction = dirs[idx]
+        return self.heading
+
+
+class _TitanAMG8833:
+    def __init__(self, addr=0x69):
+        self.addr = addr
+        self.i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=100000, timeout=1000)
+        self.pixels = [25.0] * 64
+        self.thermistor = 25.0
+        self.max_temp = 25.0
+        self.min_temp = 25.0
+        self.avg_temp = 25.0
+        self.init_sensor()
+
+    def _w(self, reg, val):
+        try: self.i2c.writeto_mem(self.addr, reg, bytearray([val]))
+        except Exception: pass
+
+    def _r(self, reg, n=1):
+        try: return self.i2c.readfrom_mem(self.addr, reg, n)
+        except Exception: pass
+        return bytearray(n)
+
+    def init_sensor(self):
+        self._w(0x00, 0x00)
+        self._w(0x01, 0x3F)
+        self._w(0x02, 0x00)
+        time.sleep_ms(50)
+
+    def update(self):
+        data = self._r(0x80, 128)
+        if len(data) == 128:
+            new_pixels = []
+            for i in range(64):
+                raw = (data[2*i + 1] << 8) | data[2*i]
+                if raw & 0x800: raw -= 0x1000
+                new_pixels.append(round(raw * 0.25, 1))
+            self.pixels = new_pixels
+            self.max_temp = max(self.pixels)
+            self.min_temp = min(self.pixels)
+            self.avg_temp = round(sum(self.pixels) / 64.0, 1)
+        return self.max_temp
+
+compass = _TitanQMC5883L()
+thermal = _TitanAMG8833()
+
+
+# ================= 4. INTELLIGENT ADAPTIVE PID CONTROLLER =================
+class ContinuousHeadingPID:
+    def __init__(self, kp=0.65, ki=0.012, kd=0.28):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.last_time = time.ticks_ms()
+
+    def reset(self):
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.last_time = time.ticks_ms()
+
+    def compute(self, target, current):
+        now = time.ticks_ms()
+        dt = time.ticks_diff(now, self.last_time) / 1000.0
+        if dt <= 0.001: dt = 0.02
+        self.last_time = now
+
+        # Shortest circular error (-180 to +180)
+        error = (target - current + 180) % 360 - 180
+
+        # Anti-windup integral
+        if abs(error) < 18.0:
+            self.integral += error * dt
+            self.integral = max(-6.0, min(6.0, self.integral))
+        else:
+            self.integral = 0.0
+
+        # Derivative on error rate
+        d_error = (error - self.prev_error) / dt
+        self.prev_error = error
+
+        pid_out = (self.kp * error) + (self.ki * self.integral) + (self.kd * d_error)
+        return error, pid_out
+
+align_pid = ContinuousHeadingPID(kp=0.50, ki=0.010, kd=0.22)
+cruise_pid = ContinuousHeadingPID(kp=0.60, ki=0.012, kd=0.26)
+
+
+# ================= 5. EMBEDDED REAL-TIME WEB SERVER =================
+HTML_PAGE = """<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LOF TITAN Security Rover</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #070a12; color: #f8fafc; margin: 0; padding: 14px; text-align: center; }
+    .card { background: #111827; border-radius: 20px; padding: 18px; margin: 10px auto; max-width: 450px; border: 1px solid #1f2937; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.8); }
+    h1 { font-size: 1.25rem; color: #38bdf8; margin: 0 0 10px; font-weight: 800; }
+    .status-badge { display: inline-block; padding: 5px 14px; border-radius: 9999px; font-weight: 700; font-size: 11px; margin-bottom: 14px; letter-spacing: 0.5px; }
+    .badge-ok { background: #064e3b; color: #34d399; border: 1px solid #059669; }
+    .badge-alarm { background: #881337; color: #fda4af; border: 1px solid #e11d48; animation: pulse 0.7s infinite alternate; }
+    @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+    
+    .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; background: #0b1120; padding: 10px; border-radius: 14px; border: 1px solid #1f2937; }
+    .pixel { aspect-ratio: 1; border-radius: 4px; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #ffffff; text-shadow: 0 1px 2px #000000; }
+    
+    .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .nav-box { background: #1f2937; border: 1px solid #374151; border-radius: 14px; padding: 10px; }
+    .nav-label { font-size: 10px; color: #9ca3af; font-family: monospace; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .nav-val { font-size: 14px; font-family: monospace; font-weight: 900; }
+    .cur-val { color: #38bdf8; }
+    .tgt-val { color: #fbbf24; }
+    
+    .stats-bar { display: flex; justify-content: space-around; margin-top: 12px; font-family: monospace; font-size: 11px; color: #94a3b8; background: #0b1120; padding: 8px; border-radius: 12px; border: 1px solid #1f2937; }
+    .stat-num { font-size: 13px; font-weight: 800; color: #f59e0b; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛡️ LOF TITAN Security Rover</h1>
+    <div id="status" class="status-badge badge-ok">CONTINUOUS PID LOCK ACTIVE (+/-2°)</div>
+    
+    <div class="grid" id="heatmap"></div>
+
+    <div class="nav-grid">
+      <div class="nav-box">
+        <div class="nav-label">🧭 Current Heading</div>
+        <div class="nav-val cur-val" id="curHeading">--° (--)</div>
+      </div>
+      <div class="nav-box">
+        <div class="nav-label">🎯 Targeted Heading</div>
+        <div class="nav-val tgt-val" id="tgtHeading">--° (--)</div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div>Max Temp<div class="stat-num" id="maxTemp">-- °C</div></div>
+      <div>Time Left<div class="stat-num" id="timer">20.0s</div></div>
+      <div>Speed Range<div class="stat-num">0% - 30%</div></div>
+    </div>
+  </div>
+
+  <script>
+    function tempToColor(t) {
+      const norm = Math.max(0, Math.min(1, (t - 22) / (35 - 22)));
+      const hue = (1 - norm) * 240;
+      return \`hsl(\${hue}, 95%, 48%)\`;
+    }
+
+    async function fetchTelemetry() {
+      try {
+        const res = await fetch('/data?t=' + Date.now(), { cache: 'no-store' });
+        const d = await res.json();
+        
+        const grid = document.getElementById('heatmap');
+        grid.innerHTML = '';
+        d.pixels.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'pixel';
+          div.style.backgroundColor = tempToColor(p);
+          div.innerText = p.toFixed(0);
+          grid.appendChild(div);
+        });
+
+        document.getElementById('curHeading').innerText = d.cur_angle.toFixed(1) + '° (' + d.cur_dir + ')';
+        document.getElementById('tgtHeading').innerText = d.tgt_angle.toFixed(1) + '° (' + d.tgt_dir + ')';
+        document.getElementById('maxTemp').innerText = d.max.toFixed(1) + ' °C';
+        document.getElementById('timer').innerText = d.time_left.toFixed(1) + 's';
+
+        const st = document.getElementById('status');
+        if (d.alarm) {
+          st.className = 'status-badge badge-alarm';
+          st.innerText = '🚨 HEAT INTRUSION DETECTED (>30°C)';
+        } else {
+          st.className = 'status-badge badge-ok';
+          st.innerText = '✅ ADVANCING TOWARDS ' + d.tgt_dir + ' (' + d.tgt_angle.toFixed(0) + '°)';
+        }
+      } catch(e) {}
+    }
+    setInterval(fetchTelemetry, 300);
+    fetchTelemetry();
+  </script>
+</body>
+</html>"""
+
+def start_wifi_ap():
+    ap = network.WLAN(network.AP_IF)
+    ap.active(True)
+    ap.config(essid="TITAN_SECURITY_ROVER", password="12345678", authmode=network.AUTH_WPA_WPA2_PSK)
+    print("[WIFI AP READY] SSID: TITAN_SECURITY_ROVER | IP:", ap.ifconfig()[0])
+    return ap
+
+def process_web_requests(s_sock, mission_state):
+    thermal.update()
+    compass.update()
+    if not s_sock: return
+    try:
+        r, _, _ = select.select([s_sock], [], [], 0)
+        if r:
+            client, addr = s_sock.accept()
+            client.settimeout(0.5)
+            req = client.recv(512).decode('utf-8', 'ignore')
+            
+            if "GET /data" in req:
+                payload = ujson.dumps({
+                    "max": thermal.max_temp,
+                    "min": thermal.min_temp,
+                    "avg": thermal.avg_temp,
+                    "cur_angle": compass.heading,
+                    "cur_dir": compass.direction,
+                    "tgt_angle": mission_state.get("target_angle", 0.0),
+                    "tgt_dir": mission_state.get("target_dir", "NORTH"),
+                    "time_left": mission_state.get("time_left", 20.0),
+                    "alarm": mission_state.get("alarm", False),
+                    "pixels": thermal.pixels
+                })
+                resp = "HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nCache-Control: no-cache, no-store, must-revalidate\\r\\nConnection: close\\r\\n\\r\\n" + payload
+                client.sendall(resp.encode('utf-8'))
+            else:
+                resp = "HTTP/1.1 200 OK\\r\\nContent-Type: text/html\\r\\nCache-Control: no-cache, no-store, must-revalidate\\r\\nConnection: close\\r\\n\\r\\n" + HTML_PAGE
+                client.sendall(resp.encode('utf-8'))
+            client.close()
+    except Exception:
+        pass
+
+
+# ================= 6. CONTINUOUS-ALIGNMENT PATROL MISSION =================
+
+def intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=None, mission_state=None):
+    """
+    Smoothly pivots the rover to the target heading using intelligent PID
+    with smooth acceleration and deceleration between 0% and 30%.
+    """
+    target_dir_name = "NORTH" if (target_heading < 90 or target_heading > 270) else "SOUTH"
+    mission_state["target_angle"] = target_heading
+    mission_state["target_dir"] = target_dir_name
+
+    print(f"\\n[PID PIVOT] Aligning to {target_dir_name} ({target_heading}°) | Tolerance: +/-{tolerance}°...")
+    align_pid.reset()
+    stable_count = 0
+
+    while True:
+        process_web_requests(server_socket, mission_state)
+        curr = compass.heading
+        error, pid_cmd = align_pid.compute(target_heading, curr)
+
+        # Within tolerance check
+        if abs(error) <= tolerance:
+            smooth_motors(0, 0, max_step=3.0)
+            stable_count += 1
+            if stable_count >= 5: # Steady for ~100ms
+                stop_smooth()
+                print(f"[PID LOCKED] Steady at {curr:.1f}° ({compass.direction}) | Error: {error:+.1f}° ✅")
+                break
+        else:
+            stable_count = 0
+            
+            # Smoothly map PID output into 0% - 30% range
+            abs_err = abs(error)
+            if abs_err > 45.0:
+                speed = 28.0
+            elif abs_err > 15.0:
+                speed = 24.0
+            else:
+                speed = max(18.0, min(23.0, 16.0 + abs_err * 0.4))
+            
+            # Direct negative feedback turn towards target
+            if error > 0:
+                smooth_motors(target_m1=-speed, target_m2=speed, max_step=1.8)
+            else:
+                smooth_motors(target_m1=speed, target_m2=-speed, max_step=1.8)
+
+        time.sleep_ms(20)
+
+
+def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, mission_state=None):
+    """
+    Advances towards target_heading for 20 active seconds while CONTINUOUSLY
+    adjusting steering via PID so heading remains strictly within +/-2° throughout.
+    """
+    mission_state["target_angle"] = target_heading
+    mission_state["target_dir"] = target_name
+    elapsed_active_time = 0.0
+    last_tick = time.ticks_ms()
+
+    # 1. Initial pivot alignment to target heading
+    intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+
+    cruise_pid.reset()
+    base_forward_speed = 25.0 # Center speed (0% to 30% envelope)
+
+    print(f"\\n[PATROL START] Advancing towards {target_name} ({target_heading}°) for {duration_sec}s with continuous PID lock...")
+
+    while elapsed_active_time < duration_sec:
+        now = time.ticks_ms()
+        dt = time.ticks_diff(now, last_tick) / 1000.0
+        last_tick = now
+
+        process_web_requests(s_sock, mission_state)
+        max_t = thermal.max_temp
+        curr_h = compass.heading
+
+        # Heat Intrusion Alarm (> 30°C)
+        if max_t > 30.0:
+            mission_state["alarm"] = True
+            stop_smooth()
+            set_buzzer(True)
+            print(f"🚨 [HEAT ALARM] {max_t:.1f}°C detected (>30°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
+            
+            while True:
+                process_web_requests(s_sock, mission_state)
+                if thermal.max_temp <= 30.0:
+                    break
+                time.sleep_ms(20)
+
+            set_buzzer(False)
+            mission_state["alarm"] = False
+            print(f"✅ [HEAT CLEARED] Temp: {thermal.max_temp:.1f}°C. Re-aligning & Resuming...")
+            intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+            cruise_pid.reset()
+            last_tick = time.ticks_ms()
+            continue
+
+        # Active driving timer accumulation
+        elapsed_active_time += dt
+        mission_state["time_left"] = max(0.0, duration_sec - elapsed_active_time)
+
+        # Telemetry to Serial Monitor
+        if int(elapsed_active_time * 4) % 4 == 0:
+            print(f"[PATROL LOCK] {target_name} ({target_heading}°) | Current: {curr_h:.1f}° ({compass.direction}) | Heat: {max_t:.1f}°C | Left: {mission_state['time_left']:.1f}s")
+
+        # CONTINUOUS PID ALIGNMENT THROUGHOUT THE 20 SECONDS:
+        error, corr = cruise_pid.compute(target_heading, curr_h)
+
+        if abs(error) <= 2.0:
+            # Perfectly aligned within +/-2° limit: cruise smoothly straight
+            smooth_motors(target_m1=base_forward_speed, target_m2=base_forward_speed, max_step=1.5)
+        elif abs(error) <= 12.0:
+            # Small drift (> 2°): continuous differential steering correction within 0-30%
+            corr_clamped = max(-6.0, min(6.0, corr))
+            m1_cmd = max(0.0, min(30.0, base_forward_speed - corr_clamped))
+            m2_cmd = max(0.0, min(30.0, base_forward_speed + corr_clamped))
+            smooth_motors(target_m1=m1_cmd, target_m2=m2_cmd, max_step=1.5)
+        else:
+            # Significant drift (> 12°): actively steer in place to bring back to target angle
+            turn_speed = 22.0
+            if error > 0:
+                smooth_motors(target_m1=-turn_speed, target_m2=turn_speed, max_step=2.0)
+            else:
+                smooth_motors(target_m1=turn_speed, target_m2=-turn_speed, max_step=2.0)
+
+        time.sleep_ms(20)
+
+    stop_smooth()
+    print(f"[PATROL LEG COMPLETE] Finished 20 seconds advancing {target_name}!")
+
+
+# ================= 7. MAIN MISSION ENTRY =================
+def main():
+    print("==================================================")
+    print("🚀 LOF TITAN Continuous-PID Security Rover Ready")
+    print("⚡ Speed Range: 0% to 30% | Heading Lock: +/-2.0°")
+    print("==================================================")
+
+    start_wifi_ap()
+    s_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s_sock.bind(('0.0.0.0', 80))
+    s_sock.listen(5)
+    s_sock.setblocking(False)
+
+    mission_state = {
+        "target_angle": 0.0,
+        "target_dir": "NORTH",
+        "time_left": 20.0,
+        "alarm": False
+    }
+
+    set_buzzer(True); time.sleep_ms(80); set_buzzer(False)
+
+    try:
+        while True:
+            # 1. Patrol NORTH (0°) for 20 active seconds with continuous alignment
+            run_patrol_leg(target_heading=0.0, target_name="NORTH", duration_sec=20.0, s_sock=s_sock, mission_state=mission_state)
+            
+            # 2. Pivot 180° to SOUTH (180°)
+            intelligent_align_to_heading(target_heading=180.0, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+
+            # 3. Patrol SOUTH (180°) for 20 active seconds with continuous alignment
+            run_patrol_leg(target_heading=180.0, target_name="SOUTH", duration_sec=20.0, s_sock=s_sock, mission_state=mission_state)
+
+            # 4. Pivot 180° back to NORTH (0°)
+            intelligent_align_to_heading(target_heading=0.0, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+
+            time.sleep_ms(5)
+    except KeyboardInterrupt:
+        stop_smooth()
+        set_buzzer(False)
+        print("[ROVER STOPPED BY OPERATOR]")
+
+if __name__ == '__main__':
+    main()
+`,
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials) and assembly[]
+    // steps. Deliberately absent rather than guessed - the detail page
+    // hides any section with no data and renumbers the rest, so this
+    // renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'star-spectrum-decoder',
+    name: 'Star Spectrum Decoder',
+    category: 'Light & Spectrum Analysis',
+    badge: 'DIY Spectrum Kit',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-cosmic',
+    thumbnail: 'lof-titan/banners/banner-cosmic',
+    tagline: 'Multi-Channel Light Sensing & Spectrum Comparison',
+    description:
+      'Builds understanding of multi-channel light sensing and spectrum analysis using the AS7341 sensor, RGB light sources, and visual graphs to compare different light patterns, adding complexity through light-data interpretation and comparison.',
+
+    specs: [
+      { label: 'SENSORS', value: 'AS7341 Spectral Colour Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Use the screwdriver carefully while fitting the screws. Avoid excessive force that could crack the 3D-printed parts.',
+        '⚠️ Use the correct screw at each mounting point to prevent damage to the PCB or internal components.',
+        '⚠️ Route the OLED, sensor, LED, and RMC cables neatly so they are not pinched, sharply bent, or trapped under screws.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the ESP32-S3 before connecting or changing the AS7341 sensor, OLED, LEDs, or RMC cables.',
+        '⚡ Check the battery polarity and rocker-switch wiring before powering the project. Incorrect polarity may damage the PCB or connected modules.',
+        '⚡ Use the adapter only through the designated power or charging connection and keep the Li-ion battery away from heat, water, and conductive objects.',
+        '⚡ Avoid staring at the red, green, blue, yellow, or white LEDs from very close range, especially during repeated spectrum tests.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'as7341-spectral-sensor',
+        shortName: 'AS7341',
+        name: 'AS7341 Spectral Colour Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/star-spectrum-decoder/as7341-spectral-sensor',
+        image: '',
+        pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
+        whatIsIt: 'A multi-channel spectral sensor used to detect and measure different wavelengths of visible light.',
+        howItWorks: 'The AS7341 separates incoming light into different spectral channels. The ESP32-S3 reads these values through I2C communication and uses them to compare the light patterns produced by different sources.'
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: '2.42 Inch OLED Display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/star-spectrum-decoder/oled-display',
+        image: '',
+        pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
+        whatIsIt: 'A compact OLED screen used to display spectral readings, graphs, labels, and comparison results.',
+        howItWorks: 'The ESP32-S3 sends processed spectrum data to the OLED through I2C communication. The OLED activates individual pixels to display the required information.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/star-spectrum-decoder/esp32-s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Star Spectrum Decoder.',
+        howItWorks: 'The ESP32-S3 collects spectral data from the AS7341, processes and compares the readings, controls the LEDs, and sends the results to the OLED display.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the AS7341 showing very similar readings for different coloured LEDs?',
+        a: 'Make sure only one LED is illuminating the sensor at a time and reduce interference from surrounding room light. Keep the LED-to-sensor distance similar for every test so the spectral readings can be compared properly.'
+      },
+      {
+        q: 'Why are the spectrum readings changing even when the same LED is being tested?',
+        a: 'Ambient lighting, shadows, sensor distance and the angle of the light source can affect the readings. Keep the sensor and LED in a fixed position and perform the comparison under consistent lighting conditions.'
+      },
+      {
+        q: 'Why is the OLED not showing the spectral data?',
+        a: 'Check the I2C connections between the ESP32-S3, AS7341 and OLED, especially SDA and SCL. Make sure both I2C devices are detected and receiving power before running the spectrum-analysis program.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'light-password-decoder',
+        level: 'Easy',
+        title: 'Challenge 1: Light Password Decoder',
+        goal: 'Assign different colours to different commands, such as Red = A, Green = B and Blue = C. Flash a sequence of colours from the RGB source. The AS7341 detects the sequence and the ESP32 decodes it into a letter or simple message.',
+        hint: [
+          'Test the decoder with a simple sequence like Red → Green → Blue first, then move to longer password combinations once individual colours are detected reliably.',
+          'Store every detected colour as a code, such as R, G, or B, and decode the message only after the complete colour sequence has been received.'
+        ]
+      },
+      {
+        id: 'spectrum-security-lock',
+        level: 'Intermediate',
+        title: 'Challenge 2: Spectrum Security Lock',
+        goal: 'Use the sliding switch to ARM or DISARM the security system. When armed, the learner shows a coloured light to the AS7341 sensor. The ESP32 checks whether the detected colour matches the stored secret colour key. If correct, access is granted; if incorrect, an alert is activated. Correct colour: the OLED shows ACCESS GRANTED, the LED turns ON and the buzzer gives a short confirmation beep. Wrong colour: the OLED shows ACCESS DENIED and the buzzer gives an alert pattern.',
+        hint: 'Measure the ambient light with the RGB source OFF and use it as a baseline before checking the security colour.'
+      },
+      {
+        id: 'spectrum-rescue-challenge',
+        level: 'Advanced',
+        title: 'Challenge 3: Spectrum Rescue Challenge',
+        goal: 'The Star Spectrum Decoder worked correctly during the original session. Now it has been moved to a location with bright sunlight, changing room lighting, shadows, or coloured ambient light. The AS7341 readings are inconsistent, and the system sometimes identifies or compares light patterns incorrectly. Investigate why the spectral readings have changed and modify the setup and/or program so that the Star Spectrum Decoder gives reliable results even when the surrounding lighting conditions change.',
+        hint: [
+          'If readings become too high or too low, investigate the AS7341\'s gain and measurement/integration settings.',
+          'Try testing the same colour in a bright area and then in a darker area. Compare the spectral values.'
+        ]
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'bluetooth-navigator',
+    name: 'Bluetooth Navigator',
+    category: 'Wireless Control & Navigation',
+    badge: 'DIY Wireless Rover',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-cosmic',
+    thumbnail: 'lof-titan/banners/banner-cosmic',
+    tagline: 'Joystick-Driven Bluetooth Rover Control',
+    description:
+      'Students learn how a joystick module input is converted into a wireless Bluetooth command, which the rover receives and interprets to control the motors and move forward, backward, left, or right.',
+
+    specs: [
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Use the screwdriver carefully while fitting screws. Avoid excessive force that may crack the 3D-printed parts.',
+        '⚠️ Tighten the screws only until the components are firmly secured.',
+        '⚠️ Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is running.',
+        '⚠️ Route the motor and power cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, motor driver, motors, battery, or RMC cables.',
+        '⚡ Check the battery polarity and rocker-switch wiring before powering the system.',
+        '⚡ Use the adapter only through the designated charging or power connection.',
+        '⚡ Avoid shorting the TB6612FNG motor outputs or connecting/disconnecting motors while the rover is powered.',
+        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen or unusually hot.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'pcb-joystick',
+        shortName: 'Joystick',
+        name: 'PCB-Built-in Joystick',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/bluetooth-navigator/pcb-joystick',
+        image: '',
+        pinMapping: 'X-AXIS | Y-AXIS | DIRECTION INPUT',
+        whatIsIt: 'A two-axis control device built into the controller PCB and used to give movement commands to the rover.',
+        howItWorks: 'Moving the joystick changes its X-axis and Y-axis values. The ESP32-S3 interprets these values as forward, backward, left, or right commands and sends the required movement instruction wirelessly.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/bluetooth-navigator/esp32-s3',
+        image: '',
+        pinMapping: 'BLUETOOTH | GPIO | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that manages wireless communication and rover movement.',
+        howItWorks: 'The ESP32-S3 reads or receives the movement command through Bluetooth, interprets the required direction, and sends control signals to the motor driver.'
+      },
+      {
+        id: 'tb6612fng-motor-driver',
+        shortName: 'TB6612FNG',
+        name: 'TB6612FNG Motor Driver',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/bluetooth-navigator/tb6612fng-motor-driver',
+        image: '',
+        pinMapping: 'MOTOR CONTROL INTERFACE',
+        whatIsIt: 'An electronic driver that controls the direction and operation of the rover\'s DC motors.',
+        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver switches the motor outputs accordingly, allowing the motors to rotate forward or backward for different rover movements.'
+      },
+      {
+        id: 'bo-motor',
+        shortName: 'BO Motor',
+        name: 'BO Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/bluetooth-navigator/bo-motor',
+        image: '',
+        pinMapping: '2-PIN RMC MOTOR CONNECTION',
+        whatIsIt: 'A geared DC motor used to drive the rover\'s wheels at a controlled rotational speed.',
+        howItWorks: 'Electrical power supplied through the motor driver rotates the motor shaft. Changing the motor direction and combination of left and right wheel movement allows the rover to move and turn.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the rover not responding when the joystick is moved?',
+        a: 'Check whether the controller and rover have established the required Bluetooth connection. If wireless communication is not active, the joystick commands will not reach the rover.'
+      },
+      {
+        q: 'Why does the rover move in the opposite direction to the joystick command?',
+        a: 'Check the left and right motor connections to the TB6612FNG. Reversed motor wiring can make a wheel rotate in the opposite direction and cause incorrect rover movement.'
+      },
+      {
+        q: 'Why does the Bluetooth connection work but the motors do not move?',
+        a: 'Check that the motor driver and 12V battery are properly connected and that the rocker switch is ON. Also confirm that the TB6612FNG is receiving the required motor-control signals from the ESP32-S3.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'wireless-rover-dance-bot',
+        level: 'Easy',
+        title: 'Challenge 1: Wireless Rover Dance Bot',
+        goal: 'Assign each button a completely different movement routine such as Spin, Zig-Zag, Shake and Circle. Pressing a button wirelessly triggers the complete movement pattern on the rover.',
+        hint: [
+          'Store each dance move as a separate function such as spin(), zigZag(), shake(), and circle() so the code is easier to test and modify.',
+          'Use different motor directions for each routine—for example, left motors forward + right motors backward can create a spin.',
+          'For Zig-Zag and Shake movements, use short timed left-right motor changes instead of long delays so the rover stays controlled.',
+          'Make the rover stop both motors at the end of every dance routine before waiting for the next Bluetooth command.'
+        ]
+      },
+      {
+        id: 'wireless-route-memory-rover',
+        level: 'Intermediate',
+        title: 'Challenge 2: Wireless Route Memory Rover',
+        goal: 'Create a rover where the learner first enters a sequence of movements using the controller, such as Forward → Forward → Left → Forward → Right. The transmitter ESP32 sends the commands wirelessly to the rover. Instead of moving immediately, the rover ESP32 stores the commands in memory. When the learner gives the PLAY command using the joystick/button, the rover automatically performs the complete stored route in the same order.',
+        hint: [
+          'Give each stored movement a fixed duration, such as Forward = 1 second and Turn = 500 ms, so the rover can reproduce the route consistently.',
+          'Ignore new movement commands while the rover is playing back a stored route, then return to recording mode after playback finishes.'
+        ]
+      },
+      {
+        id: 'precision-joystick-parking',
+        level: 'Advanced',
+        title: 'Challenge 3: Precision Joystick Parking',
+        goal: 'Program the joystick so the rover moves slowly when the stick is only slightly tilted. Students use this fine-control mode to park the rover accurately inside a marked zone.',
+        hint: [
+          'Measure the joystick values when it is released at the centre, then create a small range around those values where the motor speed stays at 0. This prevents the rover from moving because of small joystick fluctuations.',
+          'For precise parking, limit the minimum movement speed so a slight joystick tilt makes the rover crawl slowly rather than suddenly accelerating.',
+          'When the joystick returns to the dead zone, immediately set both motor PWM values to 0 so the rover stops exactly where the learner wants.'
+        ]
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'lost-bots-navigation',
+    name: 'Lost Bot\'s Navigation',
+    category: 'Autonomous Navigation & Obstacle Avoidance',
+    badge: 'DIY Autonomous Rover',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-heatseek-diy',
+    thumbnail: 'lof-titan/banners/banner-heatseek-diy',
+    tagline: 'ToF Distance Sensing & Autonomous Path Selection',
+    description:
+      'Applies distance sensing and safety-limit comparison to detect obstacles and automatically slow down, stop, reverse, or turn, increasing complexity through autonomous navigation and safer path selection.',
+
+    specs: [
+      { label: 'SENSORS', value: 'VL53L0X TOF-BASED LIDAR Laser Distance Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Use the screwdriver carefully while fitting screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
+        '⚠️ Tighten the screws only until the components are securely fixed.',
+        '⚠️ Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is moving.',
+        '⚠️ Route motor and sensor cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, VL53L0X sensor, motor driver, motors, or RMC cables.',
+        '⚡ Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
+        '⚡ Use the adapter only through the designated power or charging connection.',
+        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while power is ON.',
+        '⚡ Keep the VL53L0X sensing window clean and unobstructed, and avoid viewing the sensor emitter from extremely close range during operation.',
+        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'vl53l0x-tof-sensor',
+        shortName: 'VL53L0X',
+        name: 'VL53L0X ToF Laser Distance Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lost-bots-navigation/vl53l0x-tof-sensor',
+        image: '',
+        pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
+        whatIsIt: 'A compact distance sensor used to measure how far an object or obstacle is from the rover.',
+        howItWorks: 'The VL53L0X uses Time-of-Flight technology to send infrared light towards an object and measure the time taken for the reflected light to return. The ESP32-S3 uses this distance information to make navigation decisions.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lost-bots-navigation/esp32-s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the autonomous rover.',
+        howItWorks: 'The ESP32-S3 reads distance data from the VL53L0X, compares it with programmed safety limits, and decides whether the rover should continue, slow down, stop, reverse, or turn.'
+      },
+      {
+        id: 'tb6612fng-motor-driver',
+        shortName: 'TB6612FNG',
+        name: 'TB6612FNG Motor Driver',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lost-bots-navigation/tb6612fng-motor-driver',
+        image: '',
+        pinMapping: 'MOTOR CONTROL INTERFACE',
+        whatIsIt: 'An electronic driver that controls the direction and movement of the rover’s DC motors.',
+        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can move forward, reverse, stop, or turn during obstacle avoidance.'
+      },
+      {
+        id: 'bo-motor',
+        shortName: 'BO Motor',
+        name: 'BO Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lost-bots-navigation/bo-motor',
+        image: '',
+        pinMapping: '2-PIN RMC MOTOR CONNECTION',
+        whatIsIt: 'A geared DC motor used to drive the wheels of the rover.',
+        howItWorks: 'Electrical power from the motor driver rotates the motor shaft. By controlling the direction of the left and right motors, the rover can move and change its path.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the rover not detecting an obstacle in front of it?',
+        a: 'Check that the VL53L0X sensing window is clean and facing directly towards the path ahead. Make sure no part of the rover body or loose cable is blocking the sensor.'
+      },
+      {
+        q: 'Why does the rover stop or turn even when there is no nearby obstacle?',
+        a: 'Nearby surfaces, highly reflective objects, or an incorrect distance threshold can affect the measurement. Test the rover in a clear area and check whether the programmed safety distance is appropriate.'
+      },
+      {
+        q: 'Why does the sensor detect the obstacle but the rover does not stop?',
+        a: 'Check whether the ESP32-S3 is correctly comparing the measured distance with the programmed limit. Also verify the TB6612FNG and motor connections, since the sensor may be working even if the motor-control response is not.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'contactless-led-switch',
+        level: 'Easy',
+        title: 'Challenge 1: Contactless LED Switch',
+        goal: 'Use hand distance as a contactless switch. Bring the hand close to turn the Red LED ON; move it farther away to turn the Green LED ON.',
+        hint: [
+          'Take a few consecutive distance readings before changing the LED state so one unstable reading does not cause flickering.',
+          'If the VL53L1X returns an invalid or out-of-range value, keep both LEDs OFF instead of treating it as a valid gesture.'
+        ]
+      },
+      {
+        id: 'distance-controlled-speed-rover',
+        level: 'Intermediate',
+        title: 'Challenge 2: Distance-Controlled Speed Rover',
+        goal: 'Use the measured distance to continuously control motor speed. Far object → rover moves fast; medium distance → slower; close object → very slow; minimum distance → stop.',
+        hint: [
+          'Instead of changing motor speed suddenly, reduce the PWM gradually as the measured distance decreases to make the rover move more smoothly.',
+          'Keep a minimum safe distance where the motor PWM becomes 0 so the rover stops before reaching the object.',
+          'Take a few distance readings and use the average value before updating motor speed to prevent sudden speed changes caused by one unstable reading.'
+        ]
+      },
+      {
+        id: 'bright-outdoor-navigation',
+        level: 'Advanced',
+        title: 'Challenge 3: Bright Outdoor Navigation Challenge',
+        goal: 'Move the rover from the indoor lab to a terrace, sunlit corridor, or area under very strong lighting. Modify the sensor placement, measurement settings, filtering, and safety thresholds so the rover can continue detecting obstacles reliably.',
+        hint: [
+          'Add a small shade or hood around the sensor to reduce direct sunlight reaching it, but make sure the sensor’s front sensing area is not blocked.',
+          'Test with the same obstacle, distance, and sensor angle indoors and outdoors so you can accurately compare the effect of bright ambient light.'
+        ]
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'cosmic-pulse-tracker',
+    name: 'Cosmic Pulse Tracker',
+    category: 'Wireless Signal & Feedback Systems',
+    badge: 'DIY Signal Kit',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-cosmic',
+    thumbnail: 'lof-titan/banners/banner-cosmic',
+    tagline: 'Wireless Signal Strength Tracking & Feedback',
+    description:
+      'Introduces wireless signal transmission, signal-strength comparison, and feedback systems using an OLED, LEDs, and a buzzer to locate the strongest signal source, making it a suitable introductory project.',
+
+    specs: [
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Use the screwdriver carefully and keep fingers away from the tip while tightening screws.',
+        '⚠️ Tighten the screws only until the parts are firmly secured; excessive force may damage mounting points.',
+        '⚠️ Use the correct screw length at each mounting position to prevent screws from touching or damaging internal electronic parts.',
+        '⚠️ Route the 2-pin and 4-pin RMC cables so they are not pinched, trapped under screws, sharply bent, or pulled during assembly.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the ESP32-S3 before making or changing any electrical connection, and verify the OLED and RMC cable connections before powering the system.',
+        '⚡ Check the polarity of the 9V Li-ion battery and rocker-switch wiring before turning the system ON.',
+        '⚡ Use the adapter only through the designated power or charging connection.',
+        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and exposed metal parts that could short its terminals.',
+        '⚡ Stop using the battery if it becomes swollen, damaged, leaking, or unusually hot.',
+        '⚡ Insert the USB Type-C connector gently and use only a suitable USB power/programming source for the ESP32-S3.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: '1.3 Inch OLED Display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/cosmic-pulse-tracker/oled-display',
+        image: '',
+        pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
+        whatIsIt: 'A compact OLED screen used to display text, symbols, system status, and other project feedback.',
+        howItWorks: 'The ESP32-S3 sends information to the OLED through I2C communication. The OLED activates individual pixels to display the programmed information.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/cosmic-pulse-tracker/esp32-s3',
+        image: '',
+        pinMapping: 'USB TYPE-C | GPIO | I2C',
+        whatIsIt: 'A programmable microcontroller that acts as the main brain of the project.',
+        howItWorks: 'It executes the uploaded program, processes input signals, communicates with connected modules, and controls the project\'s outputs according to the programmed logic.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why does the wireless signal strength keep changing even when the transmitter is kept in the same place?',
+        a: 'Nearby walls, objects, people, or other wireless devices can affect the received signal strength. Test in an open area and keep the transmitter and receiver orientation consistent to get more stable readings.'
+      },
+      {
+        q: 'Why is the OLED not showing the signal strength correctly?',
+        a: 'Check the OLED connections and confirm that the ESP32 is receiving the wireless signal before displaying the result. If the signal is weak or unstable, move the transmitter closer and test again.'
+      },
+      {
+        q: 'Why are the LED and buzzer not responding to the strongest signal?',
+        a: 'Make sure the received signal strength is being compared correctly in the program. Move the receiver towards and away from the transmitter and check whether the LED and buzzer feedback changes as the signal becomes stronger or weaker.'
+      },
+      {
+        q: 'Why is the receiver not detecting the wireless signal?',
+        a: 'Check that the transmitter and receiver are using the same communication settings and device pairing details. If the settings do not match, the receiver will not recognise the incoming signal even when both devices are powered correctly.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'smart-countdown-alert-timer',
+        level: 'Easy',
+        title: 'Challenge 1: Smart Countdown & Alert Timer',
+        goal: 'Create a countdown system where the OLED displays the remaining time, the LED changes its blinking pattern as time reduces, and the buzzer gives a final alert when the timer reaches zero.',
+        hint: [
+          'Use millis() for timing — instead of using long delay() functions, compare the current millis() value with the previous time. This allows the OLED, LED and buzzer to work together without freezing the program.',
+          'Trigger the final buzzer only once — when the countdown reaches zero, use a flag such as alertPlayed so the final buzzer does not restart continuously inside the loop.'
+        ]
+      },
+      {
+        id: 'wireless-message-board',
+        level: 'Intermediate',
+        title: 'Challenge 2: Wireless Message Board',
+        goal: 'Enter a short message from the laptop/PC through the Serial Monitor connected to the transmitter ESP32. The transmitter sends the entered text wirelessly to the receiver ESP32. The receiver reads the incoming data and displays the complete message on the OLED, creating a simple wireless digital message board.',
+        hint: [
+          'Use the [OLED clear screen] before printing a new message so the previous text does not remain on the display.',
+          'Add an end-of-message marker — send a special character such as # after every message so the receiver knows when the complete message has arrived. Example: HELLO#.'
+        ]
+      },
+      {
+        id: 'multi-floor-signal-hunt',
+        level: 'Advanced',
+        title: 'Challenge 3: Multi-Floor Signal Hunt',
+        goal: 'Record and compare signal-strength readings at different locations and determine how building structures affect wireless communication. Then modify the tracker so its feedback remains useful in this larger environment.',
+        hint: [
+          'Use separate threshold ranges for Strong, Medium, Weak, and Signal Lost based on the readings collected across the building.',
+          'If the OLED/LED/buzzer keeps changing rapidly between states, require several similar RSSI readings before updating the feedback.'
+        ]
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
+  {
+    id: 'stability-scout',
+    name: 'Stability Scout',
+    category: 'Stability Sensing & Terrain Response',
+    badge: 'DIY Stability Rover',
+    // rating / reviews / duration / difficulty / age are NOT set: they were not
+    // supplied with the content. The dashboard card falls back to sane defaults,
+    // but until difficulty and duration are real this kit will not appear under
+    // those filter facets. Set them when the content team confirms.
+    heroImage: 'lof-titan/banners/banner-aquanova-diy',
+    thumbnail: 'lof-titan/banners/banner-aquanova-diy',
+    tagline: 'Tilt Sensing, Terrain Thresholds & Adaptive Speed Control',
+    description:
+      'Combines MPU6050-based stability sensing, terrain-condition thresholds, IR obstacle detection, and motor speed control, allowing the rover to move normally, slow down, or stop safely based on movement and surrounding conditions.',
+
+    specs: [
+      { label: 'SENSORS', value: 'MPU6050 Gyroscope Sensor, IR Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    // Safety Warnings
+    safetyWarnings: {
+      hardware: [
+        '⚠️ Use the screwdriver carefully while fitting the screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
+        '⚠️ Tighten the screws only until the parts are firmly secured.',
+        '⚠️ Keep fingers, hair, loose wires, and other objects away from the wheels and rotating motor shafts while the rover is moving.',
+        '⚠️ Route the motor and sensor cables neatly so they are not caught near the wheels, pulled during movement, or trapped under screws.',
+        '⚠️ Make sure the MPU6050 is mounted firmly so that loose movement does not affect stability measurements.'
+      ],
+      electronics: [
+        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, MPU6050, IR sensor, motor driver, motors, or RMC cables.',
+        '⚡ Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
+        '⚡ Use the charger/adapter only through the designated charging or power connection.',
+        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the rover is powered.',
+        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
+      ]
+    },
+
+    // Component Labs. Images pending - a component with an empty image renders
+    // with the visual column hidden in production and a dev-only placeholder.
+    components: [
+      {
+        id: 'mpu6050-gyroscope',
+        shortName: 'MPU6050',
+        name: 'MPU6050 Gyroscope Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/stability-scout/mpu6050-gyroscope',
+        image: '',
+        pinMapping: 'I2C | MOTION & TILT SENSING',
+        whatIsIt: 'A motion sensor that measures acceleration and rotational movement to help determine the rover’s tilt and stability.',
+        howItWorks: 'The MPU6050 measures changes in orientation and movement. The ESP32-S3 reads this data and compares it with programmed stability limits to decide whether the rover should move normally, slow down, or stop.'
+      },
+      {
+        id: 'ir-obstacle-sensor',
+        shortName: 'IR Sensor',
+        name: 'IR Obstacle Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/stability-scout/ir-obstacle-sensor',
+        image: '',
+        pinMapping: '3-PIN RMC CONNECTION',
+        whatIsIt: 'A proximity sensor used to detect obstacles in the rover’s path.',
+        howItWorks: 'The sensor emits infrared light and detects the reflected light from nearby objects. The ESP32-S3 uses the sensor output to decide when the rover should stop or respond to an obstacle.'
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/stability-scout/esp32-s3',
+        image: '',
+        pinMapping: 'GPIO | I2C | USB TYPE-C',
+        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Stability Scout.',
+        howItWorks: 'The ESP32-S3 reads stability data from the MPU6050 and obstacle information from the IR sensor. It compares these inputs with programmed thresholds and controls the rover’s motor speed and movement.'
+      },
+      {
+        id: 'tb6612fng-motor-driver',
+        shortName: 'TB6612FNG',
+        name: 'TB6612FNG Motor Driver',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/stability-scout/tb6612fng-motor-driver',
+        image: '',
+        pinMapping: 'MOTOR CONTROL INTERFACE',
+        whatIsIt: 'An electronic motor driver used to control the speed and direction of the rover’s geared motors.',
+        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can maintain normal speed, reduce speed, stop, or change movement when required.'
+      },
+      {
+        id: 'bo-metal-geared-motor',
+        shortName: 'BO Metal Motor',
+        name: 'BO Metal Geared Motor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/stability-scout/bo-metal-geared-motor',
+        image: '',
+        pinMapping: '2-PIN RMC MOTOR CONNECTION',
+        whatIsIt: 'A compact DC motor with a metal gearbox that provides controlled rotational speed and higher torque for driving the rover wheels.',
+        howItWorks: 'Electrical power from the motor driver rotates the motor. The internal metal gears reduce the speed and increase torque, helping the rover move steadily across different surfaces.'
+      }
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why does the rover slow down or stop even when the surface looks almost flat?',
+        a: 'Check that the MPU6050 is mounted firmly and positioned correctly. If the sensor is tilted, loose, or not properly calibrated, the rover may interpret the surface as unstable.'
+      },
+      {
+        q: 'Why is the IR sensor detecting an obstacle when nothing is directly in front of the rover?',
+        a: 'Nearby surfaces, reflective objects, or an incorrectly adjusted detection range may trigger the IR sensor. Reposition the sensor and test it in a clear area.'
+      },
+      {
+        q: 'Why are the stability and obstacle sensors working but the rover does not change speed?',
+        a: 'Check whether the ESP32-S3 is correctly applying the programmed thresholds to the motor-control logic. Also verify the TB6612FNG and motor connections so that the required speed commands can reach the motors.'
+      }
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'motion-disturbance-alarm',
+        level: 'Easy',
+        title: 'Challenge 1: Motion Disturbance Alarm',
+        goal: 'Keep the device stationary and store its initial orientation. If someone moves, tilts or lifts it, the MPU6050 detects the change and activates the buzzer.',
+        hint: 'Allow a small tolerance so tiny vibrations do not trigger the buzzer. Activate the alarm only when the tilt or movement changes beyond the selected limit.'
+      },
+      {
+        id: 'level-surface-challenge',
+        level: 'Intermediate',
+        title: 'Challenge 2: Level-Surface Challenge',
+        goal: 'Place the system on different surfaces. The green LED indicates that it is level; the red LED and buzzer activate when the surface tilts beyond the permitted range.',
+        hint: 'Create a permitted tilt range around the reference value. Keep the green LED ON while the reading stays inside this range, and turn the red LED and buzzer ON when it moves outside the range.'
+      },
+      {
+        id: 'tilt-controlled-speed-rover',
+        level: 'Advanced',
+        title: 'Challenge 3: Tilt-Controlled Speed Rover',
+        goal: 'Use the MPU6050 tilt angle to control rover speed. Flat → Stop, Slight Tilt → Slow, Larger Tilt → Fast.',
+        hint: 'Divide the MPU6050 tilt angle into different ranges and assign a motor speed to each range; for example, Flat → Stop, Small Tilt → Slow, Medium Tilt → Normal, Large Tilt → Fast.'
+      }
+    ],
+
+    // ---------------------------------------------------------------
+    // CONTENT PENDING: requirements[] (bill of materials), assembly[]
+    // steps, and the MicroPython code. Deliberately absent rather than
+    // guessed - the detail page hides any section with no data and
+    // renumbers the rest, so this renders correctly as-is.
+    // ---------------------------------------------------------------
+  },
 ];

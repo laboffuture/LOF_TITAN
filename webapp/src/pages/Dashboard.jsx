@@ -181,12 +181,6 @@ export function Dashboard() {
                     }}
                   />
 
-                  <div className="absolute top-3 left-3">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-950/75 text-cyan-300 border border-cyan-400/40 backdrop-blur-md shadow-sm">
-                      {p.badge || 'DIY Kit'}
-                    </span>
-                  </div>
-
                   <div className="absolute top-3 right-3">
                     {owned ? (
                       <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 backdrop-blur-md">

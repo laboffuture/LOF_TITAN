@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Cpu, X, CheckCircle2, AlertTriangle, Loader2, Sparkles, RefreshCw, Zap } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, Loader2, Sparkles, RefreshCw, Zap } from 'lucide-react';
+import { cld } from '../lib/cld';
+import { asset } from '../lib/asset';
 import { ESPLoader, Transport } from 'esptool-js';
 
 export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
@@ -165,8 +167,14 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-3 bg-gradient-to-r from-purple-900/40 via-blue-900/30 to-surface/40">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white shadow-lg">
-              <Cpu size={24} />
+            <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full overflow-hidden shadow-lg border border-white/20 bg-white flex items-center justify-center">
+              <img
+                src={cld('lof-titan/lof-normal', 192)}
+                alt="LOF TITAN"
+                decoding="async"
+                className="w-full h-full object-contain p-1"
+                onError={(e) => { e.target.src = asset('logo.webp'); }}
+              />
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-heading font-bold text-white flex flex-wrap items-center gap-2">

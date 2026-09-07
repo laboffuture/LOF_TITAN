@@ -19,8 +19,14 @@ export const KITS = [
   { id: 'hydraulic-landing-gear', name: 'Hydraulic Landing Gear', status: 'available' },
   { id: 'rc-plane', name: 'RC Plane', status: 'available' },
   { id: 'terrain-trek', name: 'Terrain Trek', status: 'available' },
-  { id: 'axes3', name: 'Axes 3', status: 'coming-soon' },
-  { id: 'aquanova', name: 'Aqua Nova', status: 'coming-soon' },
+  { id: 'axes3', name: 'Axes 3', status: 'available' },
+  { id: 'aquanova', name: 'AquaNova', status: 'available' },
+  { id: 'magnet-security-rover', name: 'Magnet Security Rover', status: 'available' },
+  { id: 'star-spectrum-decoder', name: 'Star Spectrum Decoder', status: 'available' },
+  { id: 'bluetooth-navigator', name: 'Bluetooth Navigator', status: 'available' },
+  { id: 'lost-bots-navigation', name: 'Lost Bot\'s Navigation', status: 'available' },
+  { id: 'cosmic-pulse-tracker', name: 'Cosmic Pulse Tracker', status: 'available' },
+  { id: 'stability-scout', name: 'Stability Scout', status: 'available' },
 ];
 
 /** Ids of every kit a customer can actually buy and open. */

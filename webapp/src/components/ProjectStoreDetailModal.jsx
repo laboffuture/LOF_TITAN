@@ -381,11 +381,6 @@ export function ProjectStoreDetailModal({
                     e.target.src = cld('lof-titan/banners/banner-invisible-diy');
                   }}
                 />
-                <div className="absolute top-4 left-4">
-                  <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase bg-indigo-600 text-white shadow-sm">
-                    {project.badge || 'Official Kit'}
-                  </span>
-                </div>
               </div>
 
               {/* Title & Metadata */}
@@ -781,9 +776,17 @@ export function ProjectStoreDetailModal({
                       <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{ch.goal || ch.desc}</p>
                     </div>
 
+                    {/* `hint` is a string on most kits, but some challenges ship two
+                        distinct hints. Normalise to an array so both render, each in
+                        its own box - joining them into one paragraph reads as a single
+                        run-on hint. */}
                     {ch.hint && (
-                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                        <strong className="text-indigo-700">💡 Hint:</strong> {ch.hint}
+                      <div className="space-y-2">
+                        {(Array.isArray(ch.hint) ? ch.hint : [ch.hint]).map((h, hi) => (
+                          <div key={hi} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                            <strong className="text-indigo-700">💡 Hint:</strong> {h}
+                          </div>
+                        ))}
                       </div>
                     )}
 
