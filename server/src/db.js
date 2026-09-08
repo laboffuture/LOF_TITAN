@@ -29,6 +29,17 @@ export async function connectDb() {
 async function ensureIndexes(database) {
   await database.collection('users').createIndex({ email: 1 }, { unique: true });
   await database.collection('kit_content').createIndex({ kitId: 1 }, { unique: true });
+
+  // A kit unit IS its serial - the unique index is what stops the same code
+  // being redeemed twice or generated twice.
+  await database.collection('kit_units').createIndex({ serial: 1 }, { unique: true });
+  await database.collection('kit_units').createIndex({ kitId: 1, status: 1 });
+  await database.collection('kit_units').createIndex({ assignedEmail: 1 });
+
+  // The admin views read this newest-first, filtered by user or kit.
+  await database.collection('access_log').createIndex({ at: -1 });
+  await database.collection('access_log').createIndex({ userId: 1, at: -1 });
+  await database.collection('access_log').createIndex({ kitId: 1, at: -1 });
 }
 
 export function getDb() {
@@ -38,6 +49,12 @@ export function getDb() {
 
 export const users = () => getDb().collection('users');
 export const kitContent = () => getDb().collection('kit_content');
+
+/** Physical kits. One document per unit shipped, keyed by its printed serial. */
+export const kitUnits = () => getDb().collection('kit_units');
+
+/** Append-only audit trail: who opened which kit, when, and from where. */
+export const accessLog = () => getDb().collection('access_log');
 
 export async function closeDb() {
   if (client) {

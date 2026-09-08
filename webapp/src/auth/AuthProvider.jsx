@@ -57,6 +57,22 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  /**
+   * Redeem a printed kit serial.
+   *
+   * The server returns the updated user, so entitlements refresh from the
+   * authoritative copy rather than being patched optimistically here - if the
+   * grant partly failed the UI must not claim the kit is unlocked.
+   */
+  const redeem = useCallback(async (serial) => {
+    const data = await api('/kits/redeem', {
+      method: 'POST',
+      body: { serial },
+    });
+    if (data.user) setUser(data.user);
+    return data;
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await api('/auth/logout', { method: 'POST' });
@@ -73,9 +89,10 @@ export function AuthProvider({ children }) {
       loading,
       signIn,
       register,
+      redeem,
       signOut,
     }),
-    [user, loading, signIn, register, signOut]
+    [user, loading, signIn, register, redeem, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

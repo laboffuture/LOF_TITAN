@@ -33,3 +33,15 @@ export function useHasAnyKit() {
   const { entitlements } = useAuth();
   return entitlements.length > 0;
 }
+
+/**
+ * Is the current user staff?
+ *
+ * Controls only whether the Admin link and route render. The server re-checks
+ * the role on every /api/admin request, so faking this in the browser gets you
+ * an empty page and a 404 from the API, not data.
+ */
+export function useIsAdmin() {
+  const { user } = useAuth();
+  return user?.role === 'admin';
+}

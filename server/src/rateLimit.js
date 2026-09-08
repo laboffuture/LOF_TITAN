@@ -65,3 +65,31 @@ export const registerLimiter = rateLimit({
   limit: 5,
   handler: limitHandler('TOO_MANY_REGISTRATIONS'),
 });
+
+/**
+ * Serial redemption. Codes follow a printed pattern (TITAN-ANEMOM-0004), so a
+ * script could walk the space and claim kits it never bought. Successful
+ * redemptions are cheap and rare; wrong guesses are the thing to throttle.
+ */
+export const redeemLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * MINUTE,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  handler: limitHandler('TOO_MANY_REDEEM_ATTEMPTS'),
+});
+
+/**
+ * AI generation. Unlike the other limits this one protects a BILL, not a
+ * password: every allowed request spends provider quota. Keyed by user id
+ * rather than IP, so a whole classroom behind one school NAT is not throttled
+ * as if it were a single person - and one student in a retry loop cannot spend
+ * everyone else's budget.
+ */
+export const aiLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * MINUTE,
+  limit: 60,
+  keyGenerator: (req) => (req.user ? String(req.user._id) : req.ip),
+  handler: limitHandler('TOO_MANY_AI_REQUESTS'),
+});

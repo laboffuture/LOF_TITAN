@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
-import { users } from './db.js';
+import { users, accessLog } from './db.js';
 
 export const COOKIE_NAME = 'titan_session';
 
@@ -35,6 +35,10 @@ export function publicUser(user) {
     email: user.email,
     name: user.name,
     entitlements: user.entitlements || [],
+    // Sent so the app can show the Admin link. It is a HINT ONLY - every admin
+    // endpoint re-checks the role from the database, so editing this in the
+    // browser reveals nothing.
+    role: user.role === 'admin' ? 'admin' : 'user',
   };
 }
 
@@ -65,4 +69,51 @@ export function requireUser(req, res, next) {
     return res.status(401).json({ error: 'NOT_SIGNED_IN' });
   }
   next();
+}
+
+export function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'NOT_SIGNED_IN' });
+  }
+  // Read from the freshly-loaded database document, never from the JWT: demoting
+  // an admin then takes effect on their next request instead of when their
+  // week-long cookie happens to expire.
+  if (req.user.role !== 'admin') {
+    // 404, not 403. A non-admin should not learn that /api/admin exists.
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  }
+  next();
+}
+
+/**
+ * The client address, honest about proxies.
+ *
+ * req.ip is the proxy's own address unless TRUST_PROXY is set, so in production
+ * this is only meaningful once that is configured - otherwise every row in the
+ * audit trail shows the load balancer.
+ */
+export function clientIp(req) {
+  return req.ip || req.socket?.remoteAddress || null;
+}
+
+/**
+ * Append-only record of a user touching kit content.
+ *
+ * Deliberately fire-and-forget: an audit write must never fail the request that
+ * a paying customer is making. A lost log line is cheaper than a 500.
+ */
+export function recordAccess(req, { kitId, action, allowed }) {
+  const entry = {
+    at: new Date(),
+    userId: req.user ? String(req.user._id) : null,
+    email: req.user?.email || null,
+    kitId: kitId || null,
+    action,
+    allowed: Boolean(allowed),
+    ip: clientIp(req),
+    userAgent: String(req.get('user-agent') || '').slice(0, 300),
+  };
+  accessLog()
+    .insertOne(entry)
+    .catch((err) => console.error('[API] access log write failed:', err.message));
 }

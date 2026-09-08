@@ -1,16 +1,20 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   Bluetooth, Usb, Play, Square, RotateCcw, Terminal, Bot, Code, Cpu, LogIn, LogOut,
+  KeyRound,
 } from 'lucide-react';
 import Galaxy from './components/Galaxy';
 import { useDeviceContext } from './device/deviceContext';
 import { useAuth } from './auth/authContext';
 import { RequireAuth } from './auth/RequireAuth';
 import { RequireAnyKit } from './auth/RequireAnyKit';
+import { RequireAdmin } from './auth/RequireAdmin';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { KitDetail } from './pages/KitDetail';
 import { CodeRoute, AIRoute, MonitorRoute, FlashRoute } from './pages/ToolRoutes';
+import { Redeem } from './pages/Redeem';
+import { Admin } from './pages/Admin';
 import { asset } from './lib/asset';
 
 const TOOL_LINKS = [
@@ -183,6 +187,17 @@ function App() {
 
               <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
 
+              {user && (
+                <Link
+                  to="/redeem"
+                  title="Redeem a kit ID"
+                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                >
+                  <KeyRound size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">Redeem</span>
+                </Link>
+              )}
+
               {user ? (
                 <button
                   onClick={signOut}
@@ -215,9 +230,43 @@ function App() {
       <main className="relative z-10 flex-1 p-4 grid grid-cols-12 gap-6 max-w-screen-2xl mx-auto w-full">
         <div className="col-span-12 flex flex-col gap-6">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            {/* The portal is the entry point: the dashboard and every kit page
+                now sit behind a session. RequireAuth preserves the attempted
+                path in location.state, so a deep link into a kit survives the
+                detour through sign-in. */}
+            <Route
+              path="/"
+              element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              }
+            />
             <Route path="/login" element={<Login />} />
-            <Route path="/kit/:id" element={<KitDetail />} />
+            <Route
+              path="/kit/:id"
+              element={
+                <RequireAuth>
+                  <KitDetail />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/redeem"
+              element={
+                <RequireAuth>
+                  <Redeem />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <Admin />
+                </RequireAdmin>
+              }
+            />
 
             <Route
               path="/code"

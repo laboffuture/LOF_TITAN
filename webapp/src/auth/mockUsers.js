@@ -34,6 +34,12 @@ export const TEST_ACCOUNTS = [
     kits: AVAILABLE_KIT_IDS.length,
     caseLabel: 'Owns everything - full access',
   },
+  {
+    email: 'admin@test',
+    name: 'Admin (staff)',
+    kits: 0,
+    caseLabel: 'Staff account - sees the Admin panel, owns no kits of its own',
+  },
 ];
 
 /** Matches SEED_PASSWORD in server/src/seed.js. */

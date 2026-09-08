@@ -7,7 +7,9 @@ import { connectDb } from './db.js';
 import { loadUser } from './session.js';
 import { authRouter } from './routes/auth.js';
 import { kitsRouter } from './routes/kits.js';
-import { globalLimiter, loginLimiter, registerLimiter } from './rateLimit.js';
+import { adminRouter } from './routes/admin.js';
+import { aiRouter } from './routes/ai.js';
+import { globalLimiter, loginLimiter, registerLimiter, redeemLimiter, aiLimiter } from './rateLimit.js';
 
 const app = express();
 
@@ -39,9 +41,15 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', globalLimiter);
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
+// Serials are guessable by shape (TITAN-ANEMOM-0007), so redemption needs the
+// same brute-force protection as the login form.
+app.use('/api/kits/redeem', redeemLimiter);
+app.use('/api/ai/generate', aiLimiter);
 
 app.use('/api/auth', authRouter);
 app.use('/api/kits', kitsRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/ai', aiRouter);
 
 app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
 

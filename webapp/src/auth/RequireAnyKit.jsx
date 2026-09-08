@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, KeyRound } from 'lucide-react';
 import { useHasAnyKit } from './authContext';
 import { LockedState } from './LockedState';
 
@@ -25,12 +25,22 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
         {/* Load-bearing: this panel covers the whole viewport and the nav only
             renders on the dashboard, so without this the route is a dead end -
             no close button, nothing behind it, browser Back the only way out. */}
-        <Link
-          to="/"
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all"
-        >
-          <ArrowLeft size={16} /> Back to kits
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Link
+            to="/"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all"
+          >
+            <ArrowLeft size={16} /> Back to kits
+          </Link>
+          {/* Someone who owns a kit but has not redeemed its ID lands here. The
+              route out is the redeem screen, not the store. */}
+          <Link
+            to="/redeem"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 transition-all"
+          >
+            <KeyRound size={16} /> I have a kit ID
+          </Link>
+        </div>
       </div>
     );
   }
