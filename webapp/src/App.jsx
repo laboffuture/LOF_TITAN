@@ -16,6 +16,7 @@ import { CodeRoute, AIRoute, MonitorRoute, FlashRoute } from './pages/ToolRoutes
 import { Redeem } from './pages/Redeem';
 import { Admin } from './pages/Admin';
 import { asset } from './lib/asset';
+import { PREVIEW_MODE } from './lib/backend';
 
 const TOOL_LINKS = [
   { to: '/code', label: 'Code', title: 'Open Block Code Workspace', Icon: Code, tint: 'text-blue-400' },
@@ -198,7 +199,9 @@ function App() {
                 </Link>
               )}
 
-              {user ? (
+              {/* A static preview has nothing to sign in to, so offering the
+                  button would send visitors to a form that cannot succeed. */}
+              {PREVIEW_MODE ? null : user ? (
                 <button
                   onClick={signOut}
                   title={`Signed in as ${user.name}`}

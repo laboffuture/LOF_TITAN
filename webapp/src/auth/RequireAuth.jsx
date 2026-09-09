@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './authContext';
+import { PREVIEW_MODE } from '../lib/backend';
 
 /**
  * Gate for "must be signed in", and for "this is a customer surface".
@@ -16,6 +17,11 @@ import { useAuth } from './authContext';
 export function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+
+  // A static preview has no API to sign in against, so the catalogue is public
+  // there. Bouncing visitors to a form that cannot succeed would make the whole
+  // site look broken.
+  if (PREVIEW_MODE) return children;
 
   // Session restore is synchronous-ish, but rendering the redirect before it
   // finishes would bounce an already-signed-in user to /login on every reload.

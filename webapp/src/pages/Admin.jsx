@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Package, ScrollText, BarChart3, Search, Plus, Check,
-  RefreshCw, ShieldCheck, Ban, LogOut,
+  RefreshCw, ShieldCheck, Ban, LogOut, MapPin, AlertTriangle,
 } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { KITS } from '../auth/kits';
 import { useAuth } from '../auth/authContext';
+import { ActivityMap } from '../components/ActivityMap';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'units', label: 'Kit IDs', icon: Package },
+  { id: 'map', label: 'Map', icon: MapPin },
   { id: 'access', label: 'Access log', icon: ScrollText },
 ];
 
@@ -30,13 +32,17 @@ function fmt(ts) {
 function Panel({ title, subtitle, children, actions }) {
   return (
     <div className="rounded-3xl bg-white/[0.03] border border-white/10 overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="font-heading font-bold text-white text-base">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+      {/* Headerless panels are allowed: without this guard a panel with no title
+          still drew an empty bordered bar above its content. */}
+      {(title || actions) && (
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            {title && <h2 className="font-heading font-bold text-white text-base">{title}</h2>}
+            {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+          </div>
+          {actions}
         </div>
-        {actions}
-      </div>
+      )}
       {children}
     </div>
   );
@@ -60,6 +66,8 @@ export function Admin() {
   const [userRows, setUserRows] = useState([]);
   const [unitRows, setUnitRows] = useState([]);
   const [logRows, setLogRows] = useState([]);
+  const [geo, setGeo] = useState(null);
+  const [geoDays, setGeoDays] = useState(90);
 
   const [userQuery, setUserQuery] = useState('');
   const [unitKit, setUnitKit] = useState('');
@@ -85,6 +93,7 @@ export function Admin() {
         setUnitRows((await api(`/admin/units?${p}`)).units);
       }
       if (which === 'access') setLogRows((await api('/admin/access?limit=100')).entries);
+      if (which === 'map') setGeo(await api(`/admin/geo?days=${geoDays}`));
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 0
@@ -92,7 +101,7 @@ export function Admin() {
           : `Could not load ${which}: ${err.message}`
       );
     }
-  }, [userQuery, unitKit, unitStatus]);
+  }, [userQuery, unitKit, unitStatus, geoDays]);
 
   useEffect(() => { load(tab); }, [tab, load]);
 
@@ -135,7 +144,12 @@ export function Admin() {
   }
 
   return (
-    <div className="col-span-12 space-y-5">
+    /* Full viewport, like the four tool surfaces. The admin portal is a data
+       screen - tables, a map, wide rows - and the app's centred max-w-screen-2xl
+       grid was squeezing it into a column with dead gutters. Its own scroll
+       container, so the page behind never scrolls with it. */
+    <div className="fixed inset-0 z-[150] overflow-y-auto bg-slate-950">
+      <div className="p-4 sm:p-6 space-y-5 w-full">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div>
@@ -388,6 +402,78 @@ export function Admin() {
         </div>
       )}
 
+      {tab === 'map' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat label="Cities active" value={geo?.totals?.cities ?? '—'} />
+            <Stat label="Users located" value={geo?.totals?.users ?? '—'} tone="text-cyan-300" />
+            <Stat label="Events" value={geo?.totals?.events ?? '—'} />
+            <Stat label="Unlocated events" value={geo?.totals?.unlocated ?? '—'} tone="text-slate-400" />
+          </div>
+
+          {/* If most traffic cannot be placed the map is misleading, so say so
+              instead of drawing a confident-looking picture of nothing. */}
+          {geo && geo.totals.unlocated > geo.totals.located && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-400/30">
+              <AlertTriangle size={17} className="text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-200/90 leading-relaxed">
+                <strong>{geo.totals.unlocated}</strong> of{' '}
+                {geo.totals.unlocated + geo.totals.located} events could not be placed.
+                Local addresses never resolve; in production this usually means{' '}
+                <code className="font-mono">TRUST_PROXY</code> is unset, so every request
+                records the proxy address instead of the visitor.
+              </p>
+            </div>
+          )}
+
+          <Panel
+            title="Where LOF TITAN is being used"
+            subtitle="Bubble size is distinct users, not events — one heavy user does not outweigh a real community"
+            actions={
+              <select
+                value={geoDays}
+                onChange={(e) => setGeoDays(Number(e.target.value))}
+                className="px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-200 focus:outline-none"
+              >
+                <option value={7} className="bg-slate-900">Last 7 days</option>
+                <option value={30} className="bg-slate-900">Last 30 days</option>
+                <option value={90} className="bg-slate-900">Last 90 days</option>
+                <option value={365} className="bg-slate-900">Last year</option>
+              </select>
+            }
+          >
+            <div className="p-4">
+              <ActivityMap places={geo?.places || []} />
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="overflow-x-auto max-h-[26rem]">
+              <table className="w-full text-sm">
+                <tbody className="text-slate-300">
+                  {[...(geo?.places || [])]
+                    .sort((a, b) => b.users - a.users)
+                    .map((p) => (
+                      <tr key={`${p.city}-${p.region}-${p.country}`} className="border-t border-white/5">
+                        <td className="px-5 py-2.5">
+                          <div className="text-white font-medium">{p.city}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {[p.region, p.country].filter(Boolean).join(' · ')}
+                          </div>
+                        </td>
+                        <td className="px-5 py-2.5 text-right font-mono text-cyan-300">{p.users}</td>
+                        <td className="px-5 py-2.5 text-right font-mono">{p.kits}</td>
+                        <td className="px-5 py-2.5 text-right font-mono text-slate-400">{p.events}</td>
+                        <td className="px-5 py-2.5 text-xs text-slate-400 whitespace-nowrap">{fmt(p.lastSeen)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+      )}
+
       {tab === 'access' && (
         <Panel title="Access log" subtitle="Newest first. Denied rows are attempts to open a kit the account does not own.">
           <div className="overflow-x-auto max-h-[36rem]">
@@ -428,6 +514,7 @@ export function Admin() {
           </div>
         </Panel>
       )}
+    </div>
     </div>
   );
 }

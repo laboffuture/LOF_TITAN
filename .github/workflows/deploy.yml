@@ -39,6 +39,20 @@ jobs:
       - name: Build Webapp
         run: npm run build
         working-directory: webapp
+        env:
+          # Where the deployed site should send /api requests.
+          #
+          # GitHub Pages is static - it cannot run the Express API - so without
+          # this the built site calls a path that does not exist and sign-in
+          # fails with "API not responding". Set a repository variable named
+          # VITE_API_URL (Settings -> Secrets and variables -> Actions ->
+          # Variables) to the API origin, e.g. https://titan.example.com/api
+          #
+          # Note this makes the session cookie CROSS-SITE (github.io calling
+          # another domain), which needs SameSite=None; Secure on the server and
+          # is still blocked by Safari/iOS. Serving the frontend from the same
+          # origin as the API is the arrangement that actually works everywhere.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

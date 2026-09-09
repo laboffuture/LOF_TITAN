@@ -12,6 +12,7 @@
   "dependencies": {
     "blockly": "^13.2.1",
     "esptool-js": "^0.6.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.31.0",
     "ogl": "^1.0.11",
     "react": "^18.3.1",

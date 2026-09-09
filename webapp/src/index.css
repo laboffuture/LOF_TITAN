@@ -21,3 +21,51 @@
     @apply bg-surface/50 hover:bg-surface border border-white/10 rounded-full p-2 transition-all duration-300;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Leaflet chrome.
+
+   Leaflet's stock styling is already built for a light map, so this only
+   softens it to match the rest of the admin UI - rounder controls, a quieter
+   attribution bar. Written as plain CSS outside @layer so Tailwind's purge
+   cannot drop it: these class names never appear in any JSX file, since
+   Leaflet creates the elements itself at runtime.
+--------------------------------------------------------------------------- */
+.leaflet-container {
+  background: #eef2f6;
+  font-family: inherit;
+}
+
+.leaflet-bar {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  color: #0f172a;
+}
+
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.82) !important;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.leaflet-control-attribution a {
+  color: #0e7490;
+}
+
+.leaflet-tooltip {
+  background: #ffffff;
+  border: 1px solid rgba(14, 116, 144, 0.35);
+  color: #0f172a;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+}
+
+/* The tooltip arrow is drawn with borders, so it needs matching colours or it
+   stays a stray pip in the old theme's colour. */
+.leaflet-tooltip-top::before { border-top-color: #ffffff; }
+.leaflet-tooltip-bottom::before { border-bottom-color: #ffffff; }
+.leaflet-tooltip-left::before { border-left-color: #ffffff; }
+.leaflet-tooltip-right::before { border-right-color: #ffffff; }

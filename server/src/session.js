@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { users, accessLog } from './db.js';
+import { lookupGeo } from './geo.js';
 
 export const COOKIE_NAME = 'titan_session';
 
@@ -103,6 +104,12 @@ export function clientIp(req) {
  * a paying customer is making. A lost log line is cheaper than a 500.
  */
 export function recordAccess(req, { kitId, action, allowed }) {
+  const ip = clientIp(req);
+  // Resolved once, at write time. Doing it on read would mean re-resolving the
+  // whole log on every admin page load, and would lose the location entirely
+  // once rows are aged out or the database is updated.
+  const geo = lookupGeo(ip);
+
   const entry = {
     at: new Date(),
     userId: req.user ? String(req.user._id) : null,
@@ -110,8 +117,14 @@ export function recordAccess(req, { kitId, action, allowed }) {
     kitId: kitId || null,
     action,
     allowed: Boolean(allowed),
-    ip: clientIp(req),
+    ip,
     userAgent: String(req.get('user-agent') || '').slice(0, 300),
+    city: geo?.city || null,
+    region: geo?.region || null,
+    country: geo?.country || null,
+    // [lat, lon] - stored denormalised so the map aggregation never needs a
+    // second lookup pass.
+    ll: geo?.ll || null,
   };
   accessLog()
     .insertOne(entry)

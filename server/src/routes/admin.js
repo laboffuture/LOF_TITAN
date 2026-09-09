@@ -258,6 +258,75 @@ adminRouter.patch('/units/:serial', async (req, res) => {
   res.json({ unit: { serial: doc.serial, kitId: doc.kitId, status: doc.status } });
 });
 
+/* ----------------------------------------------------------------- geo map */
+
+/**
+ * Activity grouped by city, for the hackathon map.
+ *
+ * Counts DISTINCT USERS per city, not events - one enthusiastic student
+ * generating 400 log rows should not make their city look like a hotspot when
+ * a city with 30 quieter learners is the better place to run an event.
+ *
+ * `days` windows the result so the map reflects where people are active now
+ * rather than everywhere the product has ever been opened.
+ */
+adminRouter.get('/geo', async (req, res) => {
+  const days = Math.min(365, Math.max(1, Number(req.query.days) || 90));
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await accessLog()
+    .aggregate([
+      { $match: { at: { $gte: since }, ll: { $ne: null }, country: { $ne: null } } },
+      {
+        $group: {
+          _id: { city: '$city', region: '$region', country: '$country' },
+          events: { $sum: 1 },
+          users: { $addToSet: '$email' },
+          kits: { $addToSet: '$kitId' },
+          lat: { $first: { $arrayElemAt: ['$ll', 0] } },
+          lon: { $first: { $arrayElemAt: ['$ll', 1] } },
+          lastSeen: { $max: '$at' },
+        },
+      },
+      { $sort: { events: -1 } },
+      { $limit: 500 },
+    ])
+    .toArray();
+
+  const places = rows.map((r) => ({
+    city: r._id.city || 'Unknown',
+    region: r._id.region || null,
+    country: r._id.country,
+    events: r.events,
+    users: r.users.filter(Boolean).length,
+    // kitId is null for sign-in and AI rows, so strip it before counting.
+    kits: r.kits.filter(Boolean).length,
+    lat: r.lat,
+    lon: r.lon,
+    lastSeen: r.lastSeen,
+  }));
+
+  // Rows the lookup could not place. Reported rather than hidden: if this is
+  // most of the traffic the map is lying, and the usual cause is a missing
+  // TRUST_PROXY so every row carries the load balancer's address.
+  const [located, unlocated] = await Promise.all([
+    accessLog().countDocuments({ at: { $gte: since }, ll: { $ne: null } }),
+    accessLog().countDocuments({ at: { $gte: since }, ll: null }),
+  ]);
+
+  res.json({
+    days,
+    places,
+    totals: {
+      cities: places.length,
+      users: places.reduce((n, p) => n + p.users, 0),
+      events: places.reduce((n, p) => n + p.events, 0),
+      located,
+      unlocated,
+    },
+  });
+});
+
 /* ------------------------------------------------------------- audit log */
 
 adminRouter.get('/access', async (req, res) => {

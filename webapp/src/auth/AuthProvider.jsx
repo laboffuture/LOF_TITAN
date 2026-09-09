@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AuthContext } from './authContext';
 import { api, ApiError } from '../lib/api';
+import { PREVIEW_MODE } from '../lib/backend';
 
 /**
  * Auth backed by the LOF TITAN API.
@@ -20,6 +21,13 @@ export function AuthProvider({ children }) {
   // Ask the server who we are. A 401 just means signed out.
   useEffect(() => {
     let cancelled = false;
+
+    // No API in a static preview - skip the request rather than firing one that
+    // returns the host's 404 page and logs a misleading warning.
+    if (PREVIEW_MODE) {
+      setLoading(false);
+      return;
+    }
 
     api('/auth/me')
       .then((data) => {

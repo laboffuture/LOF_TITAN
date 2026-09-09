@@ -8,6 +8,7 @@ import { useAuth } from '../auth/authContext';
 import { TEST_ACCOUNTS, TEST_PASSWORD } from '../auth/mockUsers';
 import { cld } from '../lib/cld';
 import { asset } from '../lib/asset';
+import { PREVIEW_MODE } from '../lib/backend';
 
 const ERROR_TEXT = {
   INVALID_CREDENTIALS: 'That email and password combination is not recognised.',
@@ -15,9 +16,15 @@ const ERROR_TEXT = {
   INVALID_EMAIL: 'That does not look like a valid email address.',
   PASSWORD_TOO_SHORT: 'Password must be at least 8 characters.',
   EMAIL_TAKEN: 'An account with that email already exists. Try signing in instead.',
-  NETWORK_ERROR: 'Could not reach the API. Start both processes with "npm run dev" from the project root.',
-  BAD_API_RESPONSE:
-    'The API is not responding. It runs as a separate process - start both with "npm run dev" from the project root, not from webapp/.',
+  // Two audiences see these: a developer running the app locally, and a visitor
+  // on a deployed build. Telling a customer to "run npm run dev" is nonsense, so
+  // the copy branches on the build mode.
+  NETWORK_ERROR: import.meta.env.DEV
+    ? 'Could not reach the API. Start both processes with "npm run dev" from the project root.'
+    : 'This site cannot reach its server, so sign-in is unavailable here.',
+  BAD_API_RESPONSE: import.meta.env.DEV
+    ? 'The API is not responding. It runs as a separate process - start both with "npm run dev" from the project root, not from webapp/.'
+    : 'This site cannot reach its server, so sign-in is unavailable here.',
   TOO_MANY_LOGIN_ATTEMPTS: 'Too many failed sign-in attempts.',
   TOO_MANY_REGISTRATIONS: 'Too many accounts created from this connection.',
   RATE_LIMITED: 'Too many requests.',
@@ -56,6 +63,7 @@ export function Login() {
   const from = location.state?.from?.pathname || '/';
   const isRegister = mode === 'register';
   const isAdmin = user?.role === 'admin';
+
 
   const switchMode = (next) => {
     setMode(next);
@@ -124,6 +132,17 @@ export function Login() {
             </p>
           </div>
         </div>
+
+        {PREVIEW_MODE && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4">
+            <AlertCircle size={17} className="text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-200/90 leading-relaxed">
+              <span className="font-bold">Preview build.</span> This copy has no
+              server attached, so sign-in and the kit tools are unavailable. Browse
+              the catalogue here, or use the deployment connected to the LOF TITAN API.
+            </p>
+          </div>
+        )}
 
         <div className="glass-panel rounded-3xl p-5 sm:p-7 space-y-5">
           {user ? (

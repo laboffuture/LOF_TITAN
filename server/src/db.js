@@ -40,6 +40,8 @@ async function ensureIndexes(database) {
   await database.collection('access_log').createIndex({ at: -1 });
   await database.collection('access_log').createIndex({ userId: 1, at: -1 });
   await database.collection('access_log').createIndex({ kitId: 1, at: -1 });
+  // The map groups by country+city over a time window.
+  await database.collection('access_log').createIndex({ country: 1, city: 1, at: -1 });
 }
 
 export function getDb() {
