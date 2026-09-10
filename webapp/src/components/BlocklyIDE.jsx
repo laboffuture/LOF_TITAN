@@ -21,6 +21,7 @@ import {
   RotateCcw, 
   RotateCw, 
   Play, 
+  Volume2, 
   Square,
   Upload, 
   Code, 
@@ -42,6 +43,7 @@ import { toolboxDefinition } from '../blockly/toolbox/toolboxDefinition';
 import { asset } from '../lib/asset';
 import { cld } from '../lib/cld';
 import '../blockly/blocklyCustom.css';
+import { TitanSimulatorModal } from '../simulator';
 
 // Register custom blocks and generators once
 let blocksRegistered = false;
@@ -62,6 +64,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
   const [pythonCode, setPythonCode] = useState('');
   const [showPythonDrawer, setShowPythonDrawer] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
   const [showSerialMonitor, setShowSerialMonitor] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -85,6 +88,9 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
     { name: "Motors", icon: Settings, color: "#a855f7", bg: "#faf5ff", customId: "motors" },
     { name: "IOT", icon: Wifi, color: "#0ea5e9", bg: "#f0f9ff", customId: "iot" },
     { name: "Display", icon: Tv, color: "#8b5cf6", bg: "#f5f3ff", customId: "display" },
+    // Audio holds the DFPlayer blocks. Without a rail entry the toolbox category
+    // exists but is unreachable, so those blocks would be invisible.
+    { name: "Audio", icon: Volume2, color: "#f59e0b", bg: "#fffbeb", customId: "audio" },
     { name: "Logic", icon: SlidersHorizontal, color: "#64748b", bg: "#f8fafc", customId: "logic" },
     { name: "Loops", icon: Repeat, color: "#22c55e", bg: "#f0fdf4", customId: "loops" },
     { name: "Math", icon: Sigma, color: "#8b5cf6", bg: "#f5f3ff", customId: "math" },
@@ -735,6 +741,23 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
               <span className="hidden xl:inline">Python</span>
             </button>
 
+            {/* Simulate on a virtual TITAN. Generates from the workspace first so
+                the simulator runs what is on the canvas right now, not whatever
+                was last pushed to the Python drawer. */}
+            <button
+              onClick={() => {
+                if (workspaceRef.current) {
+                  setPythonCode(generateTitanWorkspaceCode(workspaceRef.current));
+                }
+                setShowSimulator(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all active:scale-95 shrink-0 cursor-pointer"
+              title="Open the interactive LOF TITAN visual simulator"
+            >
+              <Play size={13} fill="currentColor" />
+              <span>Simulate</span>
+            </button>
+
             {/* Run on TITAN Button */}
             <button 
               onClick={handleUploadToTitan}
@@ -970,6 +993,14 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
         </div>
       </div>
+
+      <TitanSimulatorModal
+        isOpen={showSimulator}
+        onClose={() => setShowSimulator(false)}
+        workspace={workspaceRef.current}
+        pythonCode={pythonCode}
+        sourceTitle="Blockly Workspace"
+      />
     </div>
   );
 }

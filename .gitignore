@@ -55,6 +55,9 @@ build-*/
 
 # Source masters. Put the highest-resolution original you have here.
 /art-masters/
+# Same thing under a second name - 60 MB of kit photography that is already
+# on Cloudinary. Both folders are sources, never build inputs.
+/images/
 
 # Everything the app used to serve locally is now a Cloudinary public id.
 # lab_of_future_logo is the one exception - small chrome inside the IDE modals.

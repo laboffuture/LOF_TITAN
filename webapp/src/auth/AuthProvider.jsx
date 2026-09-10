@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AuthContext } from './authContext';
 import { api, ApiError } from '../lib/api';
 import { PREVIEW_MODE } from '../lib/backend';
+import { AVAILABLE_KIT_IDS } from './kits';
 
 /**
  * Auth backed by the LOF TITAN API.
@@ -93,7 +94,14 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
-      entitlements: user?.entitlements ?? [],
+      // A static preview has no server to check a purchase against, and no
+      // sign-in either - so every visitor is signed out and owns nothing,
+      // which would render the whole catalogue as locked panels. There is
+      // nothing to protect here: the kit content ships inside this bundle
+      // already, so a lock would hide it from readers without hiding it from
+      // anyone who opens devtools. Grant everything and let the preview be a
+      // preview. Builds with an API are untouched.
+      entitlements: PREVIEW_MODE ? AVAILABLE_KIT_IDS : (user?.entitlements ?? []),
       loading,
       signIn,
       register,

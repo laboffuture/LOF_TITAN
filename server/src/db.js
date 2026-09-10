@@ -1,4 +1,5 @@
 import { MongoClient } from 'mongodb';
+import { expandSrvUri } from './mongoSrv.js';
 
 let client = null;
 let db = null;
@@ -13,7 +14,14 @@ export async function connectDb() {
     );
   }
 
-  client = new MongoClient(uri, {
+  // Resolve the +srv record ourselves so a resolver that cannot answer it does
+  // not take the whole API down. See mongoSrv.js.
+  const resolved = await expandSrvUri(uri);
+  if (resolved.expanded) {
+    console.log('[API] Resolved cluster hosts via ' + resolved.via);
+  }
+
+  client = new MongoClient(resolved.uri, {
     // Fail fast with a clear message instead of hanging for 30s when the
     // cluster is unreachable or the IP is not allow-listed in Atlas.
     serverSelectionTimeoutMS: 8000,

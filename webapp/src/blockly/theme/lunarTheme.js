@@ -73,10 +73,16 @@ export const LunarTheme = Blockly.Theme.defineTheme('lunar_light', {
       colourPrimary: '#60a5fa',
       colourSecondary: '#3b82f6',
       colourTertiary: '#1d4ed8'
+    },
+    audio_blocks: {
+      colourPrimary: '#f59e0b',
+      colourSecondary: '#d97706',
+      colourTertiary: '#b45309'
     }
   },
   categoryStyles: {
     titan_category: { colour: '#38bdf8' },
+    audio_category: { colour: '#f59e0b' },
     motors_category: { colour: '#a855f7' },
     iot_category: { colour: '#0ea5e9' },
     display_category: { colour: '#8b5cf6' },

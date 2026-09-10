@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { asset } from '../lib/asset';
 import { cld } from '../lib/cld';
 import { api } from '../lib/api';
+import { PREVIEW_MODE } from '../lib/backend';
 import { 
   Sparkles, 
   Send, 
@@ -153,6 +154,21 @@ if __name__ == '__main__':
     const newMessages = [...messages, { role: "user", text: userQuery }];
     setMessages(newMessages);
     setInputPrompt("");
+
+    // A static preview has no server, so there is no key to spend and nowhere to
+    // send the prompt. Say so plainly instead of firing a request that comes back
+    // as the host's 404 page and surfaces as a puzzling API error.
+    if (PREVIEW_MODE) {
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          text: "AI Studio is not available in this preview. It runs through the LOF TITAN server, which this static build has no connection to - everything else here works offline. Ask your instructor for access to the full platform to use it.",
+        },
+      ]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {

@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 /**
  * Rate limits.
@@ -90,6 +90,9 @@ export const aiLimiter = rateLimit({
   ...base,
   windowMs: 60 * MINUTE,
   limit: 60,
-  keyGenerator: (req) => (req.user ? String(req.user._id) : req.ip),
+  // The IP branch must go through ipKeyGenerator, which collapses an IPv6
+  // address to its /56 prefix. A bare req.ip would let one IPv6 client walk
+  // its own address range and get a fresh budget for every request.
+  keyGenerator: (req) => (req.user ? String(req.user._id) : ipKeyGenerator(req.ip)),
   handler: limitHandler('TOO_MANY_AI_REQUESTS'),
 });

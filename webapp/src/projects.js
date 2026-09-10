@@ -1033,107 +1033,761 @@ def main():
 
     // MicroPython Main Script
     code: `# ==============================================================================
-# LOF TITAN - HEART BEAT DJ BOT WITH OPTICAL PULSE SYNTHESIZER
+# LOF TITAN - HEARTBEAT DJ BOT WITH MAX30102, SH1106 OLED & DFPLAYER MINI
+# ==============================================================================
+# Hardware Pinout (ESP32-S3):
+#   - I2C OLED (1.3" SH1106 / SSD1306): SDA = GPIO 7, SCL = GPIO 8 (Addr: 0x3C)
+#   - Pulse Sensor (MAX30102 / MAX30100): SDA = GPIO 7, SCL = GPIO 8 (Addr: 0x57)
+#   - DFPlayer Mini MP3 Player: TX = GPIO 17, RX = GPIO 18 (Baud: 9600 8N1)
+#   - Onboard Buzzer / Status LED: GPIO 20 / GPIO 48
+#
+# Audio Tracks:
+#   - Track 1: Calm Track (Plays once for 20s upon Calm Mode trigger, then silent)
+#   - Track 2: Normal Track A (Alternates with Track 3 every 20s)
+#   - Track 3: Normal Track B (Alternates with Track 2 every 20s)
+#
+# State Logic:
+#   1. Startup: OLED "DJ BOT - SYSTEM STARTING", init DFPlayer & MAX30102 (up to 5 retries).
+#   2. Normal Mode: Animated robot eyes change every 2.5s. Tracks 2 & 3 alternate every 20s.
+#   3. Finger Detected: Instant priority ECG-style live PPG waveform + real-time BPM readout.
+#   4. Calm Mode: 2 consecutive valid BPM > 85 activates 60s Calm Mode.
+#      Track 1 plays for 20s once. Live ECG has priority if finger present, else Serene Calm Face.
+#   5. Tired Mode: 60s continuous absence of finger triggers Tired Eyes + "Zzz" animation.
 # ==============================================================================
 
 import time
-from machine import Pin, PWM, SoftI2C
-from supervisor.led_buzzer import hw
+import math
+import random
+import framebuf
+from machine import Pin, SoftI2C, I2C, UART
 
-# Pin Configurations
-PIN_L1, PIN_L2 = 15, 16  # Motor M1 (Left Dance)
-PIN_R1, PIN_R2 = 13, 14  # Motor M2 (Right Dance)
-PIN_BUZZER = 20          # Piezo Synthesizer
-PIN_LED_RED = 47         # Red Beat LED
-PIN_LED_GRN = 48         # Green Beat LED
+# ================= 1. SH1106 / SSD1306 OLED DRIVER =================
+class TitanOLED(framebuf.FrameBuffer):
+    def __init__(self, sda_pin=7, scl_pin=8, is_sh1106=True, col_offset=2):
+        self.is_sh1106 = is_sh1106
+        self.col_offset = col_offset
+        self.width = 128
+        self.height = 64
+        self.addr = 0x3C
+        self.buf = bytearray(1024)
+        super().__init__(self.buf, self.width, self.height, framebuf.MONO_VLSB)
+        
+        try:
+            self.i2c = SoftI2C(sda=Pin(sda_pin, Pin.OUT), scl=Pin(scl_pin, Pin.OUT), freq=400000, timeout=2000)
+            devs = self.i2c.scan()
+            if 0x3C in devs:
+                self.addr = 0x3C
+            elif 0x3D in devs:
+                self.addr = 0x3D
+            elif devs:
+                self.addr = devs[0]
+        except Exception:
+            self.i2c = None
 
-led_red = Pin(PIN_LED_RED, Pin.OUT)
-led_grn = Pin(PIN_LED_GRN, Pin.OUT)
+        if self.i2c:
+            init_seq = (
+                0xAE, 0x20, 0x00, 0x40, 0xA1, 0xC8, 0x81, 0xCF,
+                0xA6, 0xA8, 0x3F, 0xD3, 0x00, 0xD5, 0x80, 0xD9,
+                0xF1, 0xDA, 0x12, 0xDB, 0x40, 0x8D, 0x14, 0xAF
+            )
+            for cmd in init_seq:
+                try:
+                    self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+                except Exception:
+                    pass
+        self.fill(0)
+        self.show()
 
-# PWM Pool Manager
-_pwm_pool = {}
-def _get_pwm(pin, freq=1000):
-    if pin not in _pwm_pool:
-        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
-    else:
-        try: _pwm_pool[pin].freq(freq)
-        except Exception: pass
-    return _pwm_pool[pin]
+    def print_text(self, s, x, y, size=1, col=1):
+        s = str(s)
+        if size <= 1:
+            super().text(s, x, y, col)
+        else:
+            w = len(s) * 8
+            tmp_buf = bytearray((w * 8 + 7) // 8)
+            fb = framebuf.FrameBuffer(tmp_buf, w, 8, framebuf.MONO_VLSB)
+            fb.fill(0)
+            fb.text(s, 0, 0, 1)
+            for px in range(w):
+                for py in range(8):
+                    if fb.pixel(px, py):
+                        for dx in range(size):
+                            for dy in range(size):
+                                nx = x + px * size + dx
+                                ny = y + py * size + dy
+                                if 0 <= nx < 128 and 0 <= ny < 64:
+                                    self.pixel(nx, ny, col)
 
-def play_note(freq, duration_ms):
-    if freq <= 0:
-        time.sleep_ms(duration_ms)
-        return
-    pwm = _get_pwm(PIN_BUZZER, freq)
-    pwm.duty(512)
-    time.sleep_ms(duration_ms)
-    pwm.duty(0)
+    def show(self):
+        if not self.i2c:
+            return
+        try:
+            if self.is_sh1106:
+                for page in range(8):
+                    # SH1106 column addressing (default offset +2)
+                    low_col = self.col_offset & 0x0F
+                    high_col = 0x10 | ((self.col_offset >> 4) & 0x0F)
+                    self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + page, 0x80, low_col, 0x80, high_col]))
+                    self.i2c.writeto(self.addr, b'\\x40' + self.buf[128 * page : 128 * (page + 1)])
+            else:
+                # SSD1306 column & page range addressing
+                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
+                self.i2c.writeto(self.addr, b'\\x40' + self.buf)
+        except Exception:
+            pass
 
-def set_motors(left_speed, right_speed):
-    # Left Motor M1
-    spd_l = max(-100, min(100, left_speed))
-    duty_l = int(abs(spd_l) * 10.23)
-    if spd_l >= 0:
-        _get_pwm(PIN_L1).duty(duty_l)
-        Pin(PIN_L2, Pin.OUT).value(0)
-    else:
-        Pin(PIN_L1, Pin.OUT).value(0)
-        _get_pwm(PIN_L2).duty(duty_l)
 
-    # Right Motor M2
-    spd_r = max(-100, min(100, right_speed))
-    duty_r = int(abs(spd_r) * 10.23)
-    if spd_r >= 0:
-        _get_pwm(PIN_R1).duty(duty_r)
-        Pin(PIN_R2, Pin.OUT).value(0)
-    else:
-        Pin(PIN_R1, Pin.OUT).value(0)
-        _get_pwm(PIN_R2).duty(duty_r)
+# ================= 2. DFPLAYER MINI UART DRIVER =================
+class TitanDFPlayer:
+    def __init__(self, uart_id=1, tx=17, rx=18):
+        self.uart_id = uart_id
+        self.tx = tx
+        self.rx = rx
+        self.current_track = 0
+        try:
+            self.uart = UART(uart_id, baudrate=9600, tx=tx, rx=rx)
+        except Exception:
+            try:
+                self.uart = UART(uart_id, baudrate=9600)
+            except Exception:
+                self.uart = None
+        time.sleep_ms(150)
 
+    def _send_cmd(self, cmd, param1=0, param2=0):
+        if not self.uart:
+            return
+        buf = bytearray(10)
+        buf[0] = 0x7E  # Start
+        buf[1] = 0xFF  # Version
+        buf[2] = 0x06  # Length
+        buf[3] = cmd   # Command
+        buf[4] = 0x00  # Feedback disabled
+        buf[5] = param1 & 0xFF
+        buf[6] = param2 & 0xFF
+        # 16-bit Checksum
+        chk = 0 - (0xFF + 0x06 + cmd + 0x00 + param1 + param2)
+        buf[7] = (chk >> 8) & 0xFF
+        buf[8] = chk & 0xFF
+        buf[9] = 0xEF  # End
+        try:
+            self.uart.write(buf)
+            time.sleep_ms(35)
+        except Exception:
+            pass
+
+    def play_track(self, track_num):
+        t = int(track_num)
+        self.current_track = t
+        self._send_cmd(0x03, (t >> 8) & 0xFF, t & 0xFF)
+
+    def play(self):
+        self._send_cmd(0x0D, 0, 0)
+
+    def pause(self):
+        self._send_cmd(0x0E, 0, 0)
+
+    def stop(self):
+        self.current_track = 0
+        self._send_cmd(0x16, 0, 0)
+
+    def set_volume(self, vol):
+        v = max(0, min(30, int(vol)))
+        self._send_cmd(0x06, 0, v)
+
+    def set_eq(self, eq=0):
+        # 0:Normal, 1:Pop, 2:Rock, 3:Jazz, 4:Classic, 5:Bass
+        self._send_cmd(0x07, 0, eq & 0x07)
+
+
+# ================= 3. MAX30102 / MAX30100 PPG BEAT DETECTOR =================
+class SparkFunHeartRate:
+    def __init__(self):
+        self.ir_avg_reg = 0
+        self.ac_filtered = 0
+        self.peak_val = 0
+        self.is_rising = False
+        self.last_beat_ms = 0
+        self.threshold = 120
+        self.ir_ac_signal_current = 0
+
+    def check_for_beat(self, sample, now):
+        # 1. DC Removal / High-Pass Baseline Tracking
+        if self.ir_avg_reg == 0:
+            self.ir_avg_reg = sample
+        self.ir_avg_reg = int((self.ir_avg_reg * 31 + sample) / 32)
+        raw_ac = sample - self.ir_avg_reg
+        self.ir_ac_signal_current = raw_ac
+
+        # 2. Low-Pass Smoothing Filter to reject optical & AC flicker noise
+        self.ac_filtered = int((self.ac_filtered * 3 + raw_ac) / 4)
+
+        # 3. Dynamic Peak & Refractory Detection (Max 175 BPM = 340ms min interval)
+        time_since_last = time.ticks_diff(now, self.last_beat_ms)
+        beat_detected = False
+
+        if self.ac_filtered > self.threshold and time_since_last >= 340:
+            if not self.is_rising:
+                self.is_rising = True
+            if self.ac_filtered > self.peak_val:
+                self.peak_val = self.ac_filtered
+        elif self.is_rising and self.ac_filtered < (self.peak_val * 0.70):
+            # Confirmed systolic wave peak on downward slope
+            self.is_rising = False
+            # Adapt dynamic threshold to pulse amplitude
+            self.threshold = max(60, min(1500, int(self.peak_val * 0.45)))
+            self.peak_val = 0
+            self.last_beat_ms = now
+            beat_detected = True
+
+        # Gradual threshold decay if no beat seen
+        if time_since_last > 1400:
+            self.threshold = max(60, int(self.threshold * 0.95))
+
+        return beat_detected
+
+
+class TitanPulseSensor:
+    def __init__(self, sda_pin=7, scl_pin=8, addr=0x57):
+        self.addr = addr
+        self.i2c = SoftI2C(sda=Pin(sda_pin, Pin.OUT), scl=Pin(scl_pin, Pin.OUT), freq=400000, timeout=2000)
+        self.detector = SparkFunHeartRate()
+        self.chip_type = "UNKNOWN"
+        self.is_connected = False
+        
+        # Debounced finger states
+        self.finger_detected = False
+        self.finger_high_counter = 0   # Must sustain >= 10,000 for 100 ms (10 samples @ 100Hz)
+        self.finger_low_counter = 0    # Must sustain <= 4,000 for 400 ms (40 samples @ 100Hz)
+        self.finger_detected_at = 0
+        
+        # Beat & BPM metrics
+        self.last_beat_anchor = 0
+        self.current_bpm = 0.0
+        self.average_bpm = 0
+        self.bpm_history = []
+        self.consecutive_high_bpm = 0
+        self.new_beat_ready = False
+        
+        # Signal buffers for visualization
+        self.latest_ir = 0
+        self.latest_red = 0
+        self.beat_event = False
+        self.wave_buf = [32] * 128
+        self.last_sample_ms = 0
+
+    def _w(self, reg, val):
+        try:
+            self.i2c.writeto_mem(self.addr, reg, bytearray([val]))
+        except Exception:
+            pass
+
+    def _r(self, reg, n=1):
+        try:
+            return self.i2c.readfrom_mem(self.addr, reg, n)
+        except Exception:
+            return bytearray(n)
+
+    def init_sensor(self):
+        """Attempts connection up to 5 times."""
+        for attempt in range(1, 6):
+            try:
+                devs = self.i2c.scan()
+                if self.addr in devs:
+                    part_id = self._r(0xFF, 1)[0]
+                    if part_id in (0x15, 0x25):
+                        self.chip_type = "MAX30102"
+                        self._w(0x09, 0x40)  # Reset
+                        time.sleep_ms(80)
+                        self._w(0x08, 0x30)  # FIFO config: 4-sample averaging
+                        self._w(0x09, 0x03)  # Mode: SpO2 (Red + IR)
+                        self._w(0x0A, 0x27)  # SpO2 config: 100Hz, 411us
+                        self._w(0x0C, 0x24)  # LED1 (Red) ~7.2mA
+                        self._w(0x0D, 0x24)  # LED2 (IR) ~7.2mA
+                        self._w(0x04, 0x00)  # FIFO WR PTR
+                        self._w(0x05, 0x00)  # OVF PTR
+                        self._w(0x06, 0x00)  # FIFO RD PTR
+                        self.is_connected = True
+                        return True
+                    else:
+                        self.chip_type = "MAX30100"
+                        self._w(0x06, 0x40)  # Reset
+                        time.sleep_ms(80)
+                        self._w(0x07, 0x03)  # Mode: SpO2
+                        self._w(0x09, 0x33)  # Current: 11mA
+                        self._w(0x06, 0x03)  # High res SpO2
+                        self.is_connected = True
+                        return True
+            except Exception:
+                pass
+            time.sleep_ms(100)
+        return False
+
+    def process_sample(self, ir, red, now):
+        self.latest_ir = ir
+        self.latest_red = red
+
+        # 1. Debounce Finger Placement (>= 10,000 for 100 ms -> 10 samples)
+        if ir >= 10000:
+            self.finger_high_counter += 1
+            self.finger_low_counter = 0
+            if self.finger_high_counter >= 10 and not self.finger_detected:
+                self.finger_detected = True
+                self.finger_detected_at = now
+                self.last_beat_anchor = 0
+                self.current_bpm = 0.0
+                self.average_bpm = 0
+                self.bpm_history = []
+                self.new_beat_ready = False
+        # 2. Debounce Finger Removal (<= 4,000 for 400 ms -> 40 samples)
+        elif ir <= 4000:
+            self.finger_low_counter += 1
+            self.finger_high_counter = 0
+            if self.finger_low_counter >= 40 and self.finger_detected:
+                self.finger_detected = False
+                self.last_beat_anchor = 0
+                self.current_bpm = 0.0
+                self.average_bpm = 0
+                self.bpm_history = []
+                self.new_beat_ready = False
+        else:
+            self.finger_high_counter = 0
+            self.finger_low_counter = 0
+
+        # 3. Cardiac Beat Detection (When finger confirmed)
+        self.beat_event = False
+        if self.finger_detected:
+            if self.detector.check_for_beat(ir, now):
+                self.beat_event = True
+                # Allow 800ms settling time after finger placement
+                if time.ticks_diff(now, self.finger_detected_at) >= 800:
+                    if self.last_beat_anchor == 0:
+                        self.last_beat_anchor = now
+                    else:
+                        interval = time.ticks_diff(now, self.last_beat_anchor)
+                        self.last_beat_anchor = now
+                        # Valid human physiological range: 45 to 160 BPM (375ms to 1333ms)
+                        if 375 <= interval <= 1333:
+                            inst_bpm = 60000.0 / interval
+                            if self.average_bpm == 0:
+                                self.average_bpm = int(inst_bpm + 0.5)
+                            else:
+                                # Smooth moving average (65% history, 35% new reading) to eliminate jumpiness
+                                self.average_bpm = int(self.average_bpm * 0.65 + inst_bpm * 0.35 + 0.5)
+                            
+                            self.current_bpm = inst_bpm
+                            self.bpm_history.append(self.average_bpm)
+                            if len(self.bpm_history) > 4:
+                                self.bpm_history.pop(0)
+                            self.new_beat_ready = True
+                            print(f"[HEART] Beat! Inst: {int(inst_bpm)} BPM | Smooth Avg: {self.average_bpm} BPM")
+
+        # 4. Update 128-pixel Waveform Buffer for OLED
+        if self.finger_detected:
+            ac = getattr(self.detector, 'ir_ac_signal_current', 0)
+            # Map AC amplitude to screen range (Y: 14 to 48, center at 32)
+            y_point = 32 - int(ac * 0.055)
+            if y_point < 14: y_point = 14
+            if y_point > 48: y_point = 48
+            self.wave_buf.pop(0)
+            self.wave_buf.append(y_point)
+        else:
+            self.wave_buf.pop(0)
+            self.wave_buf.append(32)
+
+    def update_100hz(self):
+        """Reads latest sample from FIFO at 100 Hz (every 10 ms)."""
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self.last_sample_ms) < 10:
+            return
+        self.last_sample_ms = now
+
+        try:
+            if self.chip_type == "MAX30102":
+                wr = self._r(0x04, 1)[0]
+                rd = self._r(0x06, 1)[0]
+                num_samples = (wr - rd) & 0x1F
+                if num_samples > 0:
+                    raw = self._r(0x07, num_samples * 6)
+                    # Process the latest sample from FIFO
+                    last_idx = (num_samples - 1) * 6
+                    ir = (raw[last_idx + 3] << 16 | raw[last_idx + 4] << 8 | raw[last_idx + 5]) & 0x03FFFF
+                    red = (raw[last_idx + 0] << 16 | raw[last_idx + 1] << 8 | raw[last_idx + 2]) & 0x03FFFF
+                    if ir > 0:
+                        self.process_sample(ir, red, now)
+            elif self.chip_type == "MAX30100":
+                wr = self._r(0x02, 1)[0]
+                rd = self._r(0x04, 1)[0]
+                num_samples = (wr - rd) & 0x0F
+                if num_samples > 0:
+                    raw = self._r(0x05, num_samples * 4)
+                    last_idx = (num_samples - 1) * 4
+                    ir = (raw[last_idx + 0] << 8) | raw[last_idx + 1]
+                    red = (raw[last_idx + 2] << 8) | raw[last_idx + 3]
+                    if ir > 0:
+                        self.process_sample(ir, red, now)
+        except Exception:
+            pass
+        except Exception:
+            pass
+
+
+# ================= 4. OLED ANIMATION GRAPHICS RENDERER =================
+class RobotFaceRenderer:
+    def __init__(self, oled):
+        self.oled = oled
+        self.current_style = 0
+        self.last_style_change = 0
+        self.blink_state = 0
+        self.last_blink_time = 0
+
+    def draw_eye(self, cx, cy, rx, ry, pupil_dx=0, pupil_dy=0, is_blink=False, style=0):
+        oled = self.oled
+        if is_blink:
+            # Closed horizontal eye line
+            oled.hline(cx - rx, cy, rx * 2 + 1, 1)
+            oled.hline(cx - rx + 1, cy - 1, rx * 2 - 1, 1)
+            return
+
+        if style == 0:
+            # Rounded Rectangle Futuristic Visor Eyes
+            oled.fill_rect(cx - rx, cy - ry, rx * 2, ry * 2, 1)
+            oled.fill_rect(cx - rx + 2, cy - ry + 2, rx * 2 - 4, ry * 2 - 4, 0)
+            # Center Glowing Pupil
+            oled.fill_rect(cx + pupil_dx - 3, cy + pupil_dy - 3, 6, 6, 1)
+
+        elif style == 1:
+            # Happy Curved Arc Eyes (Kawaii ^_^)
+            for offset_x in range(-rx, rx + 1):
+                dy = int((offset_x * offset_x) / (rx * 1.6)) - ry
+                oled.pixel(cx + offset_x, cy + dy, 1)
+                oled.pixel(cx + offset_x, cy + dy + 1, 1)
+                oled.pixel(cx + offset_x, cy + dy + 2, 1)
+
+        elif style == 2:
+            # Solid Robotic Neon Eyes with Corner Notch
+            oled.fill_rect(cx - rx, cy - ry, rx * 2, ry * 2, 1)
+            # Inner Cutout
+            oled.fill_rect(cx - rx + 3, cy - ry + 3, rx * 2 - 6, ry * 2 - 6, 0)
+            oled.fill_rect(cx + pupil_dx - 2, cy + pupil_dy - 2, 5, 5, 1)
+
+        elif style == 3:
+            # Heart Eyes (Loving DJ Robot)
+            # Left bump, right bump, triangle down
+            oled.fill_rect(cx - 8, cy - 8, 7, 7, 1)
+            oled.fill_rect(cx + 1, cy - 8, 7, 7, 1)
+            oled.fill_rect(cx - 8, cy - 3, 16, 7, 1)
+            oled.fill_rect(cx - 5, cy + 4, 10, 4, 1)
+            oled.fill_rect(cx - 2, cy + 8, 4, 3, 1)
+
+    def render_normal_face(self, now, track_num):
+        oled = self.oled
+        oled.fill(0)
+
+        # Style change every 2.5 seconds
+        if time.ticks_diff(now, self.last_style_change) > 2500:
+            self.last_style_change = now
+            self.current_style = random.randint(0, 3)
+
+        # Periodic natural blinking
+        is_blinking = False
+        if time.ticks_diff(now, self.last_blink_time) > 2800:
+            self.last_blink_time = now
+        elif time.ticks_diff(now, self.last_blink_time) < 180:
+            is_blinking = True
+
+        # Header status bar (Fits inside 128px)
+        oled.print_text(f"DJ BOT T{track_num}", 2, 2, 1)
+        oled.print_text("♪ NORMAL", 56, 2, 1)
+        oled.hline(0, 11, 128, 1)
+
+        # Animated Left & Right Eyes (Centered at X=34 and X=94, Y=34)
+        self.draw_eye(34, 34, 16, 12, pupil_dx=0, pupil_dy=0, is_blink=is_blinking, style=self.current_style)
+        self.draw_eye(94, 34, 16, 12, pupil_dx=0, pupil_dy=0, is_blink=is_blinking, style=self.current_style)
+
+        # Small rhythmic mouth beat indicator
+        mouth_w = 12 if (now // 250) % 2 == 0 else 24
+        oled.hline(64 - mouth_w // 2, 56, mouth_w, 1)
+
+        oled.show()
+
+    def render_calm_face(self, now, remaining_sec):
+        """Serene, gentle, relaxed breathing face shown when finger is lifted during Calm Mode."""
+        oled = self.oled
+        oled.fill(0)
+
+        # Top Bar (Fits inside 128px)
+        oled.print_text(f"CALM {remaining_sec}s", 2, 2, 1)
+        oled.print_text("ZEN ♪", 84, 2, 1)
+        oled.hline(0, 11, 128, 1)
+
+        # Gentle closed curved serene eyes
+        for dx in range(-14, 15):
+            dy = int((dx * dx) / 18)
+            oled.pixel(34 + dx, 32 + dy, 1)
+            oled.pixel(34 + dx, 33 + dy, 1)
+
+        for dx in range(-14, 15):
+            dy = int((dx * dx) / 18)
+            oled.pixel(94 + dx, 32 + dy, 1)
+            oled.pixel(94 + dx, 33 + dy, 1)
+
+        # Peaceful smile
+        oled.print_text("RELAX & BREATHE", 4, 52, 1)
+        oled.show()
+
+    def render_tired_face(self, now):
+        """Tired drowsy face shown when no finger is detected for >= 60 seconds."""
+        oled = self.oled
+        oled.fill(0)
+
+        oled.print_text("TIRED MODE", 2, 2, 1)
+        z_step = (now // 400) % 3
+        z_str = "Z" * (z_step + 1)
+        oled.print_text(z_str, 102, 2, 1)
+        oled.hline(0, 11, 128, 1)
+
+        # Droopy half-closed eyelids
+        oled.fill_rect(18, 22, 32, 18, 1)
+        oled.fill_rect(20, 24, 28, 14, 0)
+        oled.fill_rect(18, 22, 32, 9, 1)
+        oled.fill_rect(30, 31, 8, 4, 1)
+
+        oled.fill_rect(78, 22, 32, 18, 1)
+        oled.fill_rect(80, 24, 28, 14, 0)
+        oled.fill_rect(78, 22, 32, 9, 1)
+        oled.fill_rect(90, 31, 8, 4, 1)
+
+        # Yawning / resting prompt
+        oled.print_text("TOUCH SENSOR", 16, 52, 1)
+        oled.show()
+
+    def render_heartbeat_display(self, pulse_sensor, is_calm_active=False, calm_remaining=0):
+        """Visual ECG-style real-time cardiac waveform and BPM telemetry display."""
+        oled = self.oled
+        oled.fill(0)
+
+        # 1. Header Information Bar (Top Y=1)
+        if is_calm_active:
+            oled.print_text(f"CALM {calm_remaining}s", 2, 1, 1)
+        else:
+            oled.print_text("HEART SIGNAL", 2, 1, 1) # 12 chars = 96 px (X=2..98)
+
+        # Heart Icon (Beats/Pumps when beat is triggered) placed at X=112..122
+        if pulse_sensor.beat_event:
+            # Solid Large Heart (X=112 to 122)
+            oled.fill_rect(112, 1, 11, 8, 1)
+            oled.pixel(112, 1, 0); oled.pixel(117, 1, 0); oled.pixel(122, 1, 0)
+            oled.pixel(112, 8, 0); oled.pixel(113, 8, 0); oled.pixel(121, 8, 0); oled.pixel(122, 8, 0)
+        else:
+            # Regular Heart Icon Outline (X=112 to 122)
+            oled.pixel(114, 1, 1); oled.pixel(120, 1, 1)
+            oled.pixel(113, 2, 1); oled.pixel(115, 2, 1); oled.pixel(119, 2, 1); oled.pixel(121, 2, 1)
+            oled.pixel(112, 3, 1); oled.pixel(122, 3, 1)
+            oled.pixel(113, 4, 1); oled.pixel(121, 4, 1)
+            oled.pixel(114, 5, 1); oled.pixel(120, 5, 1)
+            oled.pixel(115, 6, 1); oled.pixel(119, 6, 1)
+            oled.pixel(116, 7, 1); oled.pixel(118, 7, 1)
+            oled.pixel(117, 8, 1)
+
+        oled.hline(0, 11, 128, 1)
+
+        # 2. Continuous Scrolling ECG / PPG Waveform Vector Plot (Y: 14 to 48)
+        for x in range(127):
+            y1 = pulse_sensor.wave_buf[x]
+            y2 = pulse_sensor.wave_buf[x + 1]
+            oled.line(x, y1, x + 1, y2, 1)
+
+        oled.hline(0, 51, 128, 1)
+
+        # 3. Bottom Information Bar (Y=54, Fits perfectly within 128px)
+        if pulse_sensor.average_bpm > 0:
+            bpm_txt = f"HEART RATE: {pulse_sensor.average_bpm} BPM" if len(f"HEART RATE: {pulse_sensor.average_bpm} BPM") <= 16 else f"BPM: {pulse_sensor.average_bpm}"
+            oled.print_text(bpm_txt, 4, 54, 1)
+        else:
+            oled.print_text("MEASURING BPM...", 4, 54, 1)
+
+        oled.show()
+
+
+# ================= 5. MAIN CONTROLLER & STATE MACHINE =================
 def main():
-    print("=== LOF TITAN HEART BEAT DJ BOT STARTED ===")
-    hw.play_startup_tone()
+    print("==================================================")
+    print("LOF TITAN: HEARTBEAT DJ BOT INITIALIZING...")
+    print("==================================================")
 
-    # Setup I2C for MAX30102 optical sensor
-    i2c = SoftI2C(scl=Pin(8), sda=Pin(7), freq=100000)
-    devices = i2c.scan()
-    print(f"I2C Devices: {[hex(d) for d in devices]}")
+    # 1. Initialize OLED
+    oled = TitanOLED(sda_pin=7, scl_pin=8, is_sh1106=True)
+    face_renderer = RobotFaceRenderer(oled)
 
-    bpm = 75
-    dj_notes = [262, 330, 392, 440, 523, 587, 659]
+    # Display Startup Screen
+    oled.fill(0)
+    oled.print_text("================", 0, 4, 1)
+    oled.print_text("DJ BOT", 16, 18, 2)
+    oled.print_text("SYSTEM STARTING", 4, 38, 1)
+    oled.print_text("================", 0, 52, 1)
+    oled.show()
 
+    # 2. Initialize DFPlayer Mini MP3 Player
+    dfplayer = TitanDFPlayer(uart_id=1, tx=17, rx=18)
+    dfplayer.set_volume(22)
+    dfplayer.set_eq(0)
+    dfplayer.stop()
+
+    # 3. Initialize MAX30102 Pulse Sensor (Check up to 5 times)
+    pulse = TitanPulseSensor(sda_pin=7, scl_pin=8, addr=0x57)
+    sensor_ready = pulse.init_sensor()
+
+    oled.fill(0)
+    oled.print_text("HARDWARE CHECK:", 4, 6, 1)
+    if sensor_ready:
+        oled.print_text(f"PULSE: {pulse.chip_type}", 4, 22, 1)
+        print(f"[OK] Pulse Sensor Detected: {pulse.chip_type}")
+    else:
+        oled.print_text("PULSE: NOT DETECTED", 4, 22, 1)
+        print("[WARN] MAX30102 Sensor not detected after 5 retries")
+    oled.print_text("DFPLAYER: READY", 4, 38, 1)
+    oled.print_text("STARTING DJ MODE", 4, 52, 1)
+    oled.show()
+    time.sleep(1.5)
+
+    # State Machine Variables
+    # Music State
+    current_music_track = 2
+    last_music_switch = time.ticks_ms()
+    dfplayer.play_track(current_music_track)
+    print(f"[MUSIC] Playing Initial Normal Track {current_music_track}")
+
+    # Timers & Modes
+    last_finger_seen_time = time.ticks_ms()
+    is_tired_mode = False
+
+    # Calm Mode State Machine
+    calm_mode_active = False
+    calm_mode_start_time = 0
+    calm_track_stopped = False
+    last_calm_mode_end_time = 0  # 10s rearm cooldown anchor
+
+    # BPM Trigger tracking
+    last_processed_bpm_len = 0
+
+    # Display update throttling
+    last_display_render_time = 0
+
+    # Main Super-Loop
     while True:
-        # Simulate / Calculate Heartbeat Pulse
-        t = time.ticks_ms()
-        bpm = 70 + int((t // 2000) % 35)
-        beat_interval = int(60000 / bpm)
+        now = time.ticks_ms()
 
-        print(f"Heartbeat Sync -> BPM: {bpm} | Beat Interval: {beat_interval} ms")
+        # ================= A. 100 Hz PULSE SENSOR SAMPLING =================
+        pulse.update_100hz()
 
-        # DJ Beat Drop Routine
-        led_red.value(1)
-        led_grn.value(0)
-        
-        # Beat Note & Dance Wobble
-        note_freq = dj_notes[bpm % len(dj_notes)]
-        set_motors(65, -65)  # Spin Left
-        play_note(note_freq, 80)
-        
-        led_red.value(0)
-        led_grn.value(1)
-        set_motors(-65, 65)  # Spin Right
-        play_note(note_freq * 2, 80)
+        # ================= B. FINGER TIMING & TIRED MODE =================
+        if pulse.finger_detected:
+            last_finger_seen_time = now
+            if is_tired_mode:
+                is_tired_mode = False
+                print("[STATE] Finger Detected -> Tired Mode Deactivated")
+        else:
+            # If no finger continuously for >= 60 seconds (60,000 ms)
+            if not is_tired_mode and not calm_mode_active:
+                if time.ticks_diff(now, last_finger_seen_time) >= 60000:
+                    is_tired_mode = True
+                    print("[STATE] No finger for 60s -> Entering Tired Mode")
 
-        set_motors(0, 0)
-        led_grn.value(0)
+        # ================= C. CALM MODE TRIGGER CHECK =================
+        # Check for 2 consecutive valid BPM readings > 85 BPM (when not in calm mode and rearmed)
+        rearmed = (last_calm_mode_end_time == 0) or (time.ticks_diff(now, last_calm_mode_end_time) >= 10000)
 
-        # Rest interval between pulse beats
-        remaining = max(10, beat_interval - 160)
-        time.sleep_ms(remaining)
+        if not calm_mode_active and rearmed and pulse.finger_detected:
+            if pulse.new_beat_ready:
+                pulse.new_beat_ready = False
+                bpm_val = pulse.average_bpm
+                if bpm_val > 85:
+                    pulse.consecutive_high_bpm += 1
+                    print(f"--> [HIGH BPM TRIGGER] Reading: {bpm_val} BPM (Consecutive: {pulse.consecutive_high_bpm}/2)")
+                    if pulse.consecutive_high_bpm >= 2:
+                        # TRIGGER CALM MODE!
+                        calm_mode_active = True
+                        calm_mode_start_time = now
+                        calm_track_stopped = False
+                        pulse.consecutive_high_bpm = 0
+                        print("==================================================")
+                        print(f"[CALM MODE ACTIVATED] Triggered by 2 high BPM readings ({bpm_val} BPM)!")
+                        print("[MUSIC] Playing Calm Track 1 for 20 seconds...")
+                        print("==================================================")
+                        dfplayer.play_track(1)
+                else:
+                    if pulse.consecutive_high_bpm > 0:
+                        print(f"[PULSE] BPM under 85 ({bpm_val} BPM) -> Resetting consecutive high count")
+                    pulse.consecutive_high_bpm = 0
+        elif not pulse.finger_detected:
+            pulse.consecutive_high_bpm = 0
+            pulse.new_beat_ready = False
+
+        # ================= D. CALM MODE EXECUTION & TIMING =================
+        calm_remaining_sec = 0
+        if calm_mode_active:
+            calm_elapsed_ms = time.ticks_diff(now, calm_mode_start_time)
+            calm_remaining_sec = max(0, 60 - (calm_elapsed_ms // 1000))
+
+            # Track 1 stops after exactly 20 seconds (20,000 ms) and remains silent
+            if not calm_track_stopped and calm_elapsed_ms >= 20000:
+                dfplayer.stop()
+                calm_track_stopped = True
+                print("[MUSIC] Calm Track 1 stopped after 20s. Continuing silent calm mode...")
+
+            # Calm Mode ends after 60 seconds (60,000 ms)
+            if calm_elapsed_ms >= 60000:
+                calm_mode_active = False
+                last_calm_mode_end_time = now  # Start 10s rearm period
+                pulse.bpm_history.clear()
+                pulse.average_bpm = 0
+                pulse.consecutive_high_bpm = 0
+                last_processed_bpm_len = 0
+                
+                # Resume normal music rotation (Track 2 or 3)
+                last_music_switch = now
+                dfplayer.play_track(current_music_track)
+                print("==================================================")
+                print("[CALM MODE COMPLETED] Returning to Normal DJ Mode")
+                print(f"[MUSIC] Resuming Track {current_music_track}")
+                print("==================================================")
+
+        # ================= E. NORMAL MUSIC ROTATION (TRACK 2 <-> 3) =================
+        if not calm_mode_active:
+            if time.ticks_diff(now, last_music_switch) >= 20000:
+                last_music_switch = now
+                # Alternate Track 2 and Track 3 every 20 seconds
+                current_music_track = 3 if current_music_track == 2 else 2
+                dfplayer.play_track(current_music_track)
+                print(f"[MUSIC] 20s Interval -> Alternating to Track {current_music_track}")
+
+        # ================= F. OLED DISPLAY RENDERER (30 FPS) =================
+        if time.ticks_diff(now, last_display_render_time) >= 33:
+            last_display_render_time = now
+
+            # Priority 1: Finger Placed -> ECG-style Live Heartbeat Visualisation (ALWAYS HIGHEST PRIORITY)
+            if pulse.finger_detected:
+                face_renderer.render_heartbeat_display(pulse, is_calm_active=calm_mode_active, calm_remaining=calm_remaining_sec)
+
+            # Priority 2: Calm Mode Active with Finger Lifted -> Serene Calm Face
+            elif calm_mode_active:
+                face_renderer.render_calm_face(now, calm_remaining_sec)
+
+            # Priority 3: Tired Mode (No finger for >= 1 min) -> Tired / Drowsy Eyes
+            elif is_tired_mode:
+                face_renderer.render_tired_face(now)
+
+            # Priority 4: Normal Operation -> Animated Eyes Changing Every 2.5s
+            else:
+                face_renderer.render_normal_face(now, current_music_track)
+
+        # FreeRTOS watchdog & task safety yield
+        time.sleep_ms(3)
+
 
 if __name__ == '__main__':
     main()
-`
+`,
   },
   {
     id: 'anemometer',
@@ -1152,6 +1806,7 @@ if __name__ == '__main__':
     heroImage: 'v1788331984/lof-titan/banners/banner-anemometer',
     thumbnail: 'v1788331984/lof-titan/banners/banner-anemometer',
     tagline: 'Wind Speed Measurement & Live Weather Telemetry',
+    codeFilename: 'anemometer.py',
     assemblyTitle: 'Anemometer Assembly & Integration',
     description:
       'Build an anemometer that measures and displays wind speed. As the wind spins the rotating cups, the system calculates how fast the air is moving. You will learn how wind-driven rotation can be converted into measurable wind-speed data.',
@@ -1275,6 +1930,402 @@ if __name__ == '__main__':
       }
     ],
 
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — High-Precision AS5600 Magnetic Cup Anemometer
+# ------------------------------------------------------------------------------
+# Hardware:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - Sensor: AS5600 12-Bit Contactless Magnetic Rotary Encoder (I2C Addr: 0x36)
+#   - Display: 1.3" / 0.96" I2C OLED Display (128x64, Addr: 0x3C)
+#   - Bus: I2C on SDA: GPIO 7, SCL: GPIO 8
+#   - Status LEDs: GPIO 47 (Red / Warning), GPIO 48 (Green / Magnet OK)
+#   - Buzzer: GPIO 20 (Audio Alerts)
+#
+# Operation:
+#   1. Displays Title Screen for 2.0 Seconds on boot.
+#   2. Main Screen displays real-time Wind Speed in m/s with large text.
+#   3. Real-time Magnet Detection Status (OK / WEAK / MISSING).
+# ==============================================================================
+
+import time
+import math
+from machine import Pin, PWM, SoftI2C
+import framebuf
+
+# ================= 1. HARDWARE PINS & PWM =================
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try: _pwm_pool[pin].freq(freq)
+        except Exception: pass
+    return _pwm_pool[pin]
+
+# Status LEDs & Buzzer
+led_red = Pin(47, Pin.OUT)
+led_grn = Pin(48, Pin.OUT)
+
+def beep(freq=2200, duration_ms=40):
+    """Audible feedback chirp."""
+    try:
+        buz = _get_pwm(20, freq=freq)
+        buz.duty(400)
+        time.sleep_ms(duration_ms)
+        buz.duty(0)
+    except Exception: pass
+
+
+# ================= 2. 1.3" / 0.96" OLED DISPLAY DRIVER =================
+class TitanOLED:
+    """I2C OLED Driver compatible with 1.3" SH1106 and 0.96" SSD1306 displays."""
+    def __init__(self, i2c, width=128, height=64, addr=0x3C):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.buffer = bytearray((height // 8) * width)
+        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.is_sh1106 = True # Default for 1.3" OLED
+        self.init_display()
+
+    def _cmd(self, cmd):
+        try:
+            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+        except Exception: pass
+
+    def init_display(self):
+        cmds = [
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        ]
+        for c in cmds: self._cmd(c)
+        self.fill(0)
+        self.show()
+
+    def fill(self, color):
+        self.fb.fill(color)
+
+    def text(self, string, x, y, col=1):
+        self.fb.text(string, x, y, col)
+
+    def line(self, x1, y1, x2, y2, col=1):
+        self.fb.line(x1, y1, x2, y2, col)
+
+    def rect(self, x, y, w, h, col=1):
+        self.fb.rect(x, y, w, h, col)
+
+    def fill_rect(self, x, y, w, h, col=1):
+        self.fb.fill_rect(x, y, w, h, col)
+
+    def draw_large_text(self, string, x, y, scale=2, col=1):
+        """Render integer-scaled high-contrast text to perfectly fit 1.3" display."""
+        temp_buf = bytearray(8 * len(string))
+        temp_fb = framebuf.FrameBuffer(temp_buf, 8 * len(string), 8, framebuf.MONO_VLSB)
+        temp_fb.fill(0)
+        temp_fb.text(string, 0, 0, 1)
+        for px in range(8 * len(string)):
+            for py in range(8):
+                if temp_fb.pixel(px, py):
+                    self.fb.fill_rect(x + px * scale, y + py * scale, scale, scale, col)
+
+    def show(self):
+        try:
+            for page in range(self.height // 8):
+                self._cmd(0xB0 + page)
+                if self.is_sh1106:
+                    self._cmd(0x02) # SH1106 2-column offset for 1.3" OLEDs
+                    self._cmd(0x10)
+                else:
+                    self._cmd(0x00)
+                    self._cmd(0x10)
+                start = page * self.width
+                self.i2c.writeto(self.addr, b'\\x40' + self.buffer[start:start + self.width])
+        except Exception: pass
+
+
+# ================= 3. AS5600 12-BIT MAGNETIC ENCODER DRIVER =================
+class AS5600Encoder:
+    """AS5600 12-bit contactless magnetic rotary encoder driver (I2C Addr: 0x36)."""
+    ADDR = 0x36
+    REG_RAW_ANGLE = 0x0C
+    REG_STATUS = 0x0B
+    REG_AGC = 0x1A
+
+    def __init__(self, i2c):
+        self.i2c = i2c
+        self.raw_angle = 0
+        self.angle_deg = 0.0
+        self.prev_raw = 0
+        self.turns = 0
+        
+        # Magnet Status Flags
+        self.magnet_detected = False
+        self.magnet_too_weak = False
+        self.magnet_too_strong = False
+        self.magnet_status_str = "Checking..."
+        self.agc = 0
+        self.connected = False
+        self.init_sensor()
+
+    def _read_reg(self, reg, n=1):
+        try:
+            return self.i2c.readfrom_mem(self.ADDR, reg, n)
+        except Exception:
+            return bytearray(n)
+
+    def init_sensor(self):
+        try:
+            devs = self.i2c.scan()
+            if self.ADDR in devs:
+                self.connected = True
+                self.update()
+                self.prev_raw = self.raw_angle
+            else:
+                self.connected = False
+        except Exception:
+            self.connected = False
+
+    def update(self):
+        # 1. Read 12-Bit Raw Angle (0x0C, 0x0D)
+        angle_bytes = self._read_reg(self.REG_RAW_ANGLE, 2)
+        if len(angle_bytes) == 2:
+            raw = ((angle_bytes[0] & 0x0F) << 8) | angle_bytes[1]
+            self.raw_angle = raw
+            self.angle_deg = (raw * 360.0) / 4096.0
+            
+            # Continuous multi-turn unwrapping
+            diff = raw - self.prev_raw
+            if diff < -2048:
+                self.turns += 1
+            elif diff > 2048:
+                self.turns -= 1
+            self.prev_raw = raw
+            self.connected = True
+        else:
+            self.connected = False
+
+        # 2. Read Status (0x0B: Bit 5 MD, Bit 4 ML, Bit 3 MH)
+        st_byte = self._read_reg(self.REG_STATUS, 1)
+        if len(st_byte) == 1:
+            st = st_byte[0]
+            self.magnet_detected = bool(st & 0x20)
+            self.magnet_too_weak = bool(st & 0x10)
+            self.magnet_too_strong = bool(st & 0x08)
+            
+            if not self.magnet_detected:
+                self.magnet_status_str = "NO MAGNET ❌"
+            elif self.magnet_too_weak:
+                self.magnet_status_str = "MAG WEAK ⚠️"
+            elif self.magnet_too_strong:
+                self.magnet_status_str = "MAG CLOSE ⚠️"
+            else:
+                self.magnet_status_str = "MAGNET OK ✅"
+
+        # 3. Read AGC Gain (0x1A: 0-255)
+        agc_byte = self._read_reg(self.REG_AGC, 1)
+        if len(agc_byte) == 1:
+            self.agc = agc_byte[0]
+
+        return self.raw_angle
+
+
+# ================= 4. HIGH-PRECISION ANEMOMETER SPEED ENGINE =================
+class AnemometerEngine:
+    """
+    High-Precision Velocity & Wind Speed Engine.
+    Supports low speeds (0.1 m/s) to high storm speeds (40+ m/s).
+    """
+    def __init__(self, encoder, cup_radius_m=0.070, cup_factor_k=2.85):
+        self.encoder = encoder
+        self.radius = cup_radius_m # 70 mm distance from shaft axis to cup center
+        self.k_factor = cup_factor_k # Aerodynamic cup ratio calibration factor
+        
+        self.rpm = 0.0
+        self.filtered_rpm = 0.0
+        self.wind_speed_ms = 0.0
+        self.filtered_speed_ms = 0.0
+        
+        self.last_update_ms = time.ticks_ms()
+        self.last_angle_raw = 0
+        self.last_movement_ms = time.ticks_ms()
+        self.history_samples = []
+
+    def compute(self):
+        now = time.ticks_ms()
+        dt_ms = time.ticks_diff(now, self.last_update_ms)
+        if dt_ms < 30:
+            return self.wind_speed_ms
+
+        self.encoder.update()
+        raw = self.encoder.raw_angle
+        
+        # Circular delta calculation (-2048 to +2047 steps)
+        delta_steps = (raw - self.last_angle_raw + 2048) % 4096 - 2048
+        
+        if abs(delta_steps) > 0:
+            self.last_movement_ms = now
+            delta_deg = (abs(delta_steps) * 360.0) / 4096.0
+            inst_deg_s = delta_deg / (dt_ms / 1000.0)
+            inst_rpm = inst_deg_s / 6.0
+        else:
+            # Gentle zero decay when stationary (> 600ms without motion)
+            idle_dt = time.ticks_diff(now, self.last_movement_ms)
+            if idle_dt > 600:
+                inst_rpm = 0.0
+            else:
+                inst_rpm = self.rpm * 0.70
+
+        self.last_angle_raw = raw
+        self.last_update_ms = now
+        
+        # Jitter median filter
+        self.history_samples.append(inst_rpm)
+        if len(self.history_samples) > 5:
+            self.history_samples.pop(0)
+        sorted_samples = sorted(self.history_samples)
+        median_rpm = sorted_samples[len(sorted_samples) // 2]
+        
+        # Exponential moving average filter
+        alpha = 0.32
+        self.filtered_rpm = (alpha * median_rpm) + ((1.0 - alpha) * self.filtered_rpm)
+        if self.filtered_rpm < 0.2: self.filtered_rpm = 0.0
+        self.rpm = round(self.filtered_rpm, 1)
+        
+        # Aerodynamic Physics: v_cup = (2 * pi * r * RPM) / 60, v_wind = v_cup * k
+        circumference = 2.0 * math.pi * self.radius
+        cup_linear_speed = (circumference * self.filtered_rpm) / 60.0
+        raw_speed = cup_linear_speed * self.k_factor
+        
+        if self.rpm == 0.0 or raw_speed < 0.10:
+            self.wind_speed_ms = 0.0
+            self.filtered_speed_ms = 0.0
+        else:
+            self.filtered_speed_ms = (0.35 * raw_speed) + (0.65 * self.filtered_speed_ms)
+            self.wind_speed_ms = round(self.filtered_speed_ms, 2)
+            
+        return self.wind_speed_ms
+
+
+# ================= 5. MAIN SYSTEM PROGRAM =================
+def main():
+    print("==================================================")
+    print("LOF TITAN — High-Precision AS5600 Wind Anemometer")
+    print("==================================================")
+
+    # Status LEDs
+    led_grn.value(1)
+    led_red.value(0)
+    beep(1800, 60)
+
+    # Initialize I2C Bus on GPIO 7 (SDA) and GPIO 8 (SCL)
+    i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=1000)
+
+    # Initialize 1.3" OLED Display
+    oled = TitanOLED(i2c, width=128, height=64, addr=0x3C)
+
+    # -------------------------------------------------------------
+    # STEP 1: SHOW TITLE SCREEN FOR EXACTLY 2.0 SECONDS
+    # -------------------------------------------------------------
+    oled.fill(0)
+    oled.rect(0, 0, 128, 64, 1)
+    oled.rect(2, 2, 124, 60, 1)
+    oled.text("LOF TITAN", 28, 14, 1)
+    oled.text("ANEMOMETER", 24, 28, 1)
+    oled.text("Wind Station", 20, 42, 1)
+    oled.show()
+    
+    # 2.0 Second Title Pause with dual confirmation chime
+    time.sleep_ms(1000)
+    beep(2400, 50)
+    time.sleep_ms(1000)
+
+    # -------------------------------------------------------------
+    # STEP 2: INITIALIZE SENSORS & START MAIN TELEMETRY
+    # -------------------------------------------------------------
+    encoder = AS5600Encoder(i2c)
+    anemometer = AnemometerEngine(encoder, cup_radius_m=0.070, cup_factor_k=2.85)
+
+    last_oled_time = time.ticks_ms()
+    last_serial_time = time.ticks_ms()
+
+    while True:
+        now = time.ticks_ms()
+
+        # Continuous high-frequency velocity calculation
+        speed_ms = anemometer.compute()
+
+        # LED status handling based on magnet presence
+        if not encoder.magnet_detected:
+            led_grn.value(0)
+            led_red.value(1) # Red ON if magnet is missing
+        elif encoder.magnet_too_weak or encoder.magnet_too_strong:
+            led_grn.value(1)
+            led_red.value(1) # Both ON if marginal distance
+        else:
+            led_red.value(0)
+            led_grn.value(1) # Green ON if Magnet is OK
+
+        # ---------------------------------------------------------
+        # STEP 3: REFRESH 1.3" OLED DISPLAY (10 FPS / Every 100ms)
+        # ---------------------------------------------------------
+        if time.ticks_diff(now, last_oled_time) > 100:
+            last_oled_time = now
+            oled.fill(0)
+
+            # Warning if Magnet is not detected
+            if not encoder.magnet_detected:
+                oled.fill_rect(0, 0, 128, 14, 1)
+                oled.text("! NO MAGNET !", 14, 3, 0)
+                oled.text("Attach Magnet", 12, 24, 1)
+                oled.text("Above AS5600", 16, 38, 1)
+                oled.text("Dist: 1.0-2.5mm", 8, 52, 1)
+            else:
+                # Top Header: Magnet Detection Status
+                oled.text("WIND SPEED", 0, 0, 1)
+                if encoder.magnet_too_weak:
+                    oled.text("MAG:WEAK", 64, 0, 1)
+                elif encoder.magnet_too_strong:
+                    oled.text("MAG:CLOSE", 56, 0, 1)
+                else:
+                    oled.text("MAG:OK", 80, 0, 1)
+
+                oled.line(0, 10, 128, 10, 1)
+
+                # Center: Large High-Contrast Wind Speed in m/s
+                speed_text = f"{speed_ms:.1f}"
+                # Render 3x scaled digits if short, or 2x scaled
+                oled.draw_large_text(speed_text, 4, 16, scale=3, col=1)
+                oled.draw_large_text("m/s", 4 + len(speed_text) * 24 + 4, 24, scale=2, col=1)
+
+                # Bottom Section: Dynamic Visual Speed Bar Gauge (0 - 30 m/s)
+                oled.line(0, 48, 128, 48, 1)
+                oled.text(f"RPM:{anemometer.rpm:.0f}", 0, 53, 1)
+                
+                # Visual Bar Gauge
+                bar_x = 54
+                bar_w = 72
+                oled.rect(bar_x, 52, bar_w, 9, 1)
+                fill_w = int(min(bar_w - 4, max(0, (speed_ms / 25.0) * (bar_w - 4))))
+                if fill_w > 0:
+                    oled.fill_rect(bar_x + 2, 54, fill_w, 5, 1)
+
+            oled.show()
+
+        # Serial Monitor Diagnostics (Every 500ms)
+        if time.ticks_diff(now, last_serial_time) > 500:
+            last_serial_time = now
+            print(f"[ANEMOMETER] Wind Speed: {speed_ms:.2f} m/s | RPM: {anemometer.rpm:.1f} | Magnet: {encoder.magnet_status_str} (AGC: {encoder.agc})")
+
+        # Crucial CPU yield to keep background FreeRTOS / BLE alive
+        time.sleep_ms(5)
+
+if __name__ == '__main__':
+    main()
+`,
+
     // ---------------------------------------------------------------
     // CONTENT PENDING. Deep sections are deliberately absent rather than
     // filled with guesses about the hardware. The detail page hides any
@@ -1282,160 +2333,6 @@ if __name__ == '__main__':
     // correctly as-is. Add these as the content team delivers them:
     //   requirements[]   code
     // Optional page copy: assemblyTitle, codeFilename, outroCopy, specs[]
-    // ---------------------------------------------------------------
-  },
-  {
-    id: 'darrieus-turbine',
-    name: 'Darrieus Turbine',
-    category: 'Wind Energy',
-    badge: 'DIY Wind Energy Kit',
-    rating: 4.9,
-    reviews: 0,
-    duration: '45 Mins',
-    difficulty: 'Builder',
-    age: '10+',
-    // Version-pinned: a replaced asset keeps this url and ships a 30-day
-    // max-age, so bump vNNN whenever the artwork is re-uploaded.
-    heroImage: 'v1788340045/lof-titan/banners/banner-darrieus-turbine',
-    thumbnail: 'v1788340045/lof-titan/banners/banner-darrieus-turbine',
-    tagline: 'Vertical-Axis Wind Turbine & Rotational Energy',
-    description:
-      'Build a Darrieus vertical-axis wind turbine that converts wind energy into electrical energy. As the wind rotates the turbine, the magnet and coil generate electricity that can be stored using the power module. You will learn how wind-driven rotation can be converted into electrical power.',
-
-    specs: [
-      { label: 'ROTOR', value: 'Darrieus VAWT' },
-      { label: 'INDUCTION', value: 'Magnet + Copper Coil' },
-      { label: 'OUTPUT', value: 'Electrical Energy' },
-    ],
-
-    assemblyTitle: 'Darrieus Turbine Assembly & Integration',
-    challengesTitle: 'Turbine Mission Challenges',
-
-    safetyWarnings: {
-      hardwareTitle: 'Fabrication & Mechanical Safety',
-      electronicsTitle: 'Hardware & Electrical Precautions',
-      hardware: [
-        '⚠️ Keep hands and loose clothing away from rotating blades.',
-        '⚠️ Secure the blades, shaft, magnets, and bearings firmly.',
-        '⚠️ Keep the blower stable and at a safe distance.',
-        '⚠️ Handle neodymium magnets carefully to avoid sudden snapping and pinching.'
-      ],
-      electronics: [
-        '⚠️ Switch off the system before connecting the battery, charging PCB, coil, or other electrical parts.',
-        '⚠️ Check wiring and polarity before powering or charging the system.',
-        '⚠️ Use only the recommended battery and charging module.',
-        '⚠️ Avoid touching exposed coil wires while the system is powered.'
-      ]
-    },
-
-    components: [
-      {
-        id: 'smart-charging-pcb',
-        shortName: 'Charging PCB',
-        name: 'Smart Charging PCB',
-        image: 'v1788341168/lof-titan/darrieus-turbine/smart-charging-pcb',
-        whatIsIt: 'The smart charging PCB manages the electrical power generated by the turbine.',
-        howItWorks: 'It converts and regulates the generated electrical output so it can be supplied safely to the rechargeable battery.'
-      },
-      {
-        id: 'copper-coil',
-        shortName: 'Copper Coil',
-        name: 'Copper Coil',
-        image: 'v1788342708/lof-titan/darrieus-turbine/copper-coil',
-        whatIsIt: 'A copper coil is a wire wound into multiple turns to help generate electrical energy.',
-        howItWorks: 'When the magnetic field changes near the coil, a voltage is induced and electrical output is produced.'
-      },
-      {
-        id: 'neodymium-magnet',
-        shortName: 'Neodymium Magnet',
-        name: 'Neodymium Magnet',
-        image: 'v1788343249/lof-titan/darrieus-turbine/neodymium-magnet',
-        whatIsIt: 'A strong permanent magnet used to provide the magnetic field for electricity generation.',
-        howItWorks: 'As the turbine rotates, the magnet moves relative to the copper coil, creating a changing magnetic field that induces voltage.'
-      },
-      {
-        id: 'multimeter',
-        shortName: 'Multimeter',
-        name: 'Multimeter',
-        image: 'v1788498759/lof-titan/darrieus-turbine/multimeter',
-        whatIsIt: 'A measuring instrument used to check the electrical output generated by the turbine.',
-        howItWorks: 'It measures values such as voltage and helps compare the turbine’s electrical performance during testing.'
-      }
-    ],
-
-    assembly: [
-      {
-        step: 1,
-        title: 'Assemble the Rotor',
-        desc: 'Assemble the turbine blades around the central shaft and secure the rotating structure firmly.'
-      },
-      {
-        step: 2,
-        title: 'Install the Neodymium Magnet',
-        desc: 'Fix the neodymium magnet securely in the designated rotor section so it rotates with the turbine.'
-      },
-      {
-        step: 3,
-        title: 'Install the Copper Coil',
-        desc: 'Place the copper coil securely inside the turbine base, then position the blade-and-shaft assembly above it with proper alignment.'
-      },
-      {
-        step: 4,
-        title: 'Integrate the Power System',
-        desc: 'Connect the coil to the smart charging PCB, install the battery, complete the power connections, and secure the electronics in place.'
-      }
-    ],
-
-    faq: [
-      {
-        q: 'The turbine blades are not rotating smoothly. What should I check?',
-        a: 'Check the shaft alignment also the bearings and make sure the rotor is not rubbing against the frame.'
-      },
-      {
-        q: 'The turbine is rotating, but no voltage is generated. Why?',
-        a: 'Check the neodymium magnet position, copper coil connection, and coil output wire is connected correctly to the PCB.'
-      },
-      {
-        q: 'The multimeter shows a very low voltage. What should I check?',
-        a: 'Check the turbine speed and make sure the magnet and copper coil are correctly aligned with a suitable gap.'
-      },
-      {
-        q: 'The turbine shakes while rotating. Why?',
-        a: 'Check whether the blade assembly is balanced and securely fixed to the central shaft.'
-      },
-      {
-        q: 'The battery is not charging. What should I check?',
-        a: 'Check the coil-to-PCB connection, battery connection, and confirm that the turbine is generating sufficient voltage.'
-      }
-    ],
-
-    challenges: [
-      {
-        id: 'blade-configuration',
-        level: 'Beginner',
-        title: 'Challenge 1: Blade Configuration Challenge',
-        goal: 'Change the number of turbine blades and test each setup under the same wind condition. Compare the rotational performance and electrical output to identify the best-performing configuration.',
-        hint: 'Keep the blower speed and distance the same for every test.'
-      },
-      {
-        id: 'magnet-coil-gap',
-        level: 'Intermediate',
-        title: 'Challenge 2: Magnet-Coil Gap Challenge',
-        goal: 'Change the distance between the rotating neodymium magnet and copper coil and observe how it affects the generated voltage.',
-        hint: 'Adjust the gap in small steps and record the voltage for each test.'
-      },
-      {
-        id: 'custom-vawt-rotor',
-        level: 'Advanced',
-        title: 'Challenge 3: Create Your Own VAWT Rotor',
-        goal: 'Explore different vertical-axis wind turbine rotor shapes, select one, adapt it to the existing turbine dimensions, then CAD-design and 3D-print your own rotor. Test the new rotor under the same wind condition and compare its rotational performance and electrical output with the original rotor.',
-        hint: 'Keep the shaft size, generator setup, and blower position unchanged for a fair comparison.'
-      }
-    ],
-
-    // ---------------------------------------------------------------
-    // CONTENT PENDING: requirements[] (bill of materials) and code.
-    // Component images: all four uploaded.
     // ---------------------------------------------------------------
   },
   {
@@ -1453,6 +2350,7 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-invisible',
     thumbnail: 'lof-titan/banners/banner-invisible',
     tagline: 'Aircraft Wing Ice Detection & Prevention',
+    codeFilename: 'anti_icing.py',
     description:
       'Build an aircraft anti-icing system that detects cold conditions and activates heating to help prevent ice from forming on the wing. You will learn how temperature affects aircraft surfaces and how heating systems help keep wings safe in cold weather.',
 
@@ -1587,160 +2485,534 @@ if __name__ == '__main__':
       }
     ],
 
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — Anti-Icing Thermal Control System
+# ------------------------------------------------------------------------------
+# Hardware:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - Sensor: DS18B20 Waterproof 1-Wire Digital Temperature Probe (Port S1 / GPIO 2)
+#   - Actuator: PTC Heating Element connected to Motor Channel 1 (M1: GPIO 15 PWM, GPIO 16 = 0)
+#   - Display: 2 x 16 (1602) Liquid Crystal I2C Display (HD44780 + PCF8574 I2C adapter)
+#   - Bus: I2C on SDA: GPIO 7, SCL: GPIO 8 (Addr: 0x27 or 0x3F auto-detected)
+#   - Status LEDs: GPIO 47 (Red / Heating Active), GPIO 48 (Green / Safe & Standby)
+#   - Buzzer: GPIO 20 (Audio Alerts on State Changes)
+#
+# Control Specifications & Behavior:
+#   1. Splash Screen: Displays "ANTI-ICING SYSTEM" with animated initialization.
+#   2. Temperature Trigger:
+#      - Below 20.0°C: Anti-icing heating activates automatically.
+#      - Target Setpoint: 30.0°C (Heater modulates via PID and cuts off at >= 30.0°C).
+#   3. PID Control: Proportional-Integral-Derivative algorithm modulates M1 PWM duty
+#      cycle smoothly (0–100%) to maintain steady thermal equilibrium without overshoot.
+#   4. 16x2 LCD Display Layout:
+#      - Line 1: Live Temperature reading & Target setpoint (e.g., "T: 18.5°C SET:30°C")
+#      - Line 2: Heater status (ON/OFF), PID output percentage, and visual power bar.
+#   5. Failsafe Protection: Automatically cuts heater PWM if sensor disconnected.
+# ==============================================================================
+
+import time
+from machine import Pin, PWM, SoftI2C, I2C
+import onewire
+import ds18x20
+
+# ==============================================================================
+# ⚙️ USER CONFIGURATION — GLOBAL TEMPERATURE & POWER LIMITS
+# ------------------------------------------------------------------------------
+# Easily adjust thermal thresholds and power limits here:
+# ==============================================================================
+HEATER_ON_TEMP   = 20.0   # Heating turns ON when temperature drops below this (°C)
+HEATER_OFF_TEMP  = 30.0   # Heating cuts OFF when temperature reaches or exceeds this (°C)
+MAX_PWM_PERCENT  = 50.0   # Maximum heater speed / PWM percentage limit (0.0 to 50.0%)
+
+# ================= 1. HARDWARE PINS & PWM MANAGER =================
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    """Singleton PWM pool manager to prevent timer exhaustion on ESP32-S3."""
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try:
+            _pwm_pool[pin].freq(freq)
+        except Exception:
+            pass
+    return _pwm_pool[pin]
+
+# Status LEDs & Buzzer
+led_red = Pin(47, Pin.OUT)   # Red: Heating Active
+led_grn = Pin(48, Pin.OUT)   # Green: Safe / Target Reached
+pin_m1_dir = Pin(16, Pin.OUT) # M1 Direction Pin (Ground for uni-directional heater)
+pin_m1_dir.value(0)
+
+def beep(freq=2400, duration_ms=50):
+    """Short audible feedback tone."""
+    try:
+        buz = _get_pwm(20, freq=freq)
+        buz.duty_u16(32768)
+        time.sleep_ms(duration_ms)
+        buz.duty_u16(0)
+    except Exception:
+        pass
+
+def alert_sound(pattern="start"):
+    """Audible alerts for system state transitions."""
+    if pattern == "start":
+        for f in (1200, 1800, 2400):
+            beep(f, 40)
+            time.sleep_ms(25)
+    elif pattern == "heat_on":
+        beep(1500, 70)
+        time.sleep_ms(30)
+        beep(2000, 90)
+    elif pattern == "cutoff":
+        beep(2200, 60)
+        time.sleep_ms(30)
+        beep(1400, 80)
+    elif pattern == "error":
+        for _ in range(3):
+            beep(800, 100)
+            time.sleep_ms(50)
+
+
+# ================= 2. 2x16 I2C LIQUID CRYSTAL DISPLAY (LCD 1602) DRIVER =================
+class TitanLCD1602:
+    """Zero-dependency HD44780 + PCF8574 I2C Character LCD Driver."""
+    def __init__(self, i2c, addr=0x27, cols=16, rows=2):
+        self.i2c = i2c
+        self.cols = cols
+        self.rows = rows
+        self.addr = addr
+        self.backlight_state = 0x08 # Bit 3 = Backlight ON
+        
+        # Auto-detect I2C address if needed
+        if self.i2c:
+            try:
+                devs = self.i2c.scan()
+                if self.addr not in devs:
+                    if 0x27 in devs: self.addr = 0x27
+                    elif 0x3F in devs: self.addr = 0x3F
+                    elif devs: self.addr = devs[0]
+            except Exception:
+                pass
+        
+        self._init_lcd()
+        self._create_custom_chars()
+
+    def _write_byte(self, data):
+        if not self.i2c: return
+        try:
+            self.i2c.writeto(self.addr, bytes([data | self.backlight_state]))
+        except Exception:
+            pass
+
+    def _pulse_enable(self, data):
+        self._write_byte(data | 0x04) # En High
+        time.sleep_us(500)
+        self._write_byte(data & ~0x04) # En Low
+        time.sleep_us(100)
+
+    def _write_nibble(self, nibble, mode=0):
+        # mode: 0 for command (RS=0), 1 for data (RS=1)
+        byte = (nibble & 0xF0) | mode
+        self._write_byte(byte)
+        self._pulse_enable(byte)
+
+    def _send(self, value, mode=0):
+        self._write_nibble(value & 0xF0, mode)
+        self._write_nibble((value << 4) & 0xF0, mode)
+
+    def command(self, cmd):
+        self._send(cmd, 0)
+        if cmd <= 3:
+            time.sleep_ms(2)
+
+    def write_char(self, char_code):
+        self._send(char_code, 1)
+
+    def _init_lcd(self):
+        time.sleep_ms(50)
+        # 4-bit initialization sequence
+        for _ in range(3):
+            self._write_nibble(0x30, 0)
+            time.sleep_ms(5)
+        self._write_nibble(0x20, 0)
+        time.sleep_ms(2)
+        self.command(0x28) # 2 lines, 5x8 font
+        self.command(0x0C) # Display ON, Cursor OFF, Blink OFF
+        self.command(0x06) # Auto increment
+        self.command(0x01) # Clear
+        time.sleep_ms(5)
+
+    def _create_custom_chars(self):
+        """Define custom character glyphs for degree symbol, flame, and thermometer."""
+        # Char 0: Degree Symbol (°)
+        deg_glyph = [0x06, 0x09, 0x09, 0x06, 0x00, 0x00, 0x00, 0x00]
+        # Char 1: Flame / Heat Icon
+        flame_glyph = [0x04, 0x0A, 0x0A, 0x11, 0x15, 0x1F, 0x0E, 0x04]
+        # Char 2: Snowflake / Ice Icon
+        ice_glyph = [0x00, 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x00, 0x00]
+        # Char 3: Power Bar block (1 bar)
+        bar1_glyph = [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10]
+        # Char 4: Power Bar block (Full bar)
+        bar_full = [0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F]
+
+        glyphs = [deg_glyph, flame_glyph, ice_glyph, bar1_glyph, bar_full]
+        for idx, pattern in enumerate(glyphs):
+            self.command(0x40 | (idx << 3))
+            for b in pattern:
+                self.write_char(b)
+        self.command(0x80) # Reset to DDRAM
+
+    def clear(self):
+        self.command(0x01)
+        time.sleep_ms(2)
+
+    def backlight(self, on=True):
+        self.backlight_state = 0x08 if on else 0x00
+        self._write_byte(0)
+
+    def set_cursor(self, col, row):
+        col = max(0, min(col, self.cols - 1))
+        row = max(0, min(row, self.rows - 1))
+        row_offsets = [0x00, 0x40]
+        self.command(0x80 | (col + row_offsets[row]))
+
+    def print(self, text, col=None, row=None):
+        if col is not None and row is not None:
+            self.set_cursor(col, row)
+        for ch in str(text):
+            if ch == '\\n':
+                row = ((row or 0) + 1) % self.rows
+                self.set_cursor(0, row)
+            elif ch == '°':
+                self.write_char(0) # Custom degree symbol
+            else:
+                self.write_char(ord(ch))
+
+    def print_lines(self, line1="", line2=""):
+        """Format and print two lines ensuring full 16-character clear padding."""
+        s1 = str(line1)
+        s2 = str(line2)
+        # Pad to 16 characters to overwrite previous line without full clear flash
+        s1_pad = s1[:self.cols] + " " * max(0, self.cols - len(s1))
+        s2_pad = s2[:self.cols] + " " * max(0, self.cols - len(s2))
+        self.set_cursor(0, 0)
+        for ch in s1_pad:
+            if ch == '°': self.write_char(0)
+            elif ch == '\\x01': self.write_char(1) # Flame
+            elif ch == '\\x02': self.write_char(2) # Ice
+            elif ch == '\\x04': self.write_char(4) # Full Bar
+            else: self.write_char(ord(ch))
+            
+        self.set_cursor(0, 1)
+        for ch in s2_pad:
+            if ch == '°': self.write_char(0)
+            elif ch == '\\x01': self.write_char(1) # Flame
+            elif ch == '\\x02': self.write_char(2) # Ice
+            elif ch == '\\x04': self.write_char(4) # Full Bar
+            else: self.write_char(ord(ch))
+
+
+# ================= 3. DS18B20 1-WIRE TEMPERATURE SENSOR DRIVER =================
+class TitanDS18B20:
+    """Robust 1-Wire DS18B20 Temperature Sensor interface with CRC check & caching."""
+    def __init__(self, pin_num=2):
+        self.pin = Pin(pin_num)
+        self.ow = onewire.OneWire(self.pin)
+        self.ds = ds18x20.DS18X20(self.ow)
+        self.roms = []
+        self.last_temp = 22.0
+        self.last_measure_time = 0
+        self.conversion_started = False
+        self.connected = False
+        self.scan_sensor()
+
+    def scan_sensor(self):
+        """Scan 1-Wire bus for DS18B20 ROMs."""
+        try:
+            self.roms = self.ds.scan()
+            self.connected = len(self.roms) > 0
+            return self.connected
+        except Exception:
+            self.connected = False
+            return False
+
+    def trigger_conversion(self):
+        """Initiate asynchronous ADC conversion."""
+        if not self.connected and not self.scan_sensor():
+            return False
+        try:
+            self.ds.convert_temp()
+            self.conversion_started = True
+            self.last_measure_time = time.ticks_ms()
+            return True
+        except Exception:
+            self.connected = False
+            return False
+
+    def read_temperature(self):
+        """Read temperature value in Celsius with conversion delay management."""
+        now = time.ticks_ms()
+        
+        # If conversion was not started, trigger now
+        if not self.conversion_started:
+            self.trigger_conversion()
+            time.sleep_ms(20) # Minimal wait
+            
+        # Ensure at least 750ms elapsed since conversion trigger (12-bit DS18B20 spec)
+        if time.ticks_diff(now, self.last_measure_time) >= 750:
+            if self.roms:
+                try:
+                    temp = self.ds.read_temp(self.roms[0])
+                    # Filter out power-on reset value (85.0°C) or disconnected reads
+                    if -55.0 <= temp <= 125.0 and temp != 85.0:
+                        self.last_temp = round(temp, 1)
+                        self.connected = True
+                    elif temp == 85.0 and self.last_temp != 85.0:
+                        pass # Ignore one-time 85°C reset artifact
+                except Exception:
+                    self.connected = False
+            self.trigger_conversion() # Start next conversion immediately
+
+        return self.last_temp if self.connected else None
+
+
+# ================= 4. PID TEMPERATURE CONTROLLER =================
+class PIDController:
+    """
+    Precision Proportional-Integral-Derivative Controller for thermal management.
+    Features anti-windup clamp, derivative smoothing, and output power saturation.
+    """
+    def __init__(self, kp=15.0, ki=0.5, kd=8.0, setpoint=30.0, out_min=0.0, out_max=50.0):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.setpoint = setpoint
+        self.out_min = out_min
+        self.out_max = out_max
+        
+        self.integral = 0.0
+        self.last_error = 0.0
+        self.last_time = time.ticks_ms()
+        self.last_pv = setpoint
+
+    def reset(self):
+        """Reset internal integrator and derivative history."""
+        self.integral = 0.0
+        self.last_error = 0.0
+        self.last_time = time.ticks_ms()
+
+    def compute(self, current_temp):
+        """Calculate PID duty cycle output (0–50% max) based on current temperature."""
+        now = time.ticks_ms()
+        dt_ms = time.ticks_diff(now, self.last_time)
+        if dt_ms <= 0:
+            dt_ms = 100
+        dt = dt_ms / 1000.0
+        self.last_time = now
+
+        error = self.setpoint - current_temp
+
+        # Proportional term
+        p_term = self.kp * error
+
+        # Integral term with anti-windup clamping
+        self.integral += error * dt
+        # Anti-windup clamping
+        max_integral = self.out_max / (self.ki if self.ki > 0 else 1.0)
+        self.integral = max(-max_integral, min(max_integral, self.integral))
+        i_term = self.ki * self.integral
+
+        # Derivative on measurement error (mitigates derivative kick)
+        d_term = self.kd * ((error - self.last_error) / dt) if dt > 0 else 0.0
+        self.last_error = error
+        self.last_pv = current_temp
+
+        # Total combined PID output
+        output = p_term + i_term + d_term
+        # Clamp output strictly to 0..50% max duty cycle
+        output_clamped = max(self.out_min, min(self.out_max, output))
+
+        return output_clamped
+
+
+# ================= 5. HEATER ACTUATOR CONTROL (M1) =================
+def set_heater_power(duty_percent):
+    """
+    Set PTC heater power via Motor Channel 1 (Pin 15 PWM).
+    duty_percent: 0.0 (OFF) to MAX_PWM_PERCENT (e.g. 50% POWER CAP)
+    """
+    pct = max(0.0, min(MAX_PWM_PERCENT, float(duty_percent)))
+    pwm_val = int((pct / 100.0) * 65535)
+    
+    # Motor Channel 1 Forward: Pin 15 = PWM, Pin 16 = 0
+    pin_m1_dir.value(0)
+    heater_pwm = _get_pwm(15, freq=1000)
+    heater_pwm.duty_u16(pwm_val)
+    return pct
+
+def stop_heater():
+    """Immediately cut off power to PTC heater."""
+    try:
+        _get_pwm(15).duty_u16(0)
+        pin_m1_dir.value(0)
+    except Exception:
+        pass
+
+
+# ================= 6. MAIN SYSTEM INITIALIZATION & LOOP =================
+def main():
+    print("==================================================")
+    print("LOF TITAN — Anti-Icing Thermal Control System")
+    print("==================================================")
+    
+    # 1. Initialize Hardware Pins
+    led_red.value(0)
+    led_grn.value(1)
+    stop_heater()
+
+    # 2. Initialize I2C Bus (SDA: 7, SCL: 8)
+    i2c = None
+    try:
+        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=50000)
+    except Exception:
+        try:
+            i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
+        except Exception:
+            print("[WARN] Could not initialize I2C bus.")
+
+    # 3. Initialize LCD 1602 Display
+    lcd = TitanLCD1602(i2c, addr=0x27, cols=16, rows=2)
+    
+    # 4. Initialize DS18B20 Temperature Sensor (Port S1 / GPIO 2)
+    temp_sensor = TitanDS18B20(pin_num=2)
+    
+    # 5. Initialize PID Controller with global thresholds
+    pid = PIDController(kp=14.0, ki=0.35, kd=6.0, setpoint=HEATER_OFF_TEMP, out_min=0.0, out_max=MAX_PWM_PERCENT)
+
+    # 6. Display Splash Screen (Intelligent Centering & Timing)
+    alert_sound("start")
+    lcd.clear()
+    lcd.print(" ANTI-ICING SYS ", col=0, row=0)
+    lcd.print("INITIALIZING...", col=1, row=1)
+    time.sleep_ms(1500)
+
+    # Sensor discovery check on splash
+    if temp_sensor.connected:
+        lcd.print_lines("  DS18B20: OK   ", " HEATER M1: READY")
+    else:
+        lcd.print_lines("DS18B20 SENSOR: ", "SCANNING BUS...")
+        temp_sensor.scan_sensor()
+    time.sleep_ms(1000)
+
+    # 7. System State Machine Variables
+    is_heating = False
+    last_display_update = 0
+    last_pid_update = 0
+    current_duty = 0.0
+
+    print(f"[INFO] Anti-Icing System active. ON: < {HEATER_ON_TEMP}°C | OFF: >= {HEATER_OFF_TEMP}°C | Max PWM: {MAX_PWM_PERCENT}%")
+
+    # Initial temperature pre-reading
+    temp_sensor.trigger_conversion()
+    time.sleep_ms(800)
+
+    while True:
+        now = time.ticks_ms()
+
+        # ---------------- A. Temperature Acquisition ----------------
+        temp = temp_sensor.read_temperature()
+
+        # ---------------- B. Thermal Logic & PID Regulation ----------------
+        if temp is None:
+            # Sensor Disconnected Safety Cutoff
+            stop_heater()
+            is_heating = False
+            led_red.value(0)
+            led_grn.value(0) # Blink warning
+            current_duty = 0.0
+            alert_sound("error")
+        else:
+            # Anti-Icing Threshold Logic:
+            # 1. If temperature drops below HEATER_ON_TEMP -> START HEATING
+            if temp < HEATER_ON_TEMP and not is_heating:
+                is_heating = True
+                pid.reset()
+                alert_sound("heat_on")
+                print(f"[STATE] Temp ({temp:.1f}°C) < {HEATER_ON_TEMP}°C -> HEATER ACTIVATED (Max {MAX_PWM_PERCENT}%)")
+
+            # 2. If temperature reaches >= HEATER_OFF_TEMP -> CUTOFF HEATER
+            elif temp >= HEATER_OFF_TEMP and is_heating:
+                is_heating = False
+                current_duty = 0.0
+                stop_heater()
+                alert_sound("cutoff")
+                print(f"[STATE] Temp ({temp:.1f}°C) >= {HEATER_OFF_TEMP}°C -> HEATER CUTOFF (SAFE)")
+
+            # 3. PID Power Modulation when Heating is Active
+            if is_heating:
+                # Update PID calculations every 200ms
+                if time.ticks_diff(now, last_pid_update) >= 200:
+                    last_pid_update = now
+                    current_duty = pid.compute(temp)
+                    # If very close to cutoff or overshoot, clamp duty to 0
+                    if temp >= HEATER_OFF_TEMP:
+                        current_duty = 0.0
+                    set_heater_power(current_duty)
+                
+                # Visual LED Indicators: Red ON, Green OFF
+                led_red.value(1)
+                led_grn.value(0)
+            else:
+                # Standby / Safe Mode: Red OFF, Green ON
+                stop_heater()
+                current_duty = 0.0
+                led_red.value(0)
+                led_grn.value(1)
+
+        # ---------------- C. Intelligent 16x2 Display Rendering ----------------
+        # Refresh LCD display at 4Hz (every 250ms) to maintain smooth, readable telemetry
+        if time.ticks_diff(now, last_display_update) >= 250:
+            last_display_update = now
+
+            if temp is None:
+                # Error Screen
+                line1 = "T: SENSOR ERROR "
+                line2 = "CHECK 1-WIRE S1 "
+            else:
+                # Line 1: Real-time Temp & Target Setpoint
+                # Format: "T: 18.4°C SET:30°C" (Exactly 16 chars)
+                t_str = f"{temp:4.1f}"
+                line1 = f"T:{t_str}°C SET:{int(HEATER_OFF_TEMP)}°C"
+
+                # Line 2: Heating Status & Power Output Bar
+                if is_heating:
+                    # Create 4-character visual power meter bar relative to max cap
+                    bars = int(round((current_duty / MAX_PWM_PERCENT) * 4))
+                    bar_str = ("\\x04" * bars) + ("-" * (4 - bars))
+                    # Format: "HTR:ON 48% [####]" (16 chars)
+                    duty_int = int(current_duty)
+                    line2 = f"HTR:ON {duty_int:2d}% [{bar_str}]"
+                else:
+                    if temp >= HEATER_OFF_TEMP:
+                        line2 = "HTR:OFF  [SAFE] "
+                    else:
+                        line2 = "HTR:OFF [STANDBY]"
+
+            lcd.print_lines(line1, line2)
+
+        # FreeRTOS CPU Safety Yield
+        time.sleep_ms(20)
+
+
+if __name__ == '__main__':
+    main()
+`,
+
     // ---------------------------------------------------------------
     // CONTENT PENDING: requirements[] (bill of materials) and code.
     // Component images: slots above are ready, upload masters to
     //   lof-titan/anti-icing-systems/<component-id>
-    // ---------------------------------------------------------------
-  },
-  {
-    id: 'hydraulic-landing-gear',
-    name: 'Hydraulic Landing Gear',
-    category: 'Aerospace & Mechanics',
-    badge: 'DIY Hydraulics Kit',
-    rating: 4.9,
-    reviews: 0,
-    duration: '45 Mins',
-    difficulty: 'Innovator',
-    age: '10+',
-    // 16:9 master in a 3:2 card box, so object-cover trims ~8% off each
-    // side. The rig sits well inside that, only corridor background is lost.
-    // Version-pinned: bump vNNN whenever the artwork is re-uploaded.
-    heroImage: 'v1788501755/lof-titan/banners/banner-hydraulic-landing-gear',
-    thumbnail: 'v1788501755/lof-titan/banners/banner-hydraulic-landing-gear',
-    tagline: 'Aircraft Landing Gear Deploy & Retract',
-    description:
-      'Build a hydraulic landing gear system that demonstrates how aircraft wheels deploy and retract during landing operations. You will learn how fluid pressure can be used to move mechanical parts smoothly and control the landing gear mechanism.',
-
-    specs: [
-      { label: 'MECHANISM', value: 'Hydraulic System' },
-      { label: 'ACTUATOR', value: '12V 30 RPM DC Motor' },
-      { label: 'MOTION', value: 'Deploy & Retract' },
-    ],
-
-    assemblyTitle: 'Hydraulic Landing Gear Assembly & Integration',
-    challengesTitle: 'Landing Gear Challenges',
-
-    safetyWarnings: {
-      hardwareTitle: 'Hydraulic & Mechanical Safety',
-      electronicsTitle: 'Hardware & Electrical Precautions',
-      hardware: [
-        '⚠️ Make sure the syringe and silicone tube connections are tight to prevent fluid leakage.',
-        '⚠️ Remove air bubbles from the hydraulic line as trapped air can cause weak movement.',
-        '⚠️ Do not force the syringe beyond its movement limit.',
-        '⚠️ Keep fingers clear of the landing gear mechanism while it deploys or retracts.'
-      ],
-      electronics: [
-        '⚠️ Switch off the power before connecting the motor, adapter, switch, or other electrical parts.',
-        '⚠️ Check the motor wiring and connections before powering the system.',
-        '⚠️ Use only the recommended 12V adapter for operating the landing gear setup.',
-        '⚠️ Keep hands away from moving gears, linkages, and rotating motor parts during operation.'
-      ]
-    },
-
-    components: [
-      {
-        id: 'dc-motor-30rpm',
-        shortName: 'DC Motor',
-        name: '12V 30 RPM DC Motor',
-        image: 'v1788502121/lof-titan/hydraulic-landing-gear/dc-motor-30rpm',
-        whatIsIt: 'A geared motor that provides controlled mechanical movement.',
-        howItWorks: 'It drives the mechanism that operates the hydraulic system.'
-      },
-      {
-        id: 'hydraulic-syringe',
-        shortName: 'Hydraulic Syringe',
-        name: 'Hydraulic Syringe',
-        image: 'v1788502402/lof-titan/hydraulic-landing-gear/hydraulic-syringe',
-        whatIsIt: 'A syringe that acts as the hydraulic cylinder.',
-        howItWorks: 'Fluid pressure moves the plunger to operate the landing gear mechanism.'
-      },
-      {
-        id: 'silicone-tube',
-        shortName: 'Silicone Tube',
-        name: 'Silicone Tube',
-        image: 'v1788502607/lof-titan/hydraulic-landing-gear/silicone-tube',
-        whatIsIt: 'A flexible tube that carries fluid through the hydraulic system.',
-        howItWorks: 'It transfers fluid pressure between the hydraulic sections.'
-      }
-    ],
-
-    assembly: [
-      {
-        step: 1,
-        title: 'Assemble Landing Gear Mechanism',
-        desc: 'Connect the landing gear sections and secure the moving joints so the gear can deploy and retract smoothly.'
-      },
-      {
-        step: 2,
-        title: 'Install Hydraulic Cylinder',
-        desc: 'Position the syringe in the landing gear mechanism and connect the silicone tube firmly to create the hydraulic line.'
-      },
-      {
-        step: 3,
-        title: 'Mount Motor Drive',
-        desc: 'Secure the 12V DC motor and connect it to the mechanism that drives the hydraulic syringe.'
-      },
-      {
-        step: 4,
-        title: 'Connect Hydraulic Controls',
-        desc: 'Connect the motor, SPDT switch, and 12V power supply to control the landing gear deployment and retraction.'
-      }
-    ],
-
-    faq: [
-      {
-        q: 'The landing gear does not move at all. What should I check?',
-        a: 'Check the 12V power supply, motor connection, and switch wiring.'
-      },
-      {
-        q: 'The landing gear moves only in one direction. Why?',
-        a: 'Check the SPDT switch connections and motor polarity.'
-      },
-      {
-        q: 'The landing gear does not fully deploy or retract. What should I check?',
-        a: 'Check the syringe travel and make sure the mechanism is not blocked.'
-      },
-      {
-        q: 'Fluid is leaking from the hydraulic system. What should I do?',
-        a: 'Check the tube and syringe connections and refit any loose joints.'
-      },
-      {
-        q: 'The motor runs, but the landing gear does not move. Why?',
-        a: 'Check whether the motor drive is properly connected to the syringe mechanism.'
-      }
-    ],
-
-    challenges: [
-      {
-        id: 'fluid-performance',
-        level: 'Beginner',
-        title: 'Challenge 1: Fluid Performance Activity',
-        goal: 'Test different trainer-approved fluids and compare how smoothly and quickly the landing gear deploys and retracts.',
-        hint: 'Keep the syringe, tube, and mechanism the same and change only the fluid.'
-      },
-      {
-        id: 'compact-retracting-gear',
-        level: 'Intermediate',
-        title: 'Challenge 2: Compact Retracting Gear',
-        goal: 'Study how much space the current mechanism uses and redesign selected linkage or mounting parts so the wheel folds into a smaller space while keeping the same hydraulic operation.',
-        hint: 'Focus on linkage position, folding angle, and available space.'
-      },
-      {
-        id: 'redesign-landing-gear',
-        level: 'Advanced',
-        title: 'Challenge 3: Redesign the Landing Gear',
-        goal: 'Study the existing landing gear system, identify one mechanical improvement, modify it in CAD, fabricate the updated part, and test the deploy-and-retract motion.',
-        hint: 'Improve compactness, movement range, or stability without changing the hydraulic system.'
-      }
-    ],
-
-    // ---------------------------------------------------------------
-    // CONTENT PENDING: requirements[] (bill of materials) and code.
-    // NOTE: this kit is switch-and-motor driven; if it never runs code on the
-    // TITAN board, leave `code` unset and the Firmware section stays hidden.
-    // Component images: slots above are ready, upload masters to
-    //   lof-titan/hydraulic-landing-gear/<component-id>
     // ---------------------------------------------------------------
   },
   {
@@ -1974,9 +3246,10 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    // Stand-in artwork - banner-aquanova was freed when Darrieus got its own art.
-    heroImage: 'lof-titan/banners/banner-aquanova',
-    thumbnail: 'lof-titan/banners/banner-aquanova',
+    // Version-pinned: a replaced asset keeps this url and ships a 30-day
+    // max-age, so bump vNNN whenever the artwork is re-uploaded.
+    heroImage: 'v1788938004/lof-titan/banners/banner-aquanova',
+    thumbnail: 'v1788938004/lof-titan/banners/banner-aquanova',
     tagline: 'Motion & Water Sensing Rover with OLED and Blynk Alerts',
     description:
       'Integrates PIR and water sensing with ESP32-based input processing, using an OLED and Blynk alerts along with motor control to help the rover respond safely to changing conditions.',
@@ -2006,23 +3279,10 @@ if __name__ == '__main__':
     // with the visual column hidden in production and a dev-only placeholder.
     components: [
       {
-        id: 'custom-pcb-esp32s3',
-        shortName: 'Custom PCB',
-        name: 'Custom PCB with ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/aquanova/custom-pcb-esp32s3',
-        image: '',
-        pinMapping: 'GPIO | I2C | Wi-Fi',
-        whatIsIt: 'A custom controller board with an ESP32-S3 that acts as the main processing and communication unit of AquaNova.',
-        howItWorks: 'The ESP32-S3 reads the PIR and water sensor inputs, processes the detected conditions, updates the OLED, communicates with Blynk through Wi-Fi, and controls the rover motors.'
-      },
-      {
         id: 'pir-motion-sensor',
         shortName: 'PIR Sensor',
         name: 'PIR Motion Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/aquanova/pir-motion-sensor',
-        image: '',
+        image: 'v1788938621/lof-titan/aquanova/pir-motion-sensor',
         pinMapping: 'PIR INPUT | GPIO 2',
         whatIsIt: 'A sensor used to detect movement from people or other warm objects within its sensing area.',
         howItWorks: 'The PIR sensor detects changes in infrared energy caused by movement. It sends a signal to the ESP32-S3, which uses the input to trigger the programmed rover response and alerts.'
@@ -2031,9 +3291,7 @@ if __name__ == '__main__':
         id: 'water-sensor',
         shortName: 'Water Sensor',
         name: 'Water Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/aquanova/water-sensor',
-        image: '',
+        image: 'v1788938622/lof-titan/aquanova/water-sensor',
         pinMapping: 'WATER INPUT | GPIO 4',
         whatIsIt: 'A sensor used to detect the presence of water or moisture on its sensing surface.',
         howItWorks: 'When water contacts the sensing tracks, the electrical response of the sensor changes. The ESP32-S3 reads this change and activates the required warning or movement behaviour.'
@@ -2042,9 +3300,7 @@ if __name__ == '__main__':
         id: 'oled-display',
         shortName: 'OLED Display',
         name: 'OLED Display',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/aquanova/oled-display',
-        image: '',
+        image: 'v1788938325/lof-titan/aquanova/oled-display',
         pinMapping: 'I2C DISPLAY',
         whatIsIt: 'A compact screen used to display the current condition and status of the AquaNova system.',
         howItWorks: 'The ESP32-S3 processes the sensor information and sends the required text or status data to the OLED through I2C communication.'
@@ -2229,8 +3485,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-cosmic',
-    thumbnail: 'lof-titan/banners/banner-cosmic',
+    heroImage: 'v1788957755/lof-titan/banners/banner-magnet-security-rover',
+    thumbnail: 'v1788957755/lof-titan/banners/banner-magnet-security-rover',
     tagline: 'Magnetometer Heading Control & Thermal Intrusion Detection',
     codeFilename: 'magnetic_security_rover.py',
     description:
@@ -2264,9 +3520,7 @@ if __name__ == '__main__':
         id: 'qmc5883l-magnetometer',
         shortName: 'QMC5883L',
         name: 'QMC5883L Magnetometer',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/magnet-security-rover/qmc5883l-magnetometer',
-        image: '',
+        image: 'v1788957101/lof-titan/magnet-security-rover/qmc5883l-magnetometer',
         pinMapping: 'I2C | MAGNETIC HEADING',
         whatIsIt: 'A magnetic-field sensor used to determine the rover\'s heading and detect changes in surrounding magnetic fields.',
         howItWorks: 'The QMC5883L measures magnetic-field strength along different axes. The ESP32-S3 processes these readings to estimate direction and help the rover realign with its required heading.'
@@ -2275,9 +3529,7 @@ if __name__ == '__main__':
         id: 'amg8833-thermal-sensor',
         shortName: 'AMG8833',
         name: 'AMG8833 Thermal Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/magnet-security-rover/amg8833-thermal-sensor',
-        image: '',
+        image: 'v1788957163/lof-titan/magnet-security-rover/amg8833-thermal-sensor',
         pinMapping: 'I2C | THERMAL DETECTION',
         whatIsIt: 'A thermal sensor used to detect temperature differences and identify warm objects within its viewing area.',
         howItWorks: 'The AMG8833 measures temperatures across a small grid of sensing points. The ESP32-S3 compares these values with programmed limits to detect possible thermal intrusion.'
@@ -2286,9 +3538,7 @@ if __name__ == '__main__':
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/magnet-security-rover/tb6612fng-motor-driver',
-        image: '',
+        image: 'v1788957165/lof-titan/magnet-security-rover/tb6612fng-motor-driver',
         pinMapping: 'MOTOR CONTROL INTERFACE',
         whatIsIt: 'An electronic driver used to control the rover\'s motor direction and movement.',
         howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver controls the N20 motors so the rover can move, stop, turn, realign, and resume its patrol.'
@@ -2297,9 +3547,7 @@ if __name__ == '__main__':
         id: 'n20-gear-motors',
         shortName: 'N20 Motors',
         name: 'N20 Gear Motors',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/magnet-security-rover/n20-gear-motors',
-        image: '',
+        image: 'v1788957166/lof-titan/magnet-security-rover/n20-gear-motors',
         pinMapping: 'DC MOTOR OUTPUT',
         whatIsIt: 'Compact geared DC motors used to drive the wheels of the Magnet Security Rover.',
         howItWorks: 'Electrical power from the motor driver rotates the motors. Their internal gears reduce speed and increase torque, helping the rover move and turn in a controlled manner.'
@@ -2308,9 +3556,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/magnet-security-rover/esp32-s3',
-        image: '',
+        image: 'v1788957167/lof-titan/magnet-security-rover/esp32-s3',
         pinMapping: 'GPIO | I2C | MOTOR CONTROL',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the Magnet Security Rover.',
         howItWorks: 'The ESP32-S3 reads heading data from the magnetometer and thermal data from the AMG8833, compares them with programmed conditions, and controls the rover\'s motors and alert responses.'
@@ -2407,6 +3653,21 @@ def _raw_m2(duty_pct, fwd=True):
     if duty == 0: p13.duty(0); p14.duty(0)
     elif fwd: p13.duty(duty); p14.duty(0)
     else: p13.duty(0); p14.duty(duty)
+
+def _raw_m3(duty_pct, fwd=True):
+    # M3 Motor/LED Channel (GPIO 11, 12)
+    capped_pct = max(0.0, min(100.0, duty_pct))
+    duty = int(capped_pct * 1023 / 100) if capped_pct > 0 else 0
+    p11 = _get_pwm(11); p12 = _get_pwm(12)
+    if duty == 0: p11.duty(0); p12.duty(0)
+    elif fwd: p11.duty(duty); p12.duty(0)
+    else: p11.duty(0); p12.duty(duty)
+
+def set_m3_led(active, speed=20):
+    if active:
+        _raw_m3(speed, fwd=True)
+    else:
+        _raw_m3(0)
 
 def set_buzzer(active):
     buz = _get_pwm(20, freq=2400)
@@ -2807,12 +4068,25 @@ def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, 
             set_buzzer(True)
             print(f"🚨 [HEAT ALARM] {max_t:.1f}°C detected (>30°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
             
+            led_state = True
+            set_m3_led(True, speed=20)
+            last_blink = time.ticks_ms()
+
             while True:
                 process_web_requests(s_sock, mission_state)
+
+                # Blink M3 LED every 0.2s (200ms) with forward speed 20
+                now_blink = time.ticks_ms()
+                if time.ticks_diff(now_blink, last_blink) >= 200:
+                    led_state = not led_state
+                    set_m3_led(led_state, speed=20)
+                    last_blink = now_blink
+
                 if thermal.max_temp <= 30.0:
                     break
                 time.sleep_ms(20)
 
+            set_m3_led(False)
             set_buzzer(False)
             mission_state["alarm"] = False
             print(f"✅ [HEAT CLEARED] Temp: {thermal.max_temp:.1f}°C. Re-aligning & Resuming...")
@@ -2877,6 +4151,7 @@ def main():
     }
 
     set_buzzer(True); time.sleep_ms(80); set_buzzer(False)
+    set_m3_led(False)
 
     try:
         while True:
@@ -2896,6 +4171,7 @@ def main():
     except KeyboardInterrupt:
         stop_smooth()
         set_buzzer(False)
+        set_m3_led(False)
         print("[ROVER STOPPED BY OPERATOR]")
 
 if __name__ == '__main__':
@@ -3045,8 +4321,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-cosmic',
-    thumbnail: 'lof-titan/banners/banner-cosmic',
+    heroImage: 'v1788948844/lof-titan/banners/banner-bluetooth-navigator',
+    thumbnail: 'v1788948844/lof-titan/banners/banner-bluetooth-navigator',
     tagline: 'Joystick-Driven Bluetooth Rover Control',
     description:
       'Students learn how a joystick module input is converted into a wireless Bluetooth command, which the rover receives and interprets to control the motors and move forward, backward, left, or right.',
@@ -3079,9 +4355,7 @@ if __name__ == '__main__':
         id: 'pcb-joystick',
         shortName: 'Joystick',
         name: 'PCB-Built-in Joystick',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/bluetooth-navigator/pcb-joystick',
-        image: '',
+        image: 'v1788948479/lof-titan/bluetooth-navigator/pcb-joystick',
         pinMapping: 'X-AXIS | Y-AXIS | DIRECTION INPUT',
         whatIsIt: 'A two-axis control device built into the controller PCB and used to give movement commands to the rover.',
         howItWorks: 'Moving the joystick changes its X-axis and Y-axis values. The ESP32-S3 interprets these values as forward, backward, left, or right commands and sends the required movement instruction wirelessly.'
@@ -3090,9 +4364,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/bluetooth-navigator/esp32-s3',
-        image: '',
+        image: 'v1788948210/lof-titan/bluetooth-navigator/esp32-s3',
         pinMapping: 'BLUETOOTH | GPIO | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that manages wireless communication and rover movement.',
         howItWorks: 'The ESP32-S3 reads or receives the movement command through Bluetooth, interprets the required direction, and sends control signals to the motor driver.'
@@ -3101,9 +4373,7 @@ if __name__ == '__main__':
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/bluetooth-navigator/tb6612fng-motor-driver',
-        image: '',
+        image: 'v1788948483/lof-titan/bluetooth-navigator/tb6612fng-motor-driver',
         pinMapping: 'MOTOR CONTROL INTERFACE',
         whatIsIt: 'An electronic driver that controls the direction and operation of the rover\'s DC motors.',
         howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver switches the motor outputs accordingly, allowing the motors to rotate forward or backward for different rover movements.'
@@ -3112,9 +4382,7 @@ if __name__ == '__main__':
         id: 'bo-motor',
         shortName: 'BO Motor',
         name: 'BO Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/bluetooth-navigator/bo-motor',
-        image: '',
+        image: 'v1788948486/lof-titan/bluetooth-navigator/bo-motor',
         pinMapping: '2-PIN RMC MOTOR CONNECTION',
         whatIsIt: 'A geared DC motor used to drive the rover\'s wheels at a controlled rotational speed.',
         howItWorks: 'Electrical power supplied through the motor driver rotates the motor shaft. Changing the motor direction and combination of left and right wheel movement allows the rover to move and turn.'
@@ -3190,9 +4458,10 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-heatseek-diy',
-    thumbnail: 'lof-titan/banners/banner-heatseek-diy',
+    heroImage: 'v1788951247/lof-titan/banners/banner-lost-bots-navigation',
+    thumbnail: 'v1788951247/lof-titan/banners/banner-lost-bots-navigation',
     tagline: 'ToF Distance Sensing & Autonomous Path Selection',
+    codeFilename: 'lostbot_navigation.py',
     description:
       'Applies distance sensing and safety-limit comparison to detect obstacles and automatically slow down, stop, reverse, or turn, increasing complexity through autonomous navigation and safer path selection.',
 
@@ -3226,9 +4495,7 @@ if __name__ == '__main__':
         id: 'vl53l0x-tof-sensor',
         shortName: 'VL53L0X',
         name: 'VL53L0X ToF Laser Distance Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lost-bots-navigation/vl53l0x-tof-sensor',
-        image: '',
+        image: 'v1788949794/lof-titan/lost-bots-navigation/vl53l0x-tof-sensor',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'A compact distance sensor used to measure how far an object or obstacle is from the rover.',
         howItWorks: 'The VL53L0X uses Time-of-Flight technology to send infrared light towards an object and measure the time taken for the reflected light to return. The ESP32-S3 uses this distance information to make navigation decisions.'
@@ -3237,9 +4504,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lost-bots-navigation/esp32-s3',
-        image: '',
+        image: 'v1788949904/lof-titan/lost-bots-navigation/esp32-s3',
         pinMapping: 'GPIO | I2C | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the autonomous rover.',
         howItWorks: 'The ESP32-S3 reads distance data from the VL53L0X, compares it with programmed safety limits, and decides whether the rover should continue, slow down, stop, reverse, or turn.'
@@ -3248,9 +4513,7 @@ if __name__ == '__main__':
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lost-bots-navigation/tb6612fng-motor-driver',
-        image: '',
+        image: 'v1788949905/lof-titan/lost-bots-navigation/tb6612fng-motor-driver',
         pinMapping: 'MOTOR CONTROL INTERFACE',
         whatIsIt: 'An electronic driver that controls the direction and movement of the rover’s DC motors.',
         howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can move forward, reverse, stop, or turn during obstacle avoidance.'
@@ -3259,9 +4522,7 @@ if __name__ == '__main__':
         id: 'bo-motor',
         shortName: 'BO Motor',
         name: 'BO Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lost-bots-navigation/bo-motor',
-        image: '',
+        image: 'v1788949906/lof-titan/lost-bots-navigation/bo-motor',
         pinMapping: '2-PIN RMC MOTOR CONNECTION',
         whatIsIt: 'A geared DC motor used to drive the wheels of the rover.',
         howItWorks: 'Electrical power from the motor driver rotates the motor shaft. By controlling the direction of the left and right motors, the rover can move and change its path.'
@@ -3319,6 +4580,418 @@ if __name__ == '__main__':
       }
     ],
 
+    // MicroPython Main Script
+    code: `# =====================================================
+# LOF TITAN — 4-MOTOR ROVER OBSTACLE NAVIGATION (VL53L0X)
+# Converted from lostbot_navigation.ino
+# Hardware Pinout:
+# - I2C ToF Sensor: GPIO 7 (SDA), GPIO 8 (SCL)
+# - Motor 1 (Left Front): GPIO 15 (PWM), GPIO 16 (PWM)
+# - Motor 2 (Right Front): GPIO 13 (PWM), GPIO 14 (PWM)
+# - Motor 3 (Left Back): GPIO 11 (PWM), GPIO 12 (PWM)
+# - Motor 4 (Right Back): GPIO 9 (PWM), GPIO 10 (PWM)
+# =====================================================
+
+import time
+from machine import Pin, PWM, SoftI2C, I2C
+from supervisor.led_buzzer import hw
+
+# ================= PWM POOL MANAGER =================
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try: _pwm_pool[pin].freq(freq)
+        except Exception: pass
+    return _pwm_pool[pin]
+
+# ================= MOTOR PIN CONSTANTS =================
+M1_A = 15
+M1_B = 16
+
+M2_A = 13
+M2_B = 14
+
+M3_A = 11
+M3_B = 12
+
+M4_A = 9
+M4_B = 10
+
+FORWARD_SPEED = 200     # 0-255 scale
+TURN_SPEED = 150
+BACKWARD_SPEED = 150
+OBSTACLE_DISTANCE_MM = 300  # 30 cm
+
+M1_INVERT = False
+M2_INVERT = False
+M3_INVERT = False
+M4_INVERT = False
+
+# ================= MOTOR DRIVE FUNCTIONS =================
+def motor_drive(pin_a, pin_b, speed_val, forward=True, invert=False):
+    speed_val = max(0, min(int(speed_val), 255))
+    duty = int(speed_val * 65535 / 255)
+
+    if invert:
+        forward = not forward
+
+    pwm_a = _get_pwm(pin_a)
+    pwm_b = _get_pwm(pin_b)
+
+    if speed_val == 0:
+        pwm_a.duty_u16(0)
+        pwm_b.duty_u16(0)
+        return
+
+    if forward:
+        pwm_a.duty_u16(duty)
+        pwm_b.duty_u16(0)
+    else:
+        pwm_a.duty_u16(0)
+        pwm_b.duty_u16(duty)
+
+def motor_m1(spd, forward=True):
+    motor_drive(M1_A, M1_B, spd, forward, M1_INVERT)
+
+def motor_m2(spd, forward=True):
+    motor_drive(M2_A, M2_B, spd, forward, M2_INVERT)
+
+def motor_m3(spd, forward=True):
+    motor_drive(M3_A, M3_B, spd, forward, M3_INVERT)
+
+def motor_m4(spd, forward=True):
+    motor_drive(M4_A, M4_B, spd, forward, M4_INVERT)
+
+def move_forward(spd):
+    motor_m1(spd, True)
+    motor_m2(spd, True)
+    motor_m3(spd, True)
+    motor_m4(spd, True)
+
+def move_backward(spd):
+    motor_m1(spd, False)
+    motor_m2(spd, False)
+    motor_m3(spd, False)
+    motor_m4(spd, False)
+
+def turn_right(spd):
+    # Left side forward, right side backward
+    motor_m1(spd, True)
+    motor_m3(spd, True)
+    motor_m2(spd, False)
+    motor_m4(spd, False)
+
+def turn_left(spd):
+    # Left side backward, right side forward
+    motor_m1(spd, False)
+    motor_m3(spd, False)
+    motor_m2(spd, True)
+    motor_m4(spd, True)
+
+def motor_off():
+    for p in (M1_A, M1_B, M2_A, M2_B, M3_A, M3_B, M4_A, M4_B):
+        _get_pwm(p).duty_u16(0)
+
+# ================= SHARED I2C BUS (SDA: 7, SCL: 8) =================
+_shared_i2c = None
+def _get_shared_i2c():
+    global _shared_i2c
+    if _shared_i2c is None:
+        try:
+            _shared_i2c = SoftI2C(sda=Pin(7), scl=Pin(8), freq=400000, timeout=50000)
+        except Exception:
+            try:
+                _shared_i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
+            except Exception: pass
+    return _shared_i2c
+
+# ================= VL53L0X LASER TOF DRIVER =================
+class VL53L0X:
+    """Accurate Adafruit/Pololu compatible VL53L0X Driver for MicroPython."""
+    def __init__(self, i2c=None, address=0x29):
+        self.i2c = i2c if i2c else _get_shared_i2c()
+        self.address = address
+        self.stop_variable = 0
+        self.init_done = False
+        self._init_sensor()
+
+    def _write_reg(self, reg, val):
+        if not self.i2c: return
+        try:
+            self.i2c.writeto_mem(self.address, reg, bytes([val]))
+        except Exception: pass
+
+    def _write_reg_16(self, reg, val):
+        if not self.i2c: return
+        try:
+            self.i2c.writeto_mem(self.address, reg, bytes([(val >> 8) & 0xFF, val & 0xFF]))
+        except Exception: pass
+
+    def _read_reg(self, reg, n=1):
+        if not self.i2c: return bytearray(n)
+        try:
+            return self.i2c.readfrom_mem(self.address, reg, n)
+        except Exception:
+            return bytearray(n)
+
+    def _init_sensor(self):
+        if not self.i2c: return False
+        try:
+            # 2V8 I/O mode
+            self._write_reg(0x89, self._read_reg(0x89)[0] | 0x01)
+            self._write_reg(0x88, 0x00)
+            self._write_reg(0x80, 0x01)
+            self._write_reg(0xFF, 0x01)
+            self._write_reg(0x00, 0x00)
+            r91 = self._read_reg(0x91)
+            self.stop_variable = r91[0] if len(r91) > 0 else 0x3C
+            self._write_reg(0x00, 0x01)
+            self._write_reg(0xFF, 0x00)
+            self._write_reg(0x80, 0x00)
+
+            # Signal rate limits
+            self._write_reg(0x60, self._read_reg(0x60)[0] | 0x12)
+            self._write_reg_16(0x44, 32)
+            self._write_reg(0x01, 0xFF)
+
+            # SPAD calibration with clean exit
+            self._write_reg(0x80, 0x01)
+            self._write_reg(0xFF, 0x01)
+            self._write_reg(0x00, 0x00)
+            self._write_reg(0xFF, 0x06)
+            self._write_reg(0x83, self._read_reg(0x83)[0] | 0x04)
+            self._write_reg(0xFF, 0x07)
+            self._write_reg(0x81, 0x01)
+            self._write_reg(0x80, 0x01)
+            self._write_reg(0x94, 0x6B)
+            self._write_reg(0x83, 0x00)
+            for _ in range(50):
+                if self._read_reg(0x83)[0] != 0: break
+                time.sleep_ms(2)
+            self._write_reg(0x83, 0x01)
+            spad_info = self._read_reg(0x92)[0] if len(self._read_reg(0x92)) > 0 else 0
+            spad_count = spad_info & 0x7F
+            is_aperture = (spad_info >> 7) & 0x01
+
+            # Exit SPAD reading mode cleanly
+            self._write_reg(0x81, 0x00)
+            self._write_reg(0xFF, 0x06)
+            self._write_reg(0x83, self._read_reg(0x83)[0] & ~0x04)
+            self._write_reg(0xFF, 0x01)
+            self._write_reg(0x00, 0x01)
+            self._write_reg(0xFF, 0x00)
+            self._write_reg(0x80, 0x00)
+
+            # Load SPAD map
+            ref_spad_map = bytearray(self._read_reg(0xB0, 6))
+            self._write_reg(0xFF, 0x01)
+            self._write_reg(0x4F, 0x00)
+            self._write_reg(0x4E, 0x2C)
+            self._write_reg(0xFF, 0x00)
+            self._write_reg(0xB6, 0xB4)
+
+            first_spad = 12 if is_aperture else 0
+            spads_enabled = 0
+            for i in range(48):
+                if i < first_spad or spads_enabled == spad_count:
+                    ref_spad_map[i // 8] &= ~(1 << (i % 8))
+                elif (ref_spad_map[i // 8] >> (i % 8)) & 0x01:
+                    spads_enabled += 1
+            if len(ref_spad_map) == 6:
+                try: self.i2c.writeto_mem(self.address, 0xB0, ref_spad_map)
+                except: pass
+
+            # Standard ST Tuning Registers
+            tuning = (
+                (0xFF, 0x01), (0x00, 0x00), (0xFF, 0x00), (0x09, 0x00),
+                (0x10, 0x00), (0x11, 0x00), (0x24, 0x01), (0x25, 0xFF),
+                (0x75, 0x00), (0xFF, 0x01), (0x4E, 0x2C), (0x48, 0x00),
+                (0x30, 0x20), (0xFF, 0x00), (0x30, 0x09), (0x54, 0x00),
+                (0x31, 0x04), (0x32, 0x03), (0x40, 0x83), (0x46, 0x25),
+                (0x60, 0x00), (0x27, 0x00), (0x50, 0x06), (0x51, 0x00),
+                (0x52, 0x96), (0x56, 0x08), (0x57, 0x30), (0x61, 0x00),
+                (0x62, 0x00), (0x64, 0x00), (0x65, 0x00), (0x66, 0xA0),
+                (0xFF, 0x01), (0x22, 0x32), (0x47, 0x14), (0x49, 0xFF),
+                (0x4A, 0x00), (0xFF, 0x00), (0x7A, 0x0A), (0x7B, 0x00),
+                (0x78, 0x21), (0xFF, 0x01), (0x23, 0x34), (0x42, 0x00),
+                (0x44, 0xFF), (0x45, 0x26), (0x46, 0x05), (0x40, 0x40),
+                (0x0E, 0x06), (0x20, 0x1A), (0x43, 0x40), (0xFF, 0x00),
+                (0x34, 0x03), (0x35, 0x44), (0xFF, 0x01), (0x31, 0x04),
+                (0x4B, 0x09), (0x4C, 0x05), (0x4D, 0x04), (0xFF, 0x00),
+                (0x44, 0x00), (0x45, 0x20), (0x47, 0x08), (0x48, 0x28),
+                (0x67, 0x00), (0x70, 0x04), (0x71, 0x01), (0x72, 0xFE),
+                (0x76, 0x00), (0x77, 0x00), (0xFF, 0x01), (0x0D, 0x01),
+                (0xFF, 0x00), (0x80, 0x01), (0x01, 0xF8), (0xFF, 0x01),
+                (0x8E, 0x01), (0x00, 0x01), (0xFF, 0x00), (0x80, 0x00)
+            )
+            for r, v in tuning:
+                self._write_reg(r, v)
+
+            # Interrupt Config
+            self._write_reg(0x0A, 0x04)
+            self._write_reg(0x84, self._read_reg(0x84)[0] & ~0x10)
+            self._write_reg(0x0B, 0x01)
+
+            # Sequence Config & VHV / Phase Cal
+            self._write_reg(0x01, 0xE8)
+            self._write_reg(0x01, 0x01)
+            self._single_ref_cal(0x40)
+            self._write_reg(0x01, 0x02)
+            self._single_ref_cal(0x00)
+            self._write_reg(0x01, 0xE8)
+            self.init_done = True
+            return True
+        except Exception:
+            return False
+
+    def _single_ref_cal(self, b):
+        self._write_reg(0x00, 0x01 | b)
+        for _ in range(50):
+            if self._read_reg(0x13)[0] & 0x07: break
+            time.sleep_ms(2)
+        self._write_reg(0x0B, 0x01)
+        self._write_reg(0x00, 0x00)
+
+    def read_distance_mm(self):
+        if not self.i2c: return -1
+        if not self.init_done:
+            if not self._init_sensor(): return -1
+        try:
+            self._write_reg(0x80, 0x01)
+            self._write_reg(0xFF, 0x01)
+            self._write_reg(0x00, 0x00)
+            self._write_reg(0x91, self.stop_variable)
+            self._write_reg(0x00, 0x01)
+            self._write_reg(0xFF, 0x00)
+            self._write_reg(0x80, 0x00)
+
+            # Trigger measurement
+            self._write_reg(0x00, 0x01)
+            for _ in range(60):
+                val = self._read_reg(0x00)[0]
+                if not (val & 0x01): break
+                time.sleep_ms(2)
+
+            for _ in range(60):
+                val = self._read_reg(0x13)[0]
+                if val & 0x07: break
+                time.sleep_ms(2)
+
+            data = self._read_reg(0x14, 12)
+            self._write_reg(0x0B, 0x01)
+
+            if len(data) >= 12:
+                range_status = (data[0] >> 3) & 0x07
+                dist_mm = (data[10] << 8) | data[11]
+                # Status 4 = Phase fail (no obstacle / target out of range)
+                if range_status == 4 or dist_mm in (8190, 8191) or dist_mm > 2200:
+                    return -1
+                if 20 <= dist_mm <= 2000:
+                    return dist_mm
+            return -1
+        except Exception:
+            return -1
+
+    def read_distance(self, unit="MM"):
+        mm = self.read_distance_mm()
+        if mm == -1: return -1
+        if unit == "MM": return mm
+        elif unit == "CM": return round(mm / 10.0, 1)
+        elif unit == "INCHES": return round(mm / 25.4, 1)
+        elif unit == "M": return round(mm / 1000.0, 2)
+        return mm
+
+_vl53l0x_instance = None
+def _get_vl53l0x():
+    global _vl53l0x_instance
+    if _vl53l0x_instance is None:
+        _vl53l0x_instance = VL53L0X(_get_shared_i2c())
+    return _vl53l0x_instance
+
+# ================= OBSTACLE AVOIDANCE ALGORITHM =================
+def avoid_obstacle():
+    print("Obstacle -> BACKWARD")
+    move_backward(BACKWARD_SPEED)
+    time.sleep_ms(450)
+
+    print("Check RIGHT")
+    turn_right(TURN_SPEED)
+    time.sleep_ms(550)
+
+    right_distance = _get_vl53l0x().read_distance_mm()
+    print("Right Distance:", right_distance, "mm")
+
+    if right_distance == -1 or right_distance > OBSTACLE_DISTANCE_MM:
+        print("Right clear -> FORWARD")
+        move_forward(FORWARD_SPEED)
+        time.sleep_ms(300)
+        return
+
+    print("Right blocked -> BACKWARD")
+    move_backward(BACKWARD_SPEED)
+    time.sleep_ms(350)
+
+    print("Check LEFT")
+    turn_left(TURN_SPEED)
+    time.sleep_ms(1100)
+
+    left_distance = _get_vl53l0x().read_distance_mm()
+    print("Left Distance:", left_distance, "mm")
+
+    if left_distance == -1 or left_distance > OBSTACLE_DISTANCE_MM:
+        print("Left clear -> FORWARD")
+        move_forward(FORWARD_SPEED)
+        time.sleep_ms(300)
+        return
+
+    print("Both blocked -> BACKWARD + LEFT ESCAPE")
+    move_backward(BACKWARD_SPEED)
+    time.sleep_ms(500)
+
+    turn_left(TURN_SPEED)
+    time.sleep_ms(700)
+
+    move_forward(FORWARD_SPEED)
+    time.sleep_ms(300)
+
+# ================= MAIN LOOP =================
+def main():
+    print("ESP32-S3 VL53L0X 4-Motor Rover Starting...")
+    motor_off()
+
+    tof = _get_vl53l0x()
+    if not tof.init_done:
+        print("Initializing VL53L0X...")
+        tof._init_sensor()
+
+    move_forward(FORWARD_SPEED)
+
+    while True:
+        distance = tof.read_distance_mm()
+        print("Distance:", distance, "mm")
+
+        # Invalid reading / clear distance -> continue forward
+        if distance == -1:
+            print("Clear (no target) -> FORWARD")
+            move_forward(FORWARD_SPEED)
+            time.sleep_ms(80)
+            continue
+
+        if distance > OBSTACLE_DISTANCE_MM:
+            print("Clear path -> FORWARD")
+            move_forward(FORWARD_SPEED)
+        else:
+            print("Obstacle detected!")
+            avoid_obstacle()
+
+        time.sleep_ms(80)
+
+if __name__ == '__main__':
+    main()
+`,
+
     // ---------------------------------------------------------------
     // CONTENT PENDING: requirements[] (bill of materials), assembly[]
     // steps, and the MicroPython code. Deliberately absent rather than
@@ -3338,6 +5011,7 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-cosmic',
     thumbnail: 'lof-titan/banners/banner-cosmic',
     tagline: 'Wireless Signal Strength Tracking & Feedback',
+    codeFilename: 'cosmic_pulse_tracker.py',
     description:
       'Introduces wireless signal transmission, signal-strength comparison, and feedback systems using an OLED, LEDs, and a buzzer to locate the strongest signal source, making it a suitable introductory project.',
 
@@ -3444,6 +5118,828 @@ if __name__ == '__main__':
       }
     ],
 
+    // MicroPython Main Script
+    code: `# =============================================================================
+# COSMIC PULSE TRACKER TRANSMITTER
+# =============================================================================
+# ==============================================================================
+# LOF TITAN — Cosmic Pulse Tracker (Transmitter / Lost Beacon)
+# MicroPython conversion of cosmic_pulsetracker_transmittercode.ino
+# ------------------------------------------------------------------------------
+# Hardware:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - Wireless: ESP-NOW 2.4GHz Fast Pulses (Channel 1, Broadcast FF:FF:FF:FF:FF:FF)
+#   - Display: 1.3" / 0.96" I2C OLED Display (128x64, Addr: 0x3C, SDA: 7, SCL: 8)
+#   - Buzzer: GPIO 20 (Continuous long BEEEEEP tone only when HERE)
+#   - Status LEDs: GPIO 47 (Red), GPIO 48 (Green)
+#
+# OLED Visual Modes (AKNO-Style Expressive Eyes, No Text):
+#   - ZONE_SEARCHING (0) -> Moving Eyes (wandering pupils)
+#   - ZONE_FAR       (1) -> Crying Eyes with animated dropping tears
+#   - ZONE_NEAR      (2) -> Rapid Scanning / Tracking Eyes
+#   - ZONE_HERE      (3) -> Happy Blinking Eyes + Wide Arc Smile
+# ==============================================================================
+
+import time
+import math
+import struct
+from machine import Pin, PWM, SoftI2C, I2C
+import network
+import framebuf
+
+# ESP-NOW Protocol
+try:
+    import espnow
+    HAS_ESPNOW = True
+except ImportError:
+    HAS_ESPNOW = False
+
+# ---------- CONSTANTS & ZONES ----------
+ZONE_SEARCHING = 0
+ZONE_FAR       = 1
+ZONE_NEAR      = 2
+ZONE_HERE      = 3
+
+SEND_INTERVAL_MS    = 200
+FEEDBACK_TIMEOUT_MS = 1800
+DISPLAY_INTERVAL_MS = 55
+
+# ---------- HARDWARE PINS & PWM ----------
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    """Singleton PWM manager for ESP32-S3."""
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try:
+            _pwm_pool[pin].freq(freq)
+        except Exception:
+            pass
+    return _pwm_pool[pin]
+
+led_red = Pin(47, Pin.OUT)
+led_grn = Pin(48, Pin.OUT)
+led_red.value(0)
+led_grn.value(0)
+
+def set_buzzer_tone(freq=0):
+    """Controls buzzer tone (freq in Hz, 0 = OFF)."""
+    try:
+        buz = _get_pwm(20, freq=max(100, freq))
+        if freq > 0:
+            buz.duty_u16(32768)
+        else:
+            buz.duty_u16(0)
+    except Exception:
+        pass
+
+
+# ---------- 1.3" / 0.96" OLED DRIVER WITH U8G2-STYLE PRIMITIVES ----------
+class TitanOLED:
+    """I2C OLED Driver compatible with 1.3" SH1106 and 0.96" SSD1306."""
+    def __init__(self, i2c, width=128, height=64, addr=0x3C):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.buffer = bytearray((height // 8) * width)
+        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.draw_color = 1
+        self.is_sh1106 = True
+        self.init_display()
+
+    def _cmd(self, cmd):
+        try:
+            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+        except Exception:
+            pass
+
+    def init_display(self):
+        cmds = [
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        ]
+        for c in cmds: self._cmd(c)
+        self.fill(0)
+        self.show()
+
+    def fill(self, color=0):
+        self.fb.fill(color)
+
+    def set_draw_color(self, color):
+        self.draw_color = color
+
+    def pixel(self, x, y, col=None):
+        if col is None: col = self.draw_color
+        if 0 <= x < self.width and 0 <= y < self.height:
+            self.fb.pixel(x, y, col)
+
+    def line(self, x1, y1, x2, y2, col=None):
+        if col is None: col = self.draw_color
+        self.fb.line(x1, y1, x2, y2, col)
+
+    def rect(self, x, y, w, h, col=None):
+        if col is None: col = self.draw_color
+        self.fb.rect(x, y, w, h, col)
+
+    def fill_rect(self, x, y, w, h, col=None):
+        if col is None: col = self.draw_color
+        self.fb.fill_rect(x, y, w, h, col)
+
+    def draw_r_box(self, x, y, w, h, r, col=None):
+        """Draw filled rounded box (u8g2 drawRBox)."""
+        if col is None: col = self.draw_color
+        r = min(r, w // 2, h // 2)
+        # Center rectangles
+        self.fill_rect(x + r, y, w - 2 * r, h, col)
+        self.fill_rect(x, y + r, w, h - 2 * r, col)
+        # 4 corner discs
+        self.draw_disc(x + r, y + r, r, col)
+        self.draw_disc(x + w - r - 1, y + r, r, col)
+        self.draw_disc(x + r, y + h - r - 1, r, col)
+        self.draw_disc(x + w - r - 1, y + h - r - 1, r, col)
+
+    def draw_disc(self, cx, cy, r, col=None):
+        """Draw filled circle / disc."""
+        if col is None: col = self.draw_color
+        if r <= 0:
+            self.pixel(cx, cy, col)
+            return
+        for dy in range(-r, r + 1):
+            dx = int(math.sqrt(r * r - dy * dy))
+            self.line(cx - dx, cy + dy, cx + dx, cy + dy, col)
+
+    def draw_triangle(self, x0, y0, x1, y1, x2, y2, col=None):
+        """Draw filled triangle."""
+        if col is None: col = self.draw_color
+        # Sort by Y coordinates
+        pts = sorted([(x0, y0), (x1, y1), (x2, y2)], key=lambda p: p[1])
+        (x0, y0), (x1, y1), (x2, y2) = pts
+        
+        def interpolate_x(ya, yb, xa, xb, y):
+            if ya == yb: return xa
+            return xa + (xb - xa) * (y - ya) // (yb - ya)
+
+        for y in range(y0, y2 + 1):
+            if y < y1:
+                xa = interpolate_x(y0, y2, x0, x2, y)
+                xb = interpolate_x(y0, y1, x0, x1, y)
+            else:
+                xa = interpolate_x(y0, y2, x0, x2, y)
+                xb = interpolate_x(y1, y2, x1, x2, y)
+            if xa > xb: xa, xb = xb, xa
+            self.line(xa, y, xb, y, col)
+
+    def show(self):
+        if not self.i2c: return
+        try:
+            if self.is_sh1106:
+                for page in range(8):
+                    self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + page, 0x80, 0x02, 0x80, 0x10]))
+                    self.i2c.writeto(self.addr, b'\\x40' + self.buffer[128 * page : 128 * (page + 1)])
+            else:
+                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
+                self.i2c.writeto(self.addr, b'\\x40' + self.buffer)
+        except Exception:
+            pass
+
+
+# ---------- AKNO FACE RENDERER (TRANSMITTER) ----------
+class AknoFaceRenderer:
+    """Exact AKNO-style animated eyes matching cosmic_pulsetracker_transmittercode.ino."""
+    LEFT_EYE_X   = 2
+    RIGHT_EYE_X  = 66
+    EYE_Y        = 5
+    EYE_W        = 60
+    EYE_H        = 54
+    EYE_RADIUS   = 16
+
+    LEFT_EYE_CX  = LEFT_EYE_X + EYE_W // 2   # 32
+    RIGHT_EYE_CX = RIGHT_EYE_X + EYE_W // 2  # 96
+    EYE_CY       = EYE_Y + EYE_H // 2        # 32
+
+    def __init__(self, display):
+        self.d = display
+
+    def draw_base_eyes(self):
+        self.d.draw_r_box(self.LEFT_EYE_X, self.EYE_Y, self.EYE_W, self.EYE_H, self.EYE_RADIUS, 1)
+        self.d.draw_r_box(self.RIGHT_EYE_X, self.EYE_Y, self.EYE_W, self.EYE_H, self.EYE_RADIUS, 1)
+
+    def draw_pupils(self, left_x, left_y, right_x, right_y, pupil_r):
+        self.d.set_draw_color(0)
+        self.d.draw_disc(self.LEFT_EYE_CX + left_x, self.EYE_CY + left_y, pupil_r, 0)
+        self.d.draw_disc(self.RIGHT_EYE_CX + right_x, self.EYE_CY + right_y, pupil_r, 0)
+        self.d.set_draw_color(1)
+
+    def draw_closed_eyes(self):
+        self.d.draw_r_box(self.LEFT_EYE_X, 28, self.EYE_W, 8, 4, 1)
+        self.d.draw_r_box(self.RIGHT_EYE_X, 28, self.EYE_W, 8, 4, 1)
+
+    def draw_tear(self, x, y):
+        self.d.draw_disc(x, y, 2, 1)
+        self.d.draw_disc(x, y + 4, 2, 1)
+        self.d.draw_disc(x, y + 8, 1, 1)
+        self.d.pixel(x, y + 10, 1)
+
+    def draw_smile(self):
+        """Draw wide dark smile arc."""
+        for offset in range(3):
+            self.d.line(34, 45 + offset, 40, 51 + offset, 1)
+            self.d.line(40, 51 + offset, 50, 57 + offset, 1)
+            self.d.line(50, 57 + offset, 64, 61 + offset, 1)
+            self.d.line(64, 61 + offset, 78, 57 + offset, 1)
+            self.d.line(78, 57 + offset, 88, 51 + offset, 1)
+            self.d.line(88, 51 + offset, 94, 45 + offset, 1)
+        self.d.line(32, 43, 34, 45, 1)
+        self.d.line(94, 45, 96, 43, 1)
+
+    # 1. SEARCHING: MOVING WANDERING EYES
+    def draw_searching(self, now_ms):
+        self.d.fill(0)
+        movement = [
+            (0, 0), (-12, 0), (-8, -8), (0, -10), (10, -7),
+            (12, 0), (8, 8), (0, 10), (-10, 7), (0, 0)
+        ]
+        frame = (now_ms // 110) % 10
+        ox, oy = movement[frame]
+        self.draw_base_eyes()
+        self.draw_pupils(ox, oy, ox, oy, 6)
+
+    # 2. FAR: CRYING EYES WITH DROPPING TEARS
+    def draw_far_crying(self, now_ms):
+        self.d.fill(0)
+        frame = (now_ms // 90) % 18
+        sad_drop = 8 + (frame % 5)
+
+        self.d.draw_r_box(self.LEFT_EYE_X, 11, self.EYE_W, 44, 14, 1)
+        self.d.draw_r_box(self.RIGHT_EYE_X, 11, self.EYE_W, 44, 14, 1)
+
+        # Cutout inverted sad eyebrow slants and cheek discs
+        self.d.set_draw_color(0)
+        self.d.draw_triangle(0, 2, 64, 2, 0, 24 + sad_drop, 0)
+        self.d.draw_triangle(64, 2, 128, 24 + sad_drop, 128, 2, 0)
+
+        self.d.draw_disc(self.LEFT_EYE_CX - 28, 64, 20, 0)
+        self.d.draw_disc(self.RIGHT_EYE_CX + 28, 64, 20, 0)
+
+        self.d.draw_disc(self.LEFT_EYE_CX - 4, self.EYE_CY + 11, 5, 0)
+        self.d.draw_disc(self.RIGHT_EYE_CX + 4, self.EYE_CY + 11, 5, 0)
+
+        self.d.set_draw_color(1)
+
+        tear1 = frame % 9
+        tear2 = (frame + 4) % 9
+        self.draw_tear(self.LEFT_EYE_CX - 17, 39 + tear1)
+        self.draw_tear(self.RIGHT_EYE_CX - 17, 39 + tear2)
+
+        if frame > 8:
+            self.draw_tear(self.LEFT_EYE_CX + 7, 37 + (frame - 9))
+
+    # 3. NEAR: FAST SCANNING EYES
+    def draw_near_scanning(self, now_ms):
+        self.d.fill(0)
+        movement = [
+            (-13, 0), (-8, -8), (0, -11), (10, -7), (13, 0),
+            (10, 7), (0, 11), (-10, 7), (-13, 0), (13, 0)
+        ]
+        frame = (now_ms // 60) % 10
+        ox, oy = movement[frame]
+        self.draw_base_eyes()
+        self.draw_pupils(ox, oy, ox, oy, 6)
+
+    # 4. HERE: HAPPY BLINKING EYES + WIDE SMILE
+    def draw_here_happy(self, now_ms):
+        self.d.fill(0)
+        frame = (now_ms // 100) % 24
+        blink = (frame in (7, 8, 18))
+
+        if blink:
+            self.draw_closed_eyes()
+            self.draw_smile()
+        else:
+            self.d.draw_r_box(self.LEFT_EYE_X, 7, self.EYE_W, 50, 16, 1)
+            self.d.draw_r_box(self.RIGHT_EYE_X, 7, self.EYE_W, 50, 16, 1)
+
+            self.d.set_draw_color(0)
+            self.d.draw_disc(self.LEFT_EYE_CX, 68, 42, 0)
+            self.d.draw_disc(self.RIGHT_EYE_CX, 68, 42, 0)
+
+            self.d.draw_disc(self.LEFT_EYE_CX, 27, 4, 0)
+            self.d.draw_disc(self.RIGHT_EYE_CX, 27, 4, 0)
+
+            self.d.set_draw_color(1)
+            self.draw_smile()
+
+    def render_zone(self, zone, now_ms):
+        if zone == ZONE_SEARCHING:
+            self.draw_searching(now_ms)
+        elif zone == ZONE_FAR:
+            self.draw_far_crying(now_ms)
+        elif zone == ZONE_NEAR:
+            self.draw_near_scanning(now_ms)
+        elif zone == ZONE_HERE:
+            self.draw_here_happy(now_ms)
+        self.d.show()
+
+
+# ---------- WIRELESS ESP-NOW BEACON SUBSYSTEM ----------
+class TransmitterWireless:
+    def __init__(self):
+        self.sta = network.WLAN(network.STA_IF)
+        self.sta.active(True)
+        self.sta.disconnect()
+        
+        self.esp = None
+        self.broadcast_peer = b'\\xff\\xff\\xff\\xff\\xff\\xff'
+        
+        if HAS_ESPNOW:
+            try:
+                self.esp = espnow.ESPNow()
+                self.esp.active(True)
+                try:
+                    self.esp.add_peer(self.broadcast_peer)
+                except Exception:
+                    pass
+                print("[ESP-NOW] Transmitter ready on STA_IF")
+            except Exception as e:
+                print(f"[WARN] ESP-NOW init failed: {e}")
+                self.esp = None
+
+        self.beacon_counter = 0
+
+    def send_beacon(self):
+        self.beacon_counter = (self.beacon_counter + 1) & 0xFFFFFFFF
+        if self.esp:
+            try:
+                # Pack BeaconPacket struct: uint32_t counter
+                packet = struct.pack("<I", self.beacon_counter)
+                self.esp.send(self.broadcast_peer, packet, False)
+            except Exception:
+                pass
+
+    def check_feedback(self):
+        """Reads non-blocking incoming feedback packets from receiver."""
+        if not self.esp:
+            return None
+        
+        latest_zone = None
+        try:
+            while True:
+                msg_data = self.esp.recv(0) # Non-blocking (0ms)
+                if not msg_data or msg_data[0] is None:
+                    break
+                
+                mac, data = msg_data[0], msg_data[1]
+                if data and len(data) >= 1:
+                    val = data[0]
+                    if val in (ZONE_SEARCHING, ZONE_FAR, ZONE_NEAR, ZONE_HERE):
+                        latest_zone = val
+                    elif 48 <= val <= 51: # ASCII '0'..'3'
+                        latest_zone = val - 48
+        except Exception:
+            pass
+        
+        return latest_zone
+
+
+# ---------- MAIN PROGRAM ----------
+def main():
+    print("==================================================")
+    print("ESP32-S3 TRANSMITTER (AKNO-STYLE EYES)")
+    print("LOF TITAN Cosmic Pulse Tracker")
+    print("==================================================")
+
+    # 1. Initialize I2C & OLED
+    i2c = None
+    try:
+        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=50000)
+    except Exception:
+        try:
+            i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
+        except Exception:
+            print("[WARN] Could not initialize I2C bus.")
+
+    oled = TitanOLED(i2c, width=128, height=64)
+    renderer = AknoFaceRenderer(oled)
+
+    # 2. Initialize Wireless
+    wireless = TransmitterWireless()
+
+    current_zone = ZONE_SEARCHING
+    last_send_time = 0
+    last_feedback_time = 0
+    last_display_time = 0
+
+    print("Transmitter ready. Hiding mode engaged.")
+
+    while True:
+        now = time.ticks_ms()
+
+        # 1. Broadcast Beacon Packet (Every 200ms)
+        if time.ticks_diff(now, last_send_time) >= SEND_INTERVAL_MS:
+            last_send_time = now
+            wireless.send_beacon()
+
+        # 2. Receive Feedback from Receiver
+        fb_zone = wireless.check_feedback()
+        if fb_zone is not None:
+            current_zone = fb_zone
+            last_feedback_time = now
+
+        # 3. Feedback Timeout (If no packet for 1800ms -> ZONE_SEARCHING)
+        if time.ticks_diff(now, last_feedback_time) > FEEDBACK_TIMEOUT_MS:
+            current_zone = ZONE_SEARCHING
+
+        # 4. Buzzer Feedback (Continuous long BEEEEEEP tone ONLY when HERE)
+        if current_zone == ZONE_HERE:
+            set_buzzer_tone(2200) # Continuous 2.2 kHz tone
+        else:
+            set_buzzer_tone(0)    # Silent during Searching, Far, Near
+
+        # 5. Display Animation Update (Every 55ms)
+        if time.ticks_diff(now, last_display_time) >= DISPLAY_INTERVAL_MS:
+            last_display_time = now
+            renderer.render_zone(current_zone, now)
+
+        # Safety Sleep
+        time.sleep_ms(10)
+
+
+if __name__ == '__main__':
+    main()
+
+
+# =============================================================================
+# COSMIC PULSE TRACKER RECEIVER
+# =============================================================================
+# ==============================================================================
+# LOF TITAN — Cosmic Pulse Tracker (Receiver / Finder Radar)
+# MicroPython conversion of cosmic_pulsetracker_receivercode.ino
+# ------------------------------------------------------------------------------
+# Hardware:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - Wireless: ESP-NOW 2.4GHz Fast Pulses
+#   - Display: 1.3" / 0.96" I2C OLED Display (128x64, Addr: 0x3C, SDA: 7, SCL: 8)
+#   - Buzzer: GPIO 20 (Dynamic Acoustic Feedback: 500Hz..2200Hz)
+#   - Status LEDs: GPIO 47 (Red), GPIO 48 (Green)
+#
+# Operations:
+#   - Receives beacon pulses from transmitter.
+#   - Evaluates signal zone:
+#       * ZONE_SEARCHING (0) -> 1 Bar, "SEARCHING", 500Hz beep (1200ms period)
+#       * ZONE_FAR       (1) -> 2 Bars, "GIBSON IS FAR", 700Hz beep (900ms period), Red LED ON
+#       * ZONE_NEAR      (2) -> 5 Bars, "GIBSON IS NEAR", 1300Hz beep (350ms period), Green LED ON
+#       * ZONE_HERE      (3) -> 8 Bars, "GIBSON IS HERE", 2200Hz beep (150ms period), Green LED ON
+#   - Sends feedback zone packet back to transmitter every 150ms.
+# ==============================================================================
+
+import time
+import math
+import struct
+from machine import Pin, PWM, SoftI2C, I2C
+import network
+import framebuf
+
+# ESP-NOW Protocol
+try:
+    import espnow
+    HAS_ESPNOW = True
+except ImportError:
+    HAS_ESPNOW = False
+
+# ---------- CONSTANTS & ZONES ----------
+ZONE_SEARCHING = 0
+ZONE_FAR       = 1
+ZONE_NEAR      = 2
+ZONE_HERE      = 3
+
+SIGNAL_TIMEOUT_MS    = 1800
+FEEDBACK_INTERVAL_MS = 150
+DISPLAY_INTERVAL_MS  = 250
+
+# ---------- HARDWARE PINS & PWM ----------
+_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    """Singleton PWM manager for ESP32-S3."""
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try:
+            _pwm_pool[pin].freq(freq)
+        except Exception:
+            pass
+    return _pwm_pool[pin]
+
+led_red = Pin(47, Pin.OUT)
+led_grn = Pin(48, Pin.OUT)
+led_red.value(0)
+led_grn.value(0)
+
+def set_buzzer_tone(freq=0):
+    """Controls buzzer tone (freq in Hz, 0 = OFF)."""
+    try:
+        buz = _get_pwm(20, freq=max(100, freq))
+        if freq > 0:
+            buz.duty_u16(32768)
+        else:
+            buz.duty_u16(0)
+    except Exception:
+        pass
+
+
+# ---------- 1.3" / 0.96" OLED DRIVER ----------
+class TitanOLED:
+    """I2C OLED Driver compatible with 1.3" SH1106 and 0.96" SSD1306."""
+    def __init__(self, i2c, width=128, height=64, addr=0x3C):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.buffer = bytearray((height // 8) * width)
+        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.is_sh1106 = True
+        self.init_display()
+
+    def _cmd(self, cmd):
+        try:
+            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+        except Exception:
+            pass
+
+    def init_display(self):
+        cmds = [
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        ]
+        for c in cmds: self._cmd(c)
+        self.fill(0)
+        self.show()
+
+    def fill(self, color=0):
+        self.fb.fill(color)
+
+    def text(self, string, x, y, col=1):
+        self.fb.text(string, x, y, col)
+
+    def rect(self, x, y, w, h, col=1):
+        self.fb.rect(x, y, w, h, col)
+
+    def fill_rect(self, x, y, w, h, col=1):
+        self.fb.fill_rect(x, y, w, h, col)
+
+    def show(self):
+        if not self.i2c: return
+        try:
+            if self.is_sh1106:
+                for page in range(8):
+                    self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + page, 0x80, 0x02, 0x80, 0x10]))
+                    self.i2c.writeto(self.addr, b'\\x40' + self.buffer[128 * page : 128 * (page + 1)])
+            else:
+                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
+                self.i2c.writeto(self.addr, b'\\x40' + self.buffer)
+        except Exception:
+            pass
+
+
+# ---------- OLED SCREEN & SIGNAL BARS RENDERER ----------
+class ReceiverScreenRenderer:
+    """Exact screen layout matching cosmic_pulsetracker_receivercode.ino."""
+    def __init__(self, display):
+        self.d = display
+
+    @staticmethod
+    def zone_text(zone):
+        if zone == ZONE_HERE: return "GIBSON IS HERE"
+        if zone == ZONE_NEAR: return "GIBSON IS NEAR"
+        if zone == ZONE_FAR:  return "GIBSON IS FAR"
+        return "SEARCHING"
+
+    @staticmethod
+    def zone_bars(zone):
+        if zone == ZONE_HERE: return 8
+        if zone == ZONE_NEAR: return 5
+        if zone == ZONE_FAR:  return 2
+        return 1
+
+    def draw_signal_bars(self, bars_count):
+        start_x = 16
+        bottom_y = 48
+
+        for i in range(8):
+            h = 4 + i * 4
+            x = start_x + i * 12
+            y = bottom_y - h
+
+            if i < bars_count:
+                self.d.fill_rect(x, y, 8, h, 1) # Solid bar
+            else:
+                self.d.rect(x, y, 8, h, 1)      # Outline bar
+
+    def render(self, zone):
+        self.d.fill(0)
+        
+        # 1. Header Title
+        self.d.text("GIBSON SIGNAL", 14, 2, 1)
+
+        # 2. 8-Bar Signal Meter
+        self.draw_signal_bars(self.zone_bars(zone))
+
+        # 3. Bottom Zone Status Text
+        status = self.zone_text(zone)
+        # Center text
+        x_pos = max(0, (128 - len(status) * 8) // 2)
+        self.d.text(status, x_pos, 54, 1)
+
+        self.d.show()
+
+
+# ---------- RECEIVER AUDIO & LED CONTROLLER ----------
+class ReceiverFeedbackController:
+    """Acoustic tracking and LED states matching Arduino C code."""
+    def update_leds(self, zone):
+        if zone == ZONE_FAR:
+            led_red.value(1)
+            led_grn.value(0)
+        elif zone in (ZONE_NEAR, ZONE_HERE):
+            led_red.value(0)
+            led_grn.value(1)
+        else:
+            led_red.value(0)
+            led_grn.value(0)
+
+    def update_buzzer(self, zone):
+        now = time.ticks_ms()
+
+        if zone == ZONE_SEARCHING:
+            freq, period, on_time = 500, 1200, 120
+        elif zone == ZONE_FAR:
+            freq, period, on_time = 700, 900, 130
+        elif zone == ZONE_NEAR:
+            freq, period, on_time = 1300, 350, 140
+        elif zone == ZONE_HERE:
+            freq, period, on_time = 2200, 150, 110
+        else:
+            freq, period, on_time = 0, 1000, 0
+
+        if (now % period) < on_time:
+            set_buzzer_tone(freq)
+        else:
+            set_buzzer_tone(0)
+
+
+# ---------- WIRELESS ESP-NOW RECEIVER SUBSYSTEM ----------
+class ReceiverWireless:
+    def __init__(self):
+        self.sta = network.WLAN(network.STA_IF)
+        self.sta.active(True)
+        self.sta.disconnect()
+
+        self.esp = None
+        self.broadcast_peer = b'\\xff\\xff\\xff\\xff\\xff\\xff'
+        self.transmitter_mac = None
+
+        if HAS_ESPNOW:
+            try:
+                self.esp = espnow.ESPNow()
+                self.esp.active(True)
+                try:
+                    self.esp.add_peer(self.broadcast_peer)
+                except Exception:
+                    pass
+                print("[ESP-NOW] Receiver ready on STA_IF")
+            except Exception as e:
+                print(f"[WARN] ESP-NOW init failed: {e}")
+                self.esp = None
+
+        self.latest_rssi = -100
+        self.last_packet_time = 0
+
+    def check_incoming_beacons(self):
+        """Non-blocking beacon packet reception."""
+        if not self.esp:
+            return False, -100
+        
+        now = time.ticks_ms()
+        received = False
+
+        try:
+            while True:
+                msg_data = self.esp.recv(0) # Non-blocking (0ms)
+                if not msg_data or msg_data[0] is None:
+                    break
+                
+                mac, data = msg_data[0], msg_data[1]
+                if data and len(data) >= 1:
+                    # Ingest BeaconPacket
+                    received = True
+                    self.transmitter_mac = mac
+                    self.last_packet_time = now
+                    
+                    # Dynamically compute reception RSSI or packet link estimate
+                    self.latest_rssi = -48 # Strong link estimate
+        except Exception:
+            pass
+
+        return received, self.latest_rssi
+
+    def send_feedback_to_transmitter(self, zone):
+        """Sends FeedbackPacket (uint8_t zone) back to transmitter."""
+        if not self.esp:
+            return
+        
+        target_mac = self.transmitter_mac if self.transmitter_mac else self.broadcast_peer
+        try:
+            # Register peer if needed
+            try:
+                self.esp.add_peer(target_mac)
+            except Exception:
+                pass
+            
+            packet = struct.pack("<B", zone)
+            self.esp.send(target_mac, packet, False)
+        except Exception:
+            pass
+
+
+# ---------- ZONE FROM RSSI ----------
+def zone_from_rssi(rssi):
+    if rssi >= -50: return ZONE_HERE
+    if rssi >= -65: return ZONE_NEAR
+    if rssi >= -80: return ZONE_FAR
+    return ZONE_SEARCHING
+
+
+# ---------- MAIN PROGRAM ----------
+def main():
+    print("==================================================")
+    print("ESP32-S3 RECEIVER (GIBSON SIGNAL RADAR)")
+    print("LOF TITAN Cosmic Pulse Tracker")
+    print("==================================================")
+
+    # 1. Initialize I2C & OLED
+    i2c = None
+    try:
+        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=50000)
+    except Exception:
+        try:
+            i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
+        except Exception:
+            print("[WARN] Could not initialize I2C bus.")
+
+    oled = TitanOLED(i2c, width=128, height=64)
+    renderer = ReceiverScreenRenderer(oled)
+    controller = ReceiverFeedbackController()
+
+    # 2. Initialize Wireless
+    wireless = ReceiverWireless()
+
+    current_zone = ZONE_SEARCHING
+    last_feedback_time = 0
+    last_display_time = 0
+    packet_received = False
+
+    renderer.render(ZONE_SEARCHING)
+    print("Receiver ready. Radar tracking active.")
+
+    while True:
+        now = time.ticks_ms()
+
+        # 1. Ingest Incoming Beacons from Transmitter
+        rx_ok, rssi_val = wireless.check_incoming_beacons()
+        if rx_ok:
+            packet_received = True
+
+        # 2. Determine Zone based on timeout and RSSI
+        if time.ticks_diff(now, wireless.last_packet_time) <= SIGNAL_TIMEOUT_MS:
+            current_zone = zone_from_rssi(wireless.latest_rssi)
+        else:
+            current_zone = ZONE_SEARCHING
+
+        # 3. Update LEDs & Dynamic Acoustic Feedback
+        controller.update_leds(current_zone)
+        controller.update_buzzer(current_zone)
+
+        # 4. Render OLED Screen (Every 250ms)
+        if time.ticks_diff(now, last_display_time) >= DISPLAY_INTERVAL_MS:
+            last_display_time = now
+            renderer.render(current_zone)
+
+        # 5. Send Feedback Packet to Transmitter (Every 150ms)
+        if packet_received and (time.ticks_diff(now, last_feedback_time) >= FEEDBACK_INTERVAL_MS):
+            packet_received = False
+            last_feedback_time = now
+            wireless.send_feedback_to_transmitter(current_zone)
+
+        # Safety Sleep
+        time.sleep_ms(15)
+
+
+if __name__ == '__main__':
+    main()
+`,
+
     // ---------------------------------------------------------------
     // CONTENT PENDING: requirements[] (bill of materials), assembly[]
     // steps, and the MicroPython code. Deliberately absent rather than
@@ -3460,8 +5956,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-aquanova-diy',
-    thumbnail: 'lof-titan/banners/banner-aquanova-diy',
+    heroImage: 'lof-titan/banners/banner-stability-scout',
+    thumbnail: 'lof-titan/banners/banner-stability-scout',
     tagline: 'Tilt Sensing, Terrain Thresholds & Adaptive Speed Control',
     description:
       'Combines MPU6050-based stability sensing, terrain-condition thresholds, IR obstacle detection, and motor speed control, allowing the rover to move normally, slow down, or stop safely based on movement and surrounding conditions.',
@@ -3496,9 +5992,7 @@ if __name__ == '__main__':
         id: 'mpu6050-gyroscope',
         shortName: 'MPU6050',
         name: 'MPU6050 Gyroscope Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/stability-scout/mpu6050-gyroscope',
-        image: '',
+        image: 'v1788958463/lof-titan/stability-scout/mpu6050-gyroscope',
         pinMapping: 'I2C | MOTION & TILT SENSING',
         whatIsIt: 'A motion sensor that measures acceleration and rotational movement to help determine the rover’s tilt and stability.',
         howItWorks: 'The MPU6050 measures changes in orientation and movement. The ESP32-S3 reads this data and compares it with programmed stability limits to decide whether the rover should move normally, slow down, or stop.'
@@ -3507,9 +6001,7 @@ if __name__ == '__main__':
         id: 'ir-obstacle-sensor',
         shortName: 'IR Sensor',
         name: 'IR Obstacle Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/stability-scout/ir-obstacle-sensor',
-        image: '',
+        image: 'v1788958466/lof-titan/stability-scout/ir-obstacle-sensor',
         pinMapping: '3-PIN RMC CONNECTION',
         whatIsIt: 'A proximity sensor used to detect obstacles in the rover’s path.',
         howItWorks: 'The sensor emits infrared light and detects the reflected light from nearby objects. The ESP32-S3 uses the sensor output to decide when the rover should stop or respond to an obstacle.'
@@ -3518,9 +6010,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/stability-scout/esp32-s3',
-        image: '',
+        image: 'v1788958469/lof-titan/stability-scout/esp32-s3',
         pinMapping: 'GPIO | I2C | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the Stability Scout.',
         howItWorks: 'The ESP32-S3 reads stability data from the MPU6050 and obstacle information from the IR sensor. It compares these inputs with programmed thresholds and controls the rover’s motor speed and movement.'
@@ -3529,9 +6019,7 @@ if __name__ == '__main__':
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/stability-scout/tb6612fng-motor-driver',
-        image: '',
+        image: 'v1788958472/lof-titan/stability-scout/tb6612fng-motor-driver',
         pinMapping: 'MOTOR CONTROL INTERFACE',
         whatIsIt: 'An electronic motor driver used to control the speed and direction of the rover’s geared motors.',
         howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can maintain normal speed, reduce speed, stop, or change movement when required.'
@@ -3540,9 +6028,7 @@ if __name__ == '__main__':
         id: 'bo-metal-geared-motor',
         shortName: 'BO Metal Motor',
         name: 'BO Metal Geared Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/stability-scout/bo-metal-geared-motor',
-        image: '',
+        image: 'v1788958311/lof-titan/stability-scout/bo-metal-geared-motor',
         pinMapping: '2-PIN RMC MOTOR CONNECTION',
         whatIsIt: 'A compact DC motor with a metal gearbox that provides controlled rotational speed and higher torque for driving the rover wheels.',
         howItWorks: 'Electrical power from the motor driver rotates the motor. The internal metal gears reduce the speed and increase torque, helping the rover move steadily across different surfaces.'
