@@ -87,7 +87,9 @@ export function ProjectStoreDetailModal({
   const [motorDirection, setMotorDirection] = useState('FORWARD');
   const [motorDuration, setMotorDuration] = useState(2.0);
   const [uvInterval, setUvInterval] = useState(150);
-  const [copiedCode, setCopiedCode] = useState(false);
+  // Which code block was last copied. A boolean would light up every Copy button
+  // at once on a kit that ships more than one program.
+  const [copiedCode, setCopiedCode] = useState(null);
   const [checkedItems, setCheckedItems] = useState({});
   const [activeNav, setActiveNav] = useState('overview');
 
@@ -99,10 +101,10 @@ export function ProjectStoreDetailModal({
     setCheckedItems(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  const handleCopy = (codeText) => {
+  const handleCopy = (codeText, key = 'main') => {
     navigator.clipboard.writeText(codeText);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    setCopiedCode(key);
+    setTimeout(() => setCopiedCode((c) => (c === key ? null : c)), 2000);
   };
 
   const scrollToSection = (sectionId) => {
@@ -128,7 +130,7 @@ export function ProjectStoreDetailModal({
     { id: 'safety', label: 'Safety', has: !!(project.safetyWarnings?.hardware?.length || project.safetyWarnings?.electronics?.length) },
     { id: 'components', label: 'Components Lab', has: !!project.components?.length },
     { id: 'assembly', label: 'Assembly', has: !!project.assembly?.length },
-    { id: 'code', label: 'Firmware', has: !!project.code },
+    { id: 'code', label: 'Firmware', has: !!(project.code || project.codePrograms?.length) },
     { id: 'faq', label: 'FAQ', has: !!project.faq?.length },
     { id: 'challenges', label: 'Challenges', has: !!project.challenges?.length },
   ].filter((s) => s.has);
@@ -143,6 +145,21 @@ export function ProjectStoreDetailModal({
   const kitLabel = kitName || project.name;
   const assemblyTitle = project.assemblyTitle || 'Mechanical Assembly';
   const codeFilename = project.codeFilename || `${String(project.id || 'main').replace(/-/g, '_')}.py`;
+
+  // Some kits are one board running one program; others - anything with a
+  // transmitter and a receiver - are two boards running two. Both shapes become
+  // the same list here so the firmware section has one thing to render, and a
+  // kit that never declared codePrograms keeps behaving exactly as before.
+  const codePrograms = project.codePrograms?.length
+    ? project.codePrograms
+    : project.code
+      ? [{ label: null, filename: codeFilename, code: project.code }]
+      : [];
+
+  // The buttons outside the firmware section (hero, footer) can only send one
+  // program, so they send the first. With two boards to flash, the per-program
+  // buttons inside the section are the ones that can say which is which.
+  const primaryCode = codePrograms[0]?.code;
   const hardwareTitle = project.safetyWarnings?.hardwareTitle || 'Hardware & Mechanical Precautions';
   const electronicsTitle = project.safetyWarnings?.electronicsTitle || 'Electronics & Power Safety';
   const faqTitle = project.faqTitle || 'FAQ & Hardware Troubleshooting';
@@ -331,7 +348,7 @@ export function ProjectStoreDetailModal({
                   </button>
 
                   <button
-                    onClick={() => onUploadCode?.(project.code)}
+                    onClick={() => onUploadCode?.(primaryCode)}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
                     title="Upload & Run on LOF TITAN"
                   >
@@ -687,18 +704,20 @@ export function ProjectStoreDetailModal({
                 <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('code')}. Production MicroPython Firmware</h2>
               </div>
 
-              {owned && (
+              {/* With two programs these would be ambiguous - which board? - so
+                  each program carries its own pair of buttons instead. */}
+              {owned && codePrograms.length === 1 && (
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => handleCopy(project.code)}
+                    onClick={() => handleCopy(codePrograms[0].code, 'main')}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs sm:text-sm font-bold text-slate-700 border border-slate-300 flex items-center gap-2 transition-colors cursor-pointer"
                   >
-                    {copiedCode ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
-                    <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                    {copiedCode === 'main' ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+                    <span>{copiedCode === 'main' ? 'Copied' : 'Copy Code'}</span>
                   </button>
 
                   <button
-                    onClick={() => onUploadCode?.(project.code)}
+                    onClick={() => onUploadCode?.(codePrograms[0].code)}
                     className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
                   >
                     <Upload size={15} />
@@ -709,14 +728,53 @@ export function ProjectStoreDetailModal({
             </div>
 
             <RequireKit kitId={project.id} kitName={kitName} sectionName="The firmware source">
-              <div className="rounded-3xl bg-[#060911] border border-slate-800 overflow-hidden shadow-xl">
-                <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
-                  <span className="font-mono text-cyan-400 font-bold">{codeFilename}</span>
-                  <span className="text-xs text-slate-500">MicroPython ESP32-S3 Firmware</span>
-                </div>
-                <div className="p-5 sm:p-7 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-[440px] scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
-                  <pre className="whitespace-pre">{project.code}</pre>
-                </div>
+              <div className="space-y-5">
+                {codePrograms.map((program, idx) => {
+                  const key = program.filename || `program-${idx}`;
+                  return (
+                    <div key={key} className="rounded-3xl bg-[#060911] border border-slate-800 overflow-hidden shadow-xl">
+                      {/* A label only exists on a multi-program kit, where it is
+                          the thing that says which board this belongs on. */}
+                      {program.label && (
+                        <div className="px-5 py-3 bg-[#0B1220] border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[11px] font-extrabold flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="text-sm font-extrabold text-white">{program.label}</span>
+                          </div>
+
+                          {owned && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleCopy(program.code, key)}
+                                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                              >
+                                {copiedCode === key ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                                <span>{copiedCode === key ? 'Copied' : 'Copy'}</span>
+                              </button>
+                              <button
+                                onClick={() => onUploadCode?.(program.code)}
+                                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-[11px] font-bold text-white flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                              >
+                                <Upload size={13} />
+                                <span>Upload</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
+                        <span className="font-mono text-cyan-400 font-bold">{program.filename || codeFilename}</span>
+                        <span className="text-xs text-slate-500">MicroPython ESP32-S3 Firmware</span>
+                      </div>
+                      <div className="p-5 sm:p-7 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-[440px] scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
+                        <pre className="whitespace-pre">{program.code}</pre>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </RequireKit>
           </div>
@@ -822,7 +880,7 @@ export function ProjectStoreDetailModal({
                   <span>Open Block Studio</span>
                 </button>
                 <button
-                  onClick={() => onUploadCode?.(project.code)}
+                  onClick={() => onUploadCode?.(primaryCode)}
                   className="px-6 py-3 rounded-full text-sm font-bold bg-indigo-950 text-white hover:bg-slate-900 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
                   <Upload size={16} />

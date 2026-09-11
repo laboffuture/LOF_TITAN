@@ -9,8 +9,8 @@ export const projects = [
     duration: '45 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: 'lof-titan/invisible-line/invisible-line-main',
-    thumbnail: 'lof-titan/invisible-line/invisible-line-main',
+    heroImage: 'v1789103990/lof-titan/invisible-line/invisible-line-main',
+    thumbnail: 'v1789103990/lof-titan/invisible-line/invisible-line-main',
     tagline: 'UV Light Following 4-Bar Linkage 8-Leg Walking Robot',
     // Kit-specific page copy. Omit any of these and the detail page falls back to
     // a generic equivalent rather than showing another kit's wording.
@@ -56,7 +56,7 @@ export const projects = [
       {
         id: 'uv-sensor',
         name: 'UV Light Sensor (Photodiode Module)',
-        image: 'lof-titan/invisible-line/uv-sensor',
+        image: 'v1789103757/lof-titan/invisible-line/uv-sensor',
         whatIsIt: 'The UV sensor is a specialized optical sensor that measures ultraviolet radiation (wavelengths between 200nm and 370nm), which is invisible to the human eye.',
         howItWorks: 'When ultraviolet photons hit the photodiode, it generates a proportional micro-current. The onboard amplifier converts this into an analog voltage reading (0 to 4095) read by the ESP32-S3 ADC.',
         pinMapping: 'Left: GPIO 2 (S1) | Center: GPIO 1 (S2) | Right: GPIO 3 (S3)',
@@ -90,7 +90,7 @@ while True:
       {
         id: 'dc-motor',
         name: 'Dual DC Motors & 4-Bar Walking Kinematics',
-        image: 'lof-titan/invisible-line/dc-motor',
+        image: 'v1789103891/lof-titan/invisible-line/dc-motor',
         whatIsIt: 'DC geared motors convert electrical energy into mechanical rotational torque. Instead of circular wheels, the output shafts drive 4-bar linkage cranks that mimic quadruped biological walking strides with 8 legs.',
         howItWorks: 'LOF TITAN controls motor speed with PWM (Pulse Width Modulation) and direction with dual H-bridge driver outputs (M1: GPIO 15/16, M2: GPIO 13/14). Differential steering allows the robot to turn by running one motor faster than the other.',
         pinMapping: 'Left Motor M1: GPIO 15, 16 | Right Motor M2: GPIO 13, 14',
@@ -659,8 +659,8 @@ if __name__ == '__main__':
     duration: '40 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    heroImage: 'lof-titan/banners/banner-heatseek-diy',
-    thumbnail: 'lof-titan/banners/banner-heatseek-diy',
+    heroImage: 'v1789104426/lof-titan/banners/banner-heatseek-diy',
+    thumbnail: 'v1789104426/lof-titan/banners/banner-heatseek-diy',
     tagline: 'Intelligent Surrounding Scanner & Autonomous Heat Seeking Rover',
     codeFilename: 'heat_seek_rover.py',
     assemblyTitle: 'Rover Chassis & Sensor Assembly',
@@ -701,7 +701,7 @@ if __name__ == '__main__':
       {
         id: 'flame-sensor',
         name: 'IR Flame Phototransistor Sensor',
-        image: 'lof-titan/banners/banner-heatseek-diy',
+        image: 'lof-titan/heat-seek-rover/flame-sensor',
         whatIsIt: 'The IR flame sensor detects infrared spectrum wavelengths (760nm to 1100nm) emitted by fire and heat sources.',
         howItWorks: 'Infrared radiation alters phototransistor conductivity, producing an analog voltage read by ESP32-S3 12-bit ADC (0 to 4095). Strong heat sources drop the ADC reading.',
         pinMapping: 'Left Flame: GPIO 2 (S1) | Right Flame: GPIO 1 (S2)',
@@ -730,7 +730,7 @@ while True:
       {
         id: 'obstacle-scanner',
         name: 'Ultrasonic Obstacle Scanner',
-        image: 'lof-titan/banners/banner-heatseek-diy',
+        image: 'lof-titan/heat-seek-rover/obstacle-scanner',
         whatIsIt: 'Ultrasonic sonar sensor that measures distance to nearby obstacles using 40kHz acoustic pulses.',
         howItWorks: 'Sends a 10µs pulse on Trig (GPIO 6) and measures high time on Echo (GPIO 19). Distance (cm) = duration / 58.',
         pinMapping: 'Trig: GPIO 6 | Echo: GPIO 19',
@@ -888,8 +888,8 @@ def main():
     duration: '35 Mins',
     difficulty: 'Beginner',
     age: '8+',
-    heroImage: 'lof-titan/banners/banner-heartbeat-diy',
-    thumbnail: 'lof-titan/banners/banner-heartbeat-diy',
+    heroImage: 'v1789105007/lof-titan/banners/banner-heartbeat-diy',
+    thumbnail: 'v1789105007/lof-titan/banners/banner-heartbeat-diy',
     tagline: 'Optical Pulse Sensing & Dynamic Heartbeat Synthesizer Bot',
     codeFilename: 'heartbeat_dj_bot.py',
     assemblyTitle: 'DJ Bot Frame & Sensor Assembly',
@@ -932,9 +932,7 @@ def main():
         id: 'max30102-sensor',
         shortName: 'MAX30102',
         name: 'MAX30102 Heartbeat Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/heartbeat/max30102-sensor',
-        image: '',
+        image: 'lof-titan/heartbeat/max30102-sensor',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'An optical sensor used to detect finger presence and measure pulse-related changes in blood flow.',
         howItWorks: 'The MAX30102 uses red and infrared light to detect changes in reflected light from the finger. The ESP32-S3 reads these changes through I2C communication and uses them to identify heartbeat activity.'
@@ -943,9 +941,7 @@ def main():
         id: 'dfplayer-mini',
         shortName: 'DFPlayer Mini',
         name: 'DFPlayer Mini',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/heartbeat/dfplayer-mini',
-        image: '',
+        image: 'lof-titan/heartbeat/dfplayer-mini',
         pinMapping: 'UART COMMUNICATION | microSD AUDIO',
         whatIsIt: 'A compact audio module used to play stored sound and music files from a microSD card.',
         howItWorks: 'The ESP32-S3 sends playback commands to the DFPlayer. The module reads the selected audio file from the microSD card and sends the audio signal to the connected speaker.'
@@ -954,9 +950,7 @@ def main():
         id: 'speaker-8ohm',
         shortName: '8 Ohm Speaker',
         name: '8 Ohm Speaker',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/heartbeat/speaker-8ohm',
-        image: '',
+        image: 'lof-titan/heartbeat/speaker-8ohm',
         pinMapping: 'DFPLAYER AUDIO OUTPUT',
         whatIsIt: 'A small speaker used to produce the music and sound feedback of the Heartbeat DJ Bot.',
         howItWorks: 'The DFPlayer converts the stored audio file into an electrical audio signal. The speaker converts this signal into audible sound.'
@@ -965,9 +959,7 @@ def main():
         id: 'oled-display',
         shortName: 'OLED Display',
         name: '1.3 Inch OLED Display',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/heartbeat/oled-display',
-        image: '',
+        image: 'lof-titan/heartbeat/oled-display',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'A compact OLED screen used to display expressions, symbols, and the current operating state of the DJ Bot.',
         howItWorks: 'The ESP32-S3 sends display information to the OLED through I2C communication. The OLED activates individual pixels to show the programmed facial expressions and feedback.'
@@ -976,9 +968,7 @@ def main():
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/heartbeat/esp32-s3',
-        image: '',
+        image: 'lof-titan/heartbeat/esp32-s3',
         pinMapping: 'GPIO | I2C | UART | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the Heartbeat DJ Bot.',
         howItWorks: 'The ESP32-S3 reads the MAX30102 sensor, manages timer-based mode changes, controls the OLED expressions, and sends commands to the DFPlayer to select the required audio.'
@@ -1803,8 +1793,8 @@ if __name__ == '__main__':
     // with Cache-Control max-age=2592000, so a browser that saw the old art
     // keeps it for 30 days. The vNNN segment changes when the bytes do.
     // Get it from the upload response and bump it whenever you re-upload.
-    heroImage: 'v1788331984/lof-titan/banners/banner-anemometer',
-    thumbnail: 'v1788331984/lof-titan/banners/banner-anemometer',
+    heroImage: 'v1789106370/lof-titan/banners/banner-anemometer',
+    thumbnail: 'v1789106370/lof-titan/banners/banner-anemometer',
     tagline: 'Wind Speed Measurement & Live Weather Telemetry',
     codeFilename: 'anemometer.py',
     assemblyTitle: 'Anemometer Assembly & Integration',
@@ -2347,8 +2337,8 @@ if __name__ == '__main__':
     age: '10+',
     // Stand-in artwork. Replace once real banner art is uploaded as
     // lof-titan/anti-icing-systems/anti-icing-main
-    heroImage: 'lof-titan/banners/banner-invisible',
-    thumbnail: 'lof-titan/banners/banner-invisible',
+    heroImage: 'lof-titan/banners/banner-anti-icing',
+    thumbnail: 'lof-titan/banners/banner-anti-icing',
     tagline: 'Aircraft Wing Ice Detection & Prevention',
     codeFilename: 'anti_icing.py',
     description:
@@ -3248,8 +3238,8 @@ if __name__ == '__main__':
     // those filter facets. Set them when the content team confirms.
     // Version-pinned: a replaced asset keeps this url and ships a 30-day
     // max-age, so bump vNNN whenever the artwork is re-uploaded.
-    heroImage: 'v1788938004/lof-titan/banners/banner-aquanova',
-    thumbnail: 'v1788938004/lof-titan/banners/banner-aquanova',
+    heroImage: 'v1789016585/lof-titan/banners/banner-aquanova',
+    thumbnail: 'v1789016585/lof-titan/banners/banner-aquanova',
     tagline: 'Motion & Water Sensing Rover with OLED and Blynk Alerts',
     description:
       'Integrates PIR and water sensing with ESP32-based input processing, using an OLED and Blynk alerts along with motor control to help the rover respond safely to changing conditions.',
@@ -4194,8 +4184,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-cosmic',
-    thumbnail: 'lof-titan/banners/banner-cosmic',
+    heroImage: 'lof-titan/banners/banner-star-spectrum-decoder',
+    thumbnail: 'lof-titan/banners/banner-star-spectrum-decoder',
     tagline: 'Multi-Channel Light Sensing & Spectrum Comparison',
     description:
       'Builds understanding of multi-channel light sensing and spectrum analysis using the AS7341 sensor, RGB light sources, and visual graphs to compare different light patterns, adding complexity through light-data interpretation and comparison.',
@@ -4227,9 +4217,7 @@ if __name__ == '__main__':
         id: 'as7341-spectral-sensor',
         shortName: 'AS7341',
         name: 'AS7341 Spectral Colour Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/star-spectrum-decoder/as7341-spectral-sensor',
-        image: '',
+        image: 'lof-titan/star-spectrum-decoder/as7341-spectral-sensor',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'A multi-channel spectral sensor used to detect and measure different wavelengths of visible light.',
         howItWorks: 'The AS7341 separates incoming light into different spectral channels. The ESP32-S3 reads these values through I2C communication and uses them to compare the light patterns produced by different sources.'
@@ -4238,9 +4226,7 @@ if __name__ == '__main__':
         id: 'oled-display',
         shortName: 'OLED Display',
         name: '2.42 Inch OLED Display',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/star-spectrum-decoder/oled-display',
-        image: '',
+        image: 'lof-titan/star-spectrum-decoder/oled-display',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'A compact OLED screen used to display spectral readings, graphs, labels, and comparison results.',
         howItWorks: 'The ESP32-S3 sends processed spectrum data to the OLED through I2C communication. The OLED activates individual pixels to display the required information.'
@@ -4249,9 +4235,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/star-spectrum-decoder/esp32-s3',
-        image: '',
+        image: 'lof-titan/star-spectrum-decoder/esp32-s3',
         pinMapping: 'GPIO | I2C | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the Star Spectrum Decoder.',
         howItWorks: 'The ESP32-S3 collects spectral data from the AS7341, processes and compares the readings, controls the LEDs, and sends the results to the OLED display.'
@@ -5011,7 +4995,6 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-cosmic',
     thumbnail: 'lof-titan/banners/banner-cosmic',
     tagline: 'Wireless Signal Strength Tracking & Feedback',
-    codeFilename: 'cosmic_pulse_tracker.py',
     description:
       'Introduces wireless signal transmission, signal-strength comparison, and feedback systems using an OLED, LEDs, and a buzzer to locate the strongest signal source, making it a suitable introductory project.',
 
@@ -5119,10 +5102,11 @@ if __name__ == '__main__':
     ],
 
     // MicroPython Main Script
-    code: `# =============================================================================
-# COSMIC PULSE TRACKER TRANSMITTER
-# =============================================================================
-# ==============================================================================
+    codePrograms: [
+      {
+        label: 'Transmitter - Lost Beacon',
+        filename: 'cosmic_pulse_tracker_transmitter.py',
+        code: `# ==============================================================================
 # LOF TITAN — Cosmic Pulse Tracker (Transmitter / Lost Beacon)
 # MicroPython conversion of cosmic_pulsetracker_transmittercode.ino
 # ------------------------------------------------------------------------------
@@ -5568,12 +5552,12 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-# =============================================================================
-# COSMIC PULSE TRACKER RECEIVER
-# =============================================================================
-# ==============================================================================
+`,
+      },
+      {
+        label: 'Receiver - Finder Radar',
+        filename: 'cosmic_pulse_tracker_receiver.py',
+        code: `# ==============================================================================
 # LOF TITAN — Cosmic Pulse Tracker (Receiver / Finder Radar)
 # MicroPython conversion of cosmic_pulsetracker_receivercode.ino
 # ------------------------------------------------------------------------------
@@ -5939,6 +5923,8 @@ def main():
 if __name__ == '__main__':
     main()
 `,
+      },
+    ],
 
     // ---------------------------------------------------------------
     // CONTENT PENDING: requirements[] (bill of materials), assembly[]
