@@ -3055,9 +3055,7 @@ if __name__ == '__main__':
         id: 'bldc-motor',
         shortName: 'BLDC Motor',
         name: 'BLDC Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/rc-plane/bldc-motor',
-        image: '',
+        image: 'lof-titan/rc-plane/bldc-motor',
         whatIsIt: 'A high-speed motor used to generate thrust for the aircraft.',
         howItWorks: 'It spins the propeller at high speed to push air backward and move the plane forward.'
       },
@@ -3065,8 +3063,7 @@ if __name__ == '__main__':
         id: 'propeller',
         shortName: 'Propeller',
         name: '5" Propeller',
-        //   image: 'lof-titan/rc-plane/propeller',
-        image: '',
+        image: 'lof-titan/rc-plane/propeller',
         whatIsIt: 'A rotating blade attached to the motor shaft.',
         howItWorks: 'Its blades push air backward, producing the thrust needed for flight.'
       },
@@ -3074,8 +3071,7 @@ if __name__ == '__main__':
         id: 'esc',
         shortName: 'ESC',
         name: 'Electronic Speed Controller (ESC)',
-        //   image: 'lof-titan/rc-plane/esc',
-        image: '',
+        image: 'lof-titan/rc-plane/esc',
         whatIsIt: 'An electronic controller that manages the BLDC motor speed.',
         howItWorks: 'It regulates power from the battery to the motor based on the throttle command.'
       },
@@ -3083,8 +3079,7 @@ if __name__ == '__main__':
         id: 'servo-motor',
         shortName: 'Servo Motor',
         name: 'Servo Motor',
-        //   image: 'lof-titan/rc-plane/servo-motor',
-        image: '',
+        image: 'lof-titan/rc-plane/servo-motor',
         whatIsIt: 'A small motor used to move the aircraft control surfaces.',
         howItWorks: 'The servos move the elevator, rudder, and ailerons to control pitch, yaw, and roll.'
       },
@@ -3092,8 +3087,7 @@ if __name__ == '__main__':
         id: 'rc-transmitter',
         shortName: 'Transmitter',
         name: 'RC Transmitter',
-        //   image: 'lof-titan/rc-plane/rc-transmitter',
-        image: '',
+        image: 'lof-titan/rc-plane/rc-transmitter',
         whatIsIt: 'A handheld controller used to control the RC plane wirelessly.',
         howItWorks: 'It sends throttle, elevator, rudder, and aileron commands to the receiver on the aircraft.'
       },
@@ -3101,8 +3095,7 @@ if __name__ == '__main__':
         id: 'rc-receiver',
         shortName: 'Receiver',
         name: 'RC Receiver',
-        //   image: 'lof-titan/rc-plane/rc-receiver',
-        image: '',
+        image: 'lof-titan/rc-plane/rc-receiver',
         whatIsIt: 'A device that receives control commands from the transmitter.',
         howItWorks: 'It sends the throttle and control commands to the ESC and servos.'
       },
@@ -3110,8 +3103,7 @@ if __name__ == '__main__':
         id: 'battery',
         shortName: 'Battery',
         name: 'Battery',
-        //   image: 'lof-titan/rc-plane/battery',
-        image: '',
+        image: 'lof-titan/rc-plane/battery',
         whatIsIt: 'The main power source of the RC plane.',
         howItWorks: 'It supplies electrical power to the ESC, motor, servos, and control system.'
       }
@@ -3357,8 +3349,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-axes3',
-    thumbnail: 'lof-titan/banners/banner-axes3',
+    heroImage: 'v1789448675/lof-titan/banners/banner-axes3',
+    thumbnail: 'v1789448675/lof-titan/banners/banner-axes3',
     tagline: 'Multi-Servo Robotic Arm with Pick & Place Control',
     description:
       'Develops multi-servo robotic arm control using the base, arm link, and gripper, enabling accurate rotation, lifting, lowering, gripping, movement, and object placement.',
@@ -3390,9 +3382,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/axes3/esp32-s3',
-        image: '',
+        image: 'lof-titan/axes3/esp32-s3',
         pinMapping: 'I2C | SERVO CONTROL | USB TYPE-C',
         whatIsIt: 'A programmable microcontroller that acts as the main controller of the Axes 3 robotic arm.',
         howItWorks: 'The ESP32-S3 sends movement commands to the PCA9685 servo driver, allowing the robotic arm to rotate, lift, lower, grip, and place objects according to the programmed sequence.'
@@ -3401,9 +3391,7 @@ if __name__ == '__main__':
         id: 'pca9685-servo-driver',
         shortName: 'PCA9685 Driver',
         name: 'PCA9685 Servo Driver',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/axes3/pca9685-servo-driver',
-        image: '',
+        image: 'lof-titan/axes3/pca9685-servo-driver',
         pinMapping: 'I2C | MULTI-SERVO CONTROL',
         whatIsIt: 'A multi-channel servo controller used to operate several servo motors from the ESP32-S3.',
         howItWorks: 'The ESP32-S3 sends position commands to the PCA9685 through I2C communication. The PCA9685 then generates the control signals required to move each connected servo to its selected angle.'
@@ -3412,9 +3400,7 @@ if __name__ == '__main__':
         id: 'mg995-servo',
         shortName: 'MG995 Servo',
         name: 'MG995 Servo Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/axes3/mg995-servo',
-        image: '',
+        image: 'lof-titan/axes3/mg995-servo',
         pinMapping: 'PCA9685 SERVO CHANNEL',
         whatIsIt: 'A high-torque servo motor used for robotic arm movements that require greater turning force.',
         howItWorks: 'The PCA9685 sends a control signal that determines the servo position. The servo rotates its shaft to the required angle and holds the robotic arm joint in position.'
@@ -3423,9 +3409,7 @@ if __name__ == '__main__':
         id: 'mg90s-servo',
         shortName: 'MG90S Servo',
         name: 'MG90S Servo Motor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/axes3/mg90s-servo',
-        image: '',
+        image: 'lof-titan/axes3/mg90s-servo',
         pinMapping: 'PCA9685 SERVO CHANNEL',
         whatIsIt: 'A compact metal-geared servo motor used for smaller and more precise robotic arm movements.',
         howItWorks: 'The PCA9685 controls the servo angle by sending timed position signals. The MG90S moves to the commanded position to support controlled movement of smaller arm mechanisms such as the gripper.'
@@ -4992,8 +4976,8 @@ if __name__ == '__main__':
     // supplied with the content. The dashboard card falls back to sane defaults,
     // but until difficulty and duration are real this kit will not appear under
     // those filter facets. Set them when the content team confirms.
-    heroImage: 'lof-titan/banners/banner-cosmic',
-    thumbnail: 'lof-titan/banners/banner-cosmic',
+    heroImage: 'v1789449032/lof-titan/banners/banner-cosmic',
+    thumbnail: 'v1789449032/lof-titan/banners/banner-cosmic',
     tagline: 'Wireless Signal Strength Tracking & Feedback',
     description:
       'Introduces wireless signal transmission, signal-strength comparison, and feedback systems using an OLED, LEDs, and a buzzer to locate the strongest signal source, making it a suitable introductory project.',
@@ -5027,9 +5011,7 @@ if __name__ == '__main__':
         id: 'oled-display',
         shortName: 'OLED Display',
         name: '1.3 Inch OLED Display',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/cosmic-pulse-tracker/oled-display',
-        image: '',
+        image: 'lof-titan/cosmic-pulse-tracker/oled-display',
         pinMapping: 'SDA: GPIO 7 | SCL: GPIO 8',
         whatIsIt: 'A compact OLED screen used to display text, symbols, system status, and other project feedback.',
         howItWorks: 'The ESP32-S3 sends information to the OLED through I2C communication. The OLED activates individual pixels to display the programmed information.'
@@ -5038,9 +5020,7 @@ if __name__ == '__main__':
         id: 'esp32-s3',
         shortName: 'ESP32-S3',
         name: 'ESP32-S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/cosmic-pulse-tracker/esp32-s3',
-        image: '',
+        image: 'lof-titan/cosmic-pulse-tracker/esp32-s3',
         pinMapping: 'USB TYPE-C | GPIO | I2C',
         whatIsIt: 'A programmable microcontroller that acts as the main brain of the project.',
         howItWorks: 'It executes the uploaded program, processes input signals, communicates with connected modules, and controls the project\'s outputs according to the programmed logic.'

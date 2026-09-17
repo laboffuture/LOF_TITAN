@@ -3,6 +3,7 @@ import { AuthContext } from './authContext';
 import { api, ApiError } from '../lib/api';
 import { PREVIEW_MODE } from '../lib/backend';
 import { AVAILABLE_KIT_IDS } from './kits';
+import { EMBED_KIT, EMBED_ENTITLEMENTS } from '../lib/embed';
 
 /**
  * Auth backed by the LOF TITAN API.
@@ -24,8 +25,9 @@ export function AuthProvider({ children }) {
     let cancelled = false;
 
     // No API in a static preview - skip the request rather than firing one that
-    // returns the host's 404 page and logs a misleading warning.
-    if (PREVIEW_MODE) {
+    // returns the host's 404 page and logs a misleading warning. Embedded in an
+    // LMS there is no LOF TITAN session to restore either.
+    if (PREVIEW_MODE || EMBED_KIT) {
       setLoading(false);
       return;
     }
@@ -101,7 +103,9 @@ export function AuthProvider({ children }) {
       // already, so a lock would hide it from readers without hiding it from
       // anyone who opens devtools. Grant everything and let the preview be a
       // preview. Builds with an API are untouched.
-      entitlements: PREVIEW_MODE ? AVAILABLE_KIT_IDS : (user?.entitlements ?? []),
+      // Embedded: exactly the kit the LMS page is for. Owning one kit also
+      // unlocks the four tools (model B), so the header's tools work too.
+      entitlements: EMBED_ENTITLEMENTS || (PREVIEW_MODE ? AVAILABLE_KIT_IDS : (user?.entitlements ?? [])),
       loading,
       signIn,
       register,

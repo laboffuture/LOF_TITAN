@@ -3,7 +3,8 @@ import { asset } from '../lib/asset';
 import { cld } from '../lib/cld';
 import { api } from '../lib/api';
 import { PREVIEW_MODE } from '../lib/backend';
-import { 
+import { EMBED_KIT } from '../lib/embed';
+import {
   Sparkles, 
   Send, 
   Code, 
@@ -157,13 +158,17 @@ if __name__ == '__main__':
 
     // A static preview has no server, so there is no key to spend and nowhere to
     // send the prompt. Say so plainly instead of firing a request that comes back
-    // as the host's 404 page and surfaces as a puzzling API error.
-    if (PREVIEW_MODE) {
+    // as the host's 404 page and surfaces as a puzzling API error. Embedded in an
+    // LMS there is no LOF TITAN session yet, and the AI endpoint requires one -
+    // every request spends real money.
+    if (PREVIEW_MODE || EMBED_KIT) {
       setMessages([
         ...newMessages,
         {
           role: "assistant",
-          text: "AI Studio is not available in this preview. It runs through the LOF TITAN server, which this static build has no connection to - everything else here works offline. Ask your instructor for access to the full platform to use it.",
+          text: EMBED_KIT
+            ? "AI Studio is not available inside the course page yet. Everything else here - the kit guide, Block Code Studio, the simulator, Serial Monitor and the Firmware Flasher - works now."
+            : "AI Studio is not available in this preview. It runs through the LOF TITAN server, which this static build has no connection to - everything else here works offline. Ask your instructor for access to the full platform to use it.",
         },
       ]);
       return;
@@ -373,7 +378,7 @@ if __name__ == '__main__':
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center backdrop-blur-md bg-slate-900/65 transition-all duration-300">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[150] flex items-center justify-center backdrop-blur-md bg-slate-900/65 transition-all duration-300">
       
       {/* Hidden File Input for Opening Saved Python Files */}
       <input 
@@ -845,7 +850,7 @@ if __name__ == '__main__':
 
         {/* API Settings Modal */}
         {showSettings && (
-          <div className="fixed inset-0 z-[150] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[150] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
             <div className="bg-white border border-slate-200 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4 text-slate-800">
               
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">

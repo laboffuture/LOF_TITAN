@@ -240,10 +240,10 @@ export function ProjectStoreDetailModal({
   }, [isOpen]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 backdrop-blur-md bg-slate-950/65 transition-all duration-300 animate-fade-in">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[100] flex items-center justify-center backdrop-blur-md bg-slate-950/65 transition-all duration-300 animate-fade-in">
       
       {/* Main Lunar Light Modal Container */}
-      <div className="relative w-full max-w-[1440px] h-[95vh] flex flex-col rounded-[32px] bg-gradient-to-br from-[#FCFDFF] via-[#F8FAFC] to-[#F1F5F9] border border-slate-200/90 shadow-[0_25px_70px_rgba(0,0,0,0.35)] overflow-hidden text-slate-800 font-sans">
+      <div className="relative w-full h-full flex flex-col bg-gradient-to-br from-[#FCFDFF] via-[#F8FAFC] to-[#F1F5F9] overflow-hidden text-slate-800 font-sans">
         
         {/* Top Lunar Header Bar - Intelligent Responsive Layout */}
         <div className="flex flex-col xl:flex-row items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md shrink-0 z-30 shadow-xs">
@@ -271,14 +271,17 @@ export function ProjectStoreDetailModal({
               </div>
             </div>
 
-            {/* Close Button (Visible only on Mobile/Tablet in top row) */}
-            <button 
-              onClick={onClose}
-              className="xl:hidden p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors shrink-0 cursor-pointer"
-              title="Close and Return to Store"
-            >
-              <X size={20} />
-            </button>
+            {/* Close Button (Visible only on Mobile/Tablet in top row). Absent
+                when there is nowhere to close to - an LMS-embedded kit. */}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="xl:hidden p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors shrink-0 cursor-pointer"
+                title="Close and Return to Store"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
 
           {/* Action Toolbar (Scrollable horizontally on mobile, flex row on desktop) */}
@@ -367,13 +370,15 @@ export function ProjectStoreDetailModal({
               )}
 
               {/* Close Button (Visible only on Desktop in toolbar) */}
-              <button 
-                onClick={onClose}
-                className="hidden xl:flex p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
-                title="Close and Return to Store"
-              >
-                <X size={18} />
-              </button>
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="hidden xl:flex p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+                  title="Close and Return to Store"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
 
           </div>
@@ -383,7 +388,7 @@ export function ProjectStoreDetailModal({
         <div ref={contentRef} className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-12 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
           
           {/* ================= 1. HERO COVER SECTION ================= */}
-          <div id="section-overview" className="max-w-[1360px] mx-auto rounded-3xl bg-white border border-slate-200/90 shadow-md p-6 sm:p-10 lg:p-12 space-y-8">
+          <div id="section-overview" className="rounded-3xl bg-white border border-slate-200/90 shadow-md p-6 sm:p-10 lg:p-12 space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
               
               {/* Main Visual Frame - Sleek Full Border Fit */}
@@ -457,7 +462,7 @@ export function ProjectStoreDetailModal({
           {/* Kit exists but its deep content has not been written yet. Without this
               the page would end after the hero and look broken. */}
           {navLinks.length === 1 && (
-            <div className="max-w-[1360px] mx-auto p-10 sm:p-14 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col items-center text-center gap-4">
+            <div className="p-10 sm:p-14 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col items-center text-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
                 <Wrench size={26} />
               </div>
@@ -473,7 +478,7 @@ export function ProjectStoreDetailModal({
 
           {/* ================= 2. SAFETY WARNINGS ================= */}
           {hasSection('safety') && (
-          <div id="section-safety" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-safety" className="space-y-5">
             <div className="flex items-center gap-2.5">
               <ShieldAlert size={24} className="text-amber-500" />
               <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('safety')}. Product Safety Warnings</h2>
@@ -519,7 +524,7 @@ export function ProjectStoreDetailModal({
 
           {/* ================= 2. COMPONENTS LAB ================= */}
           {hasSection('components') && (
-          <div id="section-components" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-components" className="space-y-5">
             <div className="flex items-center gap-2.5">
               <Cpu size={24} className="text-cyan-600" />
               <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('components')}. Components Introduction & Live Labs</h2>
@@ -671,7 +676,7 @@ export function ProjectStoreDetailModal({
 
           {/* ================= 3. ASSEMBLY GUIDE ================= */}
           {hasSection('assembly') && (
-          <div id="section-assembly" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-assembly" className="space-y-5">
             <div className="flex items-center gap-2.5">
               <Wrench size={24} className="text-indigo-600" />
               <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('assembly')}. {assemblyTitle}</h2>
@@ -697,7 +702,7 @@ export function ProjectStoreDetailModal({
 
           {/* ================= 4. FIRMWARE CODE ================= */}
           {hasSection('code') && (
-          <div id="section-code" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-code" className="space-y-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2.5">
                 <FileCode size={24} className="text-blue-600" />
@@ -784,7 +789,7 @@ export function ProjectStoreDetailModal({
           {/* Hidden entirely for kits whose FAQ has not been written yet, rather
               than rendering a heading above nothing. */}
           {hasSection('faq') && (
-          <div id="section-faq" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-faq" className="space-y-5">
             <div className="flex items-center gap-2.5">
               <HelpCircle size={24} className="text-purple-600" />
               <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('faq')}. {faqTitle}</h2>
@@ -808,7 +813,7 @@ export function ProjectStoreDetailModal({
 
           {/* ================= CODING CHALLENGES ================= */}
           {hasSection('challenges') && (
-          <div id="section-challenges" className="max-w-[1360px] mx-auto space-y-5">
+          <div id="section-challenges" className="space-y-5">
             <div className="flex items-center gap-2.5">
               <Trophy size={24} className="text-amber-500" />
               <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('challenges')}. {challengesTitle}</h2>
@@ -863,7 +868,7 @@ export function ProjectStoreDetailModal({
           )}
 
           {/* Bottom Completion & Launch Card */}
-          <div className="max-w-[1360px] mx-auto p-7 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="p-7 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-2 text-center md:text-left">
               <h3 className="text-2xl font-heading font-extrabold">Ready to Build & Deploy {project.name}?</h3>
               <p className="text-sm text-blue-100 max-w-xl leading-relaxed font-normal">
@@ -973,7 +978,7 @@ while True:
         const activeCode = getDynamicCode();
 
         return (
-          <div className="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/40 animate-fade-in">
+          <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[140] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/40 animate-fade-in">
             <div className="relative w-full max-w-3xl rounded-[32px] bg-gradient-to-br from-[#FFFFFF] to-[#F8FAFC] text-slate-800 border border-slate-200 shadow-[0_25px_70px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col max-h-[92vh]">
               
               {/* Top Modal Header (Lunar White Theme) */}

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './authContext';
 import { PREVIEW_MODE } from '../lib/backend';
+import { EMBED_KIT } from '../lib/embed';
 
 /**
  * Gate for "must be signed in", and for "this is a customer surface".
@@ -21,7 +22,8 @@ export function RequireAuth({ children }) {
   // A static preview has no API to sign in against, so the catalogue is public
   // there. Bouncing visitors to a form that cannot succeed would make the whole
   // site look broken.
-  if (PREVIEW_MODE) return children;
+  // Embedded in an LMS, the LMS has already signed the student in.
+  if (PREVIEW_MODE || EMBED_KIT) return children;
 
   // Session restore is synchronous-ish, but rendering the redirect before it
   // finishes would bounce an already-signed-in user to /login on every reload.

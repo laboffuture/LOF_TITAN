@@ -161,7 +161,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[170] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#111827] w-full h-full overflow-hidden flex flex-col">
         
         {/* Header */}

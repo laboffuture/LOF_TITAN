@@ -139,7 +139,7 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
   const sourceBadge = sourceTitle || (workspace ? "Blockly Workspace" : pythonCode ? "MicroPython Code" : "Standby");
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
       
       {/* Simulator Modal Card - Light Theme */}
       <div className={`relative flex flex-col bg-white border border-slate-200 rounded-3xl shadow-[0_20px_70px_rgba(0,0,0,0.25)] overflow-hidden transition-all duration-300 w-full ${

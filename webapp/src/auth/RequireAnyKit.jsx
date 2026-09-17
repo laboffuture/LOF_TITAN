@@ -14,7 +14,7 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
 
   if (!hasAnyKit) {
     return (
-      <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center gap-4 p-6 backdrop-blur-md bg-slate-900/70">
+      <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[150] flex flex-col items-center justify-center gap-4 p-6 backdrop-blur-md bg-slate-900/70">
         <div className="w-full max-w-lg">
           <LockedState
             title={`${toolName} is locked`}
@@ -22,9 +22,9 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
           />
         </div>
 
-        {/* Load-bearing: this panel covers the whole viewport and the nav only
-            renders on the dashboard, so without this the route is a dead end -
-            no close button, nothing behind it, browser Back the only way out. */}
+        {/* A direct way back to the catalogue. The nav above offers the tools,
+            but every one of them is locked here too, so without this link the
+            only escape is the browser's Back button. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Link
             to="/"

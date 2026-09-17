@@ -5,6 +5,7 @@ import { useDeviceContext } from '../device/deviceContext';
 import { useCloseRoute } from '../hooks/useCloseRoute';
 import { useEntitlement } from '../auth/authContext';
 import { getKit, isAvailable } from '../auth/kits';
+import { EMBED_KIT } from '../lib/embed';
 
 export function KitDetail() {
   const { id } = useParams();
@@ -27,7 +28,8 @@ export function KitDetail() {
       project={project}
       owned={owned}
       kitName={getKit(id)?.name || project.name}
-      onClose={close}
+      // Embedded, the kit IS the page - closing it would only lead back here.
+      onClose={EMBED_KIT ? null : close}
       onUploadCode={(codeToUpload) => device.runUpload(codeToUpload || project.code)}
       onOpenBlockCode={() => navigate('/code')}
       onOpenSerialMonitor={() => navigate('/monitor')}

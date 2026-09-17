@@ -1,7 +1,7 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
-  Bluetooth, Usb, Play, Square, RotateCcw, Terminal, Bot, Code, Cpu, LogIn, LogOut,
-  KeyRound,
+  Bluetooth, Usb, Play, Square, RotateCcw, Terminal, Bot, Code, Cpu, LogIn,
 } from 'lucide-react';
 import Galaxy from './components/Galaxy';
 import { useDeviceContext } from './device/deviceContext';
@@ -17,6 +17,11 @@ import { Redeem } from './pages/Redeem';
 import { Admin } from './pages/Admin';
 import { asset } from './lib/asset';
 import { PREVIEW_MODE } from './lib/backend';
+import { EMBED_KIT, EMBED_HOME, isEmbedPath } from './lib/embed';
+
+// Pages that keep the whole screen. /login and /redeem are single-purpose forms
+// with their own way back; /admin is staff-only and must not offer the kit tools.
+const NAV_HIDDEN_ON = ['/login', '/redeem', '/admin'];
 
 const TOOL_LINKS = [
   { to: '/code', label: 'Code', title: 'Open Block Code Workspace', Icon: Code, tint: 'text-blue-400' },
@@ -49,16 +54,45 @@ function StatusPill({ device, compact }) {
 
 function App() {
   const device = useDeviceContext();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
 
   // The routed screens present as full-screen overlays; pause the WebGL
   // background while one is open so it isn't burning frames behind them.
   const overlayOpen = location.pathname !== '/';
-  // The nav belongs to the dashboard only. Every other route is either a
-  // full-screen overlay that covers it anyway, or /login, which has its own
-  // "Back to kits" link.
-  const isHome = location.pathname === '/';
+  const showNav = !NAV_HIDDEN_ON.includes(location.pathname);
+  // Inside an LMS iframe the student stays on their kit and its tools. Any
+  // other route - the store, another kit, sign-in - leads back to the kit.
+  const embedOutOfScope = Boolean(EMBED_KIT) && !isEmbedPath(location.pathname);
+  const navRef = useRef(null);
+
+  // Every routed screen (kit page, Code, AI, Monitor, Flash) is a fixed
+  // full-screen overlay. They start at --app-nav-h instead of the top edge, so
+  // the nav stays visible above them. The nav's height is not a constant - it
+  // wraps onto two or three rows below xl - so it is measured, not guessed.
+  // Layout effect, so the first paint of an overlay is already offset.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const nav = navRef.current;
+    if (!showNav || !nav) {
+      root.style.setProperty('--app-nav-h', '0px');
+      return undefined;
+    }
+    const update = () => {
+      // bottom edge plus the same gap the nav keeps from the top of the page
+      const gap = parseFloat(getComputedStyle(nav).marginTop) || 0;
+      root.style.setProperty('--app-nav-h', `${Math.ceil(nav.getBoundingClientRect().bottom + gap)}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(nav);
+    window.addEventListener('resize', update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+      root.style.setProperty('--app-nav-h', '0px');
+    };
+  }, [showNav]);
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-[#060911] text-white relative overflow-x-hidden">
@@ -80,14 +114,14 @@ function App() {
         />
       </div>
 
-      {isHome && (
-        <nav className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
+      {showNav && (
+        <nav ref={navRef} className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
           {/* The brand is centred in its row rather than pinned left. On mobile
               the status sits absolutely to the right so it cannot push the
               wordmark off-centre; from xl the nav is a single row and the brand
               centres between the status block and the action buttons. */}
           <div className="relative flex items-center justify-center w-full xl:w-auto gap-2 sm:gap-4">
-            <Link to="/" className="flex items-center gap-2 md:gap-4">
+            <Link to={EMBED_HOME || '/'} className="flex items-center gap-2 md:gap-4">
               <img src={asset('logo.webp')} alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
               <h1 className="text-lg sm:text-xl md:text-2xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-start to-white truncate">
                 LOF TITAN
@@ -186,31 +220,11 @@ function App() {
                 </>
               )}
 
-              <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
-
-              {user && (
-                <Link
-                  to="/redeem"
-                  title="Redeem a kit ID"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  <KeyRound size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">Redeem</span>
-                </Link>
-              )}
-
               {/* A static preview has nothing to sign in to, so offering the
                   button would send visitors to a form that cannot succeed. */}
-              {PREVIEW_MODE ? null : user ? (
-                <button
-                  onClick={signOut}
-                  title={`Signed in as ${user.name}`}
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  <LogOut size={16} className="text-emerald-400 sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">{user.name.split(' ')[0]}</span>
-                </button>
-              ) : (
+              {!PREVIEW_MODE && !EMBED_KIT && !user && (
+                <>
+                <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
                 <Link
                   to="/login"
                   title="Sign in"
@@ -219,6 +233,7 @@ function App() {
                   <LogIn size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
                   <span className="hidden sm:inline">Sign in</span>
                 </Link>
+                </>
               )}
             </div>
           </div>
@@ -232,6 +247,9 @@ function App() {
           background while staying under the sticky nav (z-50). */}
       <main className="relative z-10 flex-1 p-4 grid grid-cols-12 gap-6 max-w-screen-2xl mx-auto w-full">
         <div className="col-span-12 flex flex-col gap-6">
+          {embedOutOfScope ? (
+            <Navigate to={EMBED_HOME} replace />
+          ) : (
           <Routes>
             {/* The portal is the entry point: the dashboard and every kit page
                 now sit behind a session. RequireAuth preserves the attempted
@@ -246,6 +264,19 @@ function App() {
               }
             />
             <Route path="/login" element={<Login />} />
+            {/* One kit, embedded in an LMS page. See lib/embed.js. */}
+            <Route
+              path="/embed/kit/:id"
+              element={
+                EMBED_KIT ? (
+                  <RequireAuth>
+                    <KitDetail />
+                  </RequireAuth>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
             <Route
               path="/kit/:id"
               element={
@@ -314,6 +345,7 @@ function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          )}
         </div>
       </main>
 
