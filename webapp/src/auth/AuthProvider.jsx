@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AuthContext } from './authContext';
 import { api, ApiError } from '../lib/api';
-import { PREVIEW_MODE } from '../lib/backend';
+import { PREVIEW_MODE, OPEN_ACCESS } from '../lib/backend';
 import { AVAILABLE_KIT_IDS } from './kits';
 import { EMBED_KIT, EMBED_ENTITLEMENTS } from '../lib/embed';
 
@@ -105,7 +105,14 @@ export function AuthProvider({ children }) {
       // preview. Builds with an API are untouched.
       // Embedded: exactly the kit the LMS page is for. Owning one kit also
       // unlocks the four tools (model B), so the header's tools work too.
-      entitlements: EMBED_ENTITLEMENTS || (PREVIEW_MODE ? AVAILABLE_KIT_IDS : (user?.entitlements ?? [])),
+      // OPEN_ACCESS: no student sign-in, so nothing here could own a kit and the
+      // whole catalogue would render as locked panels. A signed-in account - the
+      // staff path to /admin - still uses its own entitlements.
+      entitlements:
+        EMBED_ENTITLEMENTS ||
+        (PREVIEW_MODE || (OPEN_ACCESS && !user)
+          ? AVAILABLE_KIT_IDS
+          : (user?.entitlements ?? [])),
       loading,
       signIn,
       register,

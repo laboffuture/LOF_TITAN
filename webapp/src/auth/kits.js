@@ -15,7 +15,6 @@ export const KITS = [
   { id: 'heartbeat', name: 'Heart Beat DJ Bot', status: 'available' },
   { id: 'anemometer', name: 'Anemometer', status: 'available' },
   { id: 'anti-icing-systems', name: 'Anti-Icing Systems', status: 'available' },
-  { id: 'rc-plane', name: 'RC Plane', status: 'available' },
   { id: 'terrain-trek', name: 'Terrain Trek', status: 'available' },
   { id: 'axes3', name: 'Axes 3', status: 'available' },
   { id: 'aquanova', name: 'AquaNova', status: 'available' },
@@ -25,6 +24,8 @@ export const KITS = [
   { id: 'lost-bots-navigation', name: 'Lost Bot\'s Navigation', status: 'available' },
   { id: 'cosmic-pulse-tracker', name: 'Cosmic Pulse Tracker', status: 'available' },
   { id: 'stability-scout', name: 'Stability Scout', status: 'available' },
+  { id: 'navigation-radar', name: 'Navigation Radar System', status: 'available' },
+  { id: 'lostbot-cooling', name: 'Automating Lost Bot\'s Cooling System', status: 'available' },
 ];
 
 /** Ids of every kit a customer can actually buy and open. */

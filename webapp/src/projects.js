@@ -3006,218 +3006,233 @@ if __name__ == '__main__':
     // ---------------------------------------------------------------
   },
   {
-    id: 'rc-plane',
-    name: 'RC Plane',
-    category: 'Aerospace & Flight',
-    badge: 'DIY Aircraft Kit',
-    rating: 4.9,
+    id: 'terrain-trek',
+    name: 'Terrain Trek',
+    category: 'Mobility & Terrain',
+    badge: 'DIY Space Rover Project',
+    // New kit, no customer feedback yet. rating stays null on purpose: the
+    // dashboard card shows "New" rather than inventing a score.
+    rating: null,
     reviews: 0,
-    duration: '45 Mins',
-    difficulty: 'Engineer',
+    duration: '90 Mins',
+    difficulty: 'Advanced',
     age: '10+',
-    // Stand-in artwork - every real banner is now claimed, so this one is shared
-    // with the Aqua Nova carousel slide. Replace once art is uploaded as
-    // lof-titan/rc-plane/rc-plane-main
-    heroImage: 'lof-titan/banners/banner-aquanova-diy',
-    thumbnail: 'lof-titan/banners/banner-aquanova-diy',
-    tagline: '4-Channel Foam Board Aircraft & Flight Control',
+    heroImage: 'lof-titan/banners/banner-terrain-trek',
+    thumbnail: 'lof-titan/banners/banner-terrain-trek',
+    tagline: 'Four-Wheel Rocker-Bogie Rover with Ultrasonic Ranging',
     description:
-      'Build a 4-channel RC plane using foam board and integrate the systems needed for thrust, pitch, yaw, and roll control. You will learn how aerodynamics, aircraft structure, propulsion, and control surfaces work together to achieve controlled flight.',
+      'Build a four-wheel rocker-bogie rover, wire it up, and drive it wirelessly across a terrain course of ramps and bumps. Explore how real planetary rovers keep every wheel on the ground over uneven terrain, and how they sense an obstacle before it becomes a problem.',
 
     specs: [
-      { label: 'PROPULSION', value: 'BLDC Motor + Propeller + ESC' },
-      { label: 'ACTUATION', value: 'Servo Motors' },
-      { label: 'CONTROLS', value: '4-Channel RC Control' },
+      { label: 'LOCOMOTION', value: '4-Wheel Rocker-Bogie' },
+      { label: 'SCANNER', value: 'Ultrasonic Ranging' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
     ],
 
-    assemblyTitle: 'RC Plane Assembly & Integration',
-    challengesTitle: 'RC Plane Mission Challenges',
-
     safetyWarnings: {
-      hardwareTitle: 'Propeller & Flight Safety',
-      electronicsTitle: 'Hardware & Electrical Precautions',
       hardware: [
-        '⚠️ Keep hands, hair, and loose clothing away from the propeller at all times.',
-        '⚠️ Never power the motor while your hands are near the propeller.',
-        '⚠️ Test the RC plane only in a clear open area away from people and obstacles.',
-        '⚠️ Check that the control surfaces move correctly before every flight.'
+        '⚠️ Keep fingers clear of the rocker-bogie pivot joints while the rover is moving.',
+        '⚠️ Tighten pivot screws just enough to hold; over-tightening locks the joint and defeats the mechanism.',
+        '⚠️ Test only on the ground or terrain course, never held in the air with wheels spinning.',
       ],
+      electronicsTitle: 'Electronics & Battery Safety',
       electronics: [
-        '⚠️ Disconnect the battery before connecting or adjusting the motor, ESC, servos, or receiver.',
-        '⚠️ Check all wiring and polarity before powering the RC plane.',
-        '⚠️ Use only the recommended battery, ESC, motor, and propeller combination.',
-        '⚠️ Keep the electronics dry and secure all connections before flight.'
-      ]
+        '⚡ Check polarity at the DC jack before connecting the battery.',
+        '⚡ Charge the Li-ion battery only with the supplied 12V charger, never unattended.',
+        '⚡ Switch off the rocker switch before reseating any cable on the PCB.',
+      ],
     },
 
     components: [
       {
-        id: 'bldc-motor',
-        shortName: 'BLDC Motor',
-        name: 'BLDC Motor',
-        image: 'lof-titan/rc-plane/bldc-motor',
-        whatIsIt: 'A high-speed motor used to generate thrust for the aircraft.',
-        howItWorks: 'It spins the propeller at high speed to push air backward and move the plane forward.'
+        id: 'bo-motor',
+        shortName: 'BO Motor',
+        name: 'BO Motor 60 RPM',
+        image: 'lof-titan/terrain-trek/bo-motor',
+        whatIsIt:
+          'A small geared DC motor — one behind each of the rover’s four wheels. "BO" is the plastic-gearbox type used across hobby robotics: a fast, weak motor with a gear train bolted on the front that trades that speed for the turning force a wheel actually needs.',
+        howItWorks:
+          'Current through the motor spins it quickly but weakly; the gearbox steps that down to about 60 revolutions per minute at the output shaft and multiplies the torque in the same proportion. That torque is what carries a 65 mm wheel up a ramp instead of stalling against it. Each motor takes its power from the TB6612FNG, so the driver sets how fast it turns and which way. Material: BO Motor 60 RPM per wheel, 65 mm Robot Wheel (Grade B).',
+        // The lab renders only once experiment.testCode exists. Title and
+        // instruction are here so the script can be dropped in later.
+        experiment: {
+          title: 'Torque vs Speed on a Ramp',
+          instruction:
+            'Drive the rover up the same ramp at several PWM settings and find the point where the wheels stop climbing and start stalling — the practical limit of the gearbox.',
+        },
       },
       {
-        id: 'propeller',
-        shortName: 'Propeller',
-        name: '5" Propeller',
-        image: 'lof-titan/rc-plane/propeller',
-        whatIsIt: 'A rotating blade attached to the motor shaft.',
-        howItWorks: 'Its blades push air backward, producing the thrust needed for flight.'
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        image: 'lof-titan/terrain-trek/esp32-s3',
+        whatIsIt:
+          "The rover's onboard computer — it reads every sensor, drives the motors, and runs the wireless link that lets a student steer the rover from a phone or controller.",
+        howItWorks:
+          'Sensor readings and drive commands share one control loop, so the code has to fit motor control, sensor polling and wireless communication together without one blocking the others.',
+        experiment: {
+          title: 'Control Range & Response Test',
+          instruction:
+            'Drive at increasing distance from the controller and note where commands start to lag or drop.',
+        },
       },
       {
-        id: 'esc',
-        shortName: 'ESC',
-        name: 'Electronic Speed Controller (ESC)',
-        image: 'lof-titan/rc-plane/esc',
-        whatIsIt: 'An electronic controller that manages the BLDC motor speed.',
-        howItWorks: 'It regulates power from the battery to the motor based on the throttle command.'
+        id: 'motor-driver',
+        shortName: 'TB6612FNG + BO Motors',
+        name: 'TB6612FNG Motor Driver + BO Motors',
+        image: 'lof-titan/terrain-trek/motor-driver',
+        whatIsIt:
+          'The motor driver takes low-power logic signals from the ESP32-S3 and switches the higher current the BO motors need to turn the wheels.',
+        howItWorks:
+          'A PWM signal from the ESP32-S3 sets how much battery current reaches each motor, which sets wheel speed; reversing the signal reverses the wheel direction — this is how the rover turns. Material: BO Motor 60RPM per wheel, 65 mm Robot Wheel (Grade B).',
+        experiment: {
+          title: 'PWM Speed & Torque Test',
+          instruction:
+            'Change the PWM duty cycle in code and measure how wheel speed and climbing ability change on a ramp.',
+        },
       },
       {
-        id: 'servo-motor',
-        shortName: 'Servo Motor',
-        name: 'Servo Motor',
-        image: 'lof-titan/rc-plane/servo-motor',
-        whatIsIt: 'A small motor used to move the aircraft control surfaces.',
-        howItWorks: 'The servos move the elevator, rudder, and ailerons to control pitch, yaw, and roll.'
+        id: 'mpu6050',
+        shortName: 'MPU6050',
+        name: 'MPU6050 Accelerometer + Gyroscope',
+        image: 'lof-titan/terrain-trek/mpu6050',
+        whatIsIt:
+          "A 6-axis sensor reporting how far the rover is tilted and how fast it's rotating.",
+        howItWorks:
+          'On uneven terrain this is what tells the rover it has pitched or rolled too far — the reading a safety-stop rule is built around before the rover actually tips.',
+        experiment: {
+          title: 'Terrain Tilt Sensing Experiment',
+          instruction:
+            'Place the rover on ramps of increasing angle and find the tilt value worth coding a stop around.',
+        },
       },
       {
-        id: 'rc-transmitter',
-        shortName: 'Transmitter',
-        name: 'RC Transmitter',
-        image: 'lof-titan/rc-plane/rc-transmitter',
-        whatIsIt: 'A handheld controller used to control the RC plane wirelessly.',
-        howItWorks: 'It sends throttle, elevator, rudder, and aileron commands to the receiver on the aircraft.'
+        id: 'hc-sr04',
+        shortName: 'HC-SR04',
+        name: 'HC-SR04 Ultrasonic Sensor',
+        image: 'lof-titan/terrain-trek/hc-sr04',
+        whatIsIt:
+          "A distance sensor that times a sound pulse's echo to measure how far away an object is.",
+        howItWorks:
+          'This is the sensor behind "avoiding obstacles" on the terrain course — its reading is what lets code stop the rover, alert the driver, or steer around something ahead.',
+        experiment: {
+          title: 'Ultrasonic Ranging & Blind Spot Test',
+          instruction:
+            'Map how reliably the sensor detects obstacles at different angles and distances, and find its blind spots.',
+        },
       },
-      {
-        id: 'rc-receiver',
-        shortName: 'Receiver',
-        name: 'RC Receiver',
-        image: 'lof-titan/rc-plane/rc-receiver',
-        whatIsIt: 'A device that receives control commands from the transmitter.',
-        howItWorks: 'It sends the throttle and control commands to the ESC and servos.'
-      },
-      {
-        id: 'battery',
-        shortName: 'Battery',
-        name: 'Battery',
-        image: 'lof-titan/rc-plane/battery',
-        whatIsIt: 'The main power source of the RC plane.',
-        howItWorks: 'It supplies electrical power to the ESC, motor, servos, and control system.'
-      }
     ],
 
+    assemblyTitle: 'Mechanical Assembly & Circuit Building',
     assembly: [
       {
         step: 1,
-        title: 'Install Motor & Propeller',
-        desc: 'Mount the BLDC motor securely and attach the 5" propeller in the correct orientation.'
+        title: 'Prepare the Chassis Parts',
+        desc: 'Assemble the 3D printed rocker arms, bogie links and chassis frame before fastening anything else.',
       },
       {
         step: 2,
-        title: 'Connect the ESC',
-        desc: 'Connect the ESC to the BLDC motor and position it securely for reliable motor control.'
+        title: 'Assemble the Rocker-Bogie Structure',
+        desc: 'Join the links to the chassis frame at the pivot points, tight enough to hold but free to rotate. Check both sides move symmetrically.',
       },
       {
         step: 3,
-        title: 'Install the Servo Motors',
-        desc: 'Mount the three servos and link them to the aileron, elevator, and rudder for control-surface movement.'
+        title: 'Mount Motors and Wheels',
+        desc: 'Fit each BO motor into its chassis mount, attach a wheel, and route the motor cables clear of the pivot joints.',
       },
       {
         step: 4,
-        title: 'Integrate the RC Control System',
-        desc: 'Connect the ESC and servos to the receiver, pair it with the transmitter, secure the battery in position.'
-      }
+        title: 'Build the Circuit',
+        desc: 'Mount the PCB – Titan and ESP32-S3. Connect the motor driver, the MPU6050 and the HC-SR04 to their labeled headers, and the rocker switch between the battery and the power rail. Connect the battery last, after every other connection is seated.',
+      },
+      {
+        step: 5,
+        title: 'Power-On Check',
+        desc: 'Switch on and confirm the ESP32-S3 powers up before connecting over Wi-Fi/Bluetooth for the first time.',
+      },
     ],
 
+    codingTitle: 'Coding and Control',
+    coding: [
+      {
+        step: 1,
+        title: 'Basic Movement',
+        desc: 'Drive all motors forward, reverse, and turn left/right through the TB6612FNG.',
+      },
+      {
+        step: 2,
+        title: 'Wireless Link',
+        desc: 'Connect a phone or controller to the ESP32-S3 over Wi-Fi/Bluetooth and map its input to movement.',
+      },
+      {
+        step: 3,
+        title: 'Obstacle Response',
+        desc: 'Read the HC-SR04 continuously; below a chosen distance, stop the rover or alert the driver.',
+      },
+      {
+        step: 4,
+        title: 'Tilt Awareness',
+        desc: 'Read the MPU6050 and add a rule for excessive pitch or roll — warn, slow down, or stop.',
+      },
+      {
+        step: 5,
+        title: 'Full System Test',
+        desc: 'Combine wireless control, obstacle response and tilt awareness on flat ground before the terrain course.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Troubleshooting',
     faq: [
       {
-        q: 'The motor does not spin when throttle is increased. What should I check?',
-        a: 'Check the battery, ESC connection, and motor wiring.'
+        q: "The rover doesn't move at all.",
+        a: 'Check the rocker switch, the charge level, and that every cable at the motor driver and motors is fully seated.',
       },
       {
-        q: 'The propeller spins, but the plane produces very little thrust. Why?',
-        a: 'Check the propeller direction and make sure it is fitted in the correct orientation.'
+        q: 'It only moves in circles or veers to one side.',
+        a: 'A motor is likely wired with reversed polarity, or the two sides have unequal PWM values. Swap the orientation or balance the values and retest.',
       },
       {
-        q: 'A control surface is moving in the wrong direction. What should I do?',
-        a: 'Reverse that control channel in the transmitter settings.'
+        q: "It doesn't stop for obstacles.",
+        a: "Check the HC-SR04's mounting angle — tilted too high, it reads over obstacles — and confirm the trigger/echo pins match the code.",
       },
       {
-        q: 'One servo is not responding. What should I check?',
-        a: 'Check the servo connection and confirm it is connected to the correct receiver channel.'
+        q: 'It tips over or gets stuck on a bump.',
+        a: 'The pivots may be screwed too tight to rotate, or the wheelbase is too narrow for the obstacle. Loosen the pivot screws and recheck symmetry.',
       },
       {
-        q: 'The plane feels unbalanced before flight. What should I check?',
-        a: 'Check the battery and component positions and adjust them until the aircraft balances at the recommended centre of gravity.'
-      }
+        q: 'Wireless control lags or drops out.',
+        a: "This usually tracks with battery voltage sag under motor load or distance from the controller — retest closer and on a fresh charge before assuming it's a code problem.",
+      },
+      {
+        q: 'The modified rover performs worse than the original.',
+        a: "A new threshold isn't automatically better — check whether it's too conservative (stopping constantly) or too loose (stopping too late), and adjust one value at a time.",
+      },
     ],
 
+    challengesTitle: 'Rover Mission Challenges',
     challenges: [
       {
-        id: 'payload-flight',
-        level: 'Beginner',
-        title: 'Challenge 1: Payload Flight Challenge',
-        goal: 'Design a removable lightweight payload holder near the aircraft centre of gravity. Add small loads gradually and observe how increasing weight affects take-off, stability, and flight performance.',
-        hint: 'Keep the payload close to the centre of gravity and increase the weight in small steps.'
+        id: 'obstacle-stopping-distance',
+        level: 'Easy',
+        title: 'Challenge 1: Obstacle Stopping Distance',
+        goal: 'Tune the HC-SR04 stopping threshold so the rover halts safely at both slow and fast approach speeds.',
+        hint: 'Test one speed at a time — a threshold tuned for slow approach often stops too late at higher speed.',
       },
       {
-        id: 'wingtip-modification',
+        id: 'terrain-course-crossing',
         level: 'Intermediate',
-        title: 'Challenge 2: Wingtip Modification Challenge',
-        goal: 'Design and fabricate removable wingtip extensions or winglets for the existing RC plane. Test the original and modified versions and compare their stability and turning behaviour.',
-        hint: 'Keep both wingtip modifications symmetrical and lightweight.'
+        title: 'Challenge 2: Terrain Course Crossing',
+        goal: 'Cross a ramp-and-bump course using wireless control assisted by obstacle and tilt sensing, without flipping or getting stuck. Record: Course Time / Obstacles Cleared / Tilt Events.',
+        hint: 'Keep the chassis and wheel setup identical between attempts so the driving and sensor logic are what is actually being tested.',
       },
       {
-        id: 'build-your-own-aircraft',
+        id: 'custom-navigation-behavior',
         level: 'Advanced',
-        title: 'Challenge 3: Build Your Own RC Aircraft',
-        goal: 'Choose a real aircraft, study its overall shape and structure, then design and build your own RC plane inspired by it.',
-        hint: 'Keep the aircraft lightweight, balanced, and compatible with the existing electronics.'
-      }
+        title: 'Challenge 3: Design Your Own Navigation Behavior',
+        goal: "Combine ultrasonic and tilt sensing into a custom rule set — for example, automatic obstacle avoidance with wireless override — and test it against Challenge 2's baseline on the same course. Beat the baseline on at least one measurable outcome: course time, obstacles cleared, or tilt events avoided.",
+        hint: "Change one rule at a time, or you won't know which change caused the improvement.",
+      },
     ],
-
-    // ---------------------------------------------------------------
-    // CONTENT PENDING: requirements[] (bill of materials).
-    // No `code` - this kit is flown from an RC transmitter and does not run
-    // firmware on the TITAN board, so the Firmware section stays hidden.
-    // Component images: slots above are ready, upload masters to
-    //   lof-titan/rc-plane/<component-id>
-    // ---------------------------------------------------------------
-  },
-  {
-    id: 'terrain-trek',
-    name: 'Terrain Trek',
-    category: 'Mobility & Terrain',
-    badge: 'DIY Terrain Kit',
-    rating: 4.9,
-    reviews: 0,
-    // PLACEHOLDER - confirm with the content team.
-    duration: '45 Mins',
-    difficulty: 'Builder',
-    age: '10+',
-    // Stand-in artwork, and the LAST unclaimed banner. It is also the Invisible
-    // Line Patrol carousel slide, so the two now share an image. Replace once
-    // real art is uploaded as lof-titan/terrain-trek/terrain-trek-main
-    heroImage: 'lof-titan/banners/banner-invisible-diy',
-    thumbnail: 'lof-titan/banners/banner-invisible-diy',
-    tagline: 'All-Terrain Mobility & Chassis Design',
-    // PLACEHOLDER description. Deliberately makes no claim about the drive
-    // system, sensors or chassis - none of that is known yet.
-    description:
-      'Build a vehicle that can travel across uneven ground, and explore what lets a chassis stay stable and keep moving over rough terrain.',
-    // ---------------------------------------------------------------
-    // CONTENT PENDING. Deep sections are deliberately absent rather than
-    // filled with guesses about the hardware. The detail page hides any
-    // section with no data and renumbers the rest, so this renders
-    // correctly as-is. Add these as the content team delivers them:
-    //   requirements[]  components[]  assembly[]  code  faq[]  challenges[]
-    // Optional copy: assemblyTitle, challengesTitle, faqTitle, codeFilename,
-    //   outroCopy, specs[], safetyWarnings{}
-    // Also confirm: duration, difficulty, age, badge (placeholders above).
-    // ---------------------------------------------------------------
   },
   {
     id: 'aquanova',
@@ -6048,5 +6063,280 @@ if __name__ == '__main__':
     // guessed - the detail page hides any section with no data and
     // renumbers the rest, so this renders correctly as-is.
     // ---------------------------------------------------------------
+  },
+  {
+    id: 'navigation-radar',
+    name: 'Navigation Radar System',
+    category: 'Navigation & Sensing',
+    badge: 'DIY Navigation Kit',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    duration: '45 Mins',
+    difficulty: 'Builder',
+    age: '10+',
+    // NO ARTWORK YET. heroImage and thumbnail are deliberately absent: the
+    // dashboard card falls back to a stand-in rather than borrowing another
+    // kit's banner and implying it is this one. Add them as
+    // lof-titan/banners/banner-navigation-radar once the art arrives.
+    tagline: 'Aircraft Heading Tracking with Ultrasonic Obstacle Detection',
+    description:
+      'Build a Navigation Radar System that tracks aircraft direction and detects nearby obstacles. You will learn how navigation and obstacle detection work together to provide real-time information and support safer flight in low-visibility conditions.',
+
+    specs: [
+      { label: 'DETECTION', value: 'Ultrasonic Sensor' },
+      { label: 'ORIENTATION', value: 'IMU Sensor' },
+      { label: 'MCU', value: 'LOF TITAN (ESP32-S3)' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Electrical Precautions',
+      hardware: [
+        '⚠️ Switch off power before connecting or removing sensors.',
+        '⚠️ Check all connections before powering the LOF TITAN.',
+        '⚠️ Use only the recommended power source and cables.',
+        '⚠️ Keep the electronics away from water and moisture.',
+      ],
+      electronicsTitle: 'Sensor & Testing Precautions',
+      electronics: [
+        '⚠️ Mount the ultrasonic and IMU sensors securely before testing.',
+        '⚠️ Keep the ultrasonic sensor clear of nearby obstructions.',
+        '⚠️ Avoid sudden impacts or excessive movement of the IMU sensor.',
+        '⚠️ Test the system in a clear area away from moving objects.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'ultrasonic-sensor',
+        shortName: 'Ultrasonic Sensor',
+        name: 'Ultrasonic Sensor',
+        image: 'lof-titan/navigation-radar/ultrasonic-sensor',
+        whatIsIt: 'A distance sensor used to detect nearby objects or obstacles.',
+        howItWorks:
+          'It sends ultrasonic waves and measures the return time to calculate the distance to an object.',
+      },
+      {
+        id: 'imu-sensor',
+        shortName: 'IMU Sensor',
+        name: 'IMU Sensor',
+        image: 'lof-titan/navigation-radar/imu-sensor',
+        whatIsIt: 'A motion sensor used to detect orientation and heading changes.',
+        howItWorks:
+          'It measures movement and rotation to help track the direction of the navigation system.',
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'LOF TITAN',
+        name: 'LOF TITAN (ESP32-S3)',
+        image: 'lof-titan/navigation-radar/esp32-s3',
+        whatIsIt: 'The main controller of the Navigation Radar System.',
+        howItWorks:
+          'It processes distance and orientation data and uses it to provide navigation and obstacle information.',
+      },
+    ],
+
+    assemblyTitle: 'Navigation Radar System Assembly & Integration',
+    assembly: [
+      {
+        step: 1,
+        title: 'Mount the Ultrasonic Sensor',
+        desc: 'Fix the ultrasonic sensor at the front of the system and keep the sensing path clear.',
+      },
+      {
+        step: 2,
+        title: 'Position the IMU Sensor',
+        desc: 'Mount the IMU firmly and keep it properly aligned to track orientation and heading changes.',
+      },
+      {
+        step: 3,
+        title: 'Install the LOF TITAN',
+        desc: 'Secure the LOF TITAN in position and connect both sensors to the controller.',
+      },
+      {
+        step: 4,
+        title: 'Integrate the Navigation System',
+        desc: 'Complete the sensor connections and organise the wiring so distance and orientation data can be processed together.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'The ultrasonic sensor is not detecting obstacles. What should I check?',
+        a: 'Check the sensor connection and make sure nothing is blocking its sensing path.',
+      },
+      {
+        q: 'The distance reading keeps changing. Why?',
+        a: 'Check whether the ultrasonic sensor is loose or facing an uneven surface.',
+      },
+      {
+        q: 'The heading value is incorrect or unstable. What should I check?',
+        a: 'Keep the IMU fixed, level, and properly calibrated before use.',
+      },
+      {
+        q: 'The system detects obstacles, but direction data is not updating. Why?',
+        a: 'Check the IMU connection and confirm that the sensor is responding correctly.',
+      },
+      {
+        q: 'Both sensors are connected, but no data is shown. What should I check?',
+        a: 'Check the LOF TITAN power, sensor connections, and program upload.',
+      },
+    ],
+
+    challengesTitle: 'Navigation Radar Challenges',
+    challenges: [
+      {
+        id: 'obstacle-zone',
+        level: 'Beginner',
+        title: 'Challenge 1: Obstacle Zone Challenge',
+        goal: 'Place obstacles at different distances and classify them as Safe, Caution, or Danger based on the ultrasonic reading.',
+        hint: 'Set clear distance ranges for each zone.',
+      },
+      {
+        id: 'direction-hazard-alert',
+        level: 'Intermediate',
+        title: 'Challenge 2: Direction & Hazard Alert',
+        goal: 'Combine orientation and distance data so the system shows the current direction and warns when an obstacle is detected nearby.',
+        hint: 'Use both sensor readings together to trigger the alert.',
+      },
+      {
+        id: 'low-visibility-course',
+        level: 'Advanced',
+        title: 'Challenge 3: Low-Visibility Navigation Course',
+        goal: 'Create a simple navigation route with hidden or partially visible obstacles and use the system to identify direction changes and nearby hazards while moving through the course.',
+        hint: 'Record the heading and obstacle distance at each checkpoint.',
+      },
+    ],
+
+    // CONTENT PENDING: no coding steps or firmware were supplied, and the
+    // components carry no pin mapping. The detail page hides any section with
+    // no data and renumbers the rest, so this renders correctly as-is.
+  },
+  {
+    id: 'lostbot-cooling',
+    name: "Automating Lost Bot's Cooling System",
+    category: 'Thermal & Air Quality',
+    badge: 'DIY Cooling Kit',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    // duration / difficulty / age were NOT supplied with the content. Until they
+    // are, the dashboard card falls back to its defaults and this kit will not
+    // appear under those filter facets.
+    heroImage: 'lof-titan/banners/banner-lostbot-cooling',
+    thumbnail: 'lof-titan/banners/banner-lostbot-cooling',
+    tagline: 'Automated Cooling and Air-Quality Protection for the Robot',
+    description:
+      'Combines temperature and gas sensing with OLED monitoring, motor-driven fan control, and PWM-based speed adjustment, creating an automated cooling and protection system for the robot.',
+
+    specs: [
+      { label: 'SENSORS', value: 'MQ135 Gas Sensor, DHT22 Temperature Sensor' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Mechanical Precautions',
+      hardware: [
+        '⚠️ Keep fingers, loose wires, hair, and other objects away from the DC fan blades while the fan is rotating.',
+        '⚠️ Mount the fan and sensors firmly so that vibration or movement does not loosen them during operation.',
+        '⚠️ Keep the fan air path clear so that airflow is not blocked by wires, panels, or nearby objects.',
+        '⚠️ Do not touch the fan blades or attempt to stop them by hand while the fan is powered.',
+      ],
+      electronicsTitle: 'Electronics & Sensor Safety',
+      electronics: [
+        '⚡ Switch OFF the system before connecting or changing the MQ135, DHT22, OLED, or DC fan connections.',
+        '⚡ Allow the MQ135 sensor time to stabilise after powering ON before using its readings for gas-level comparison.',
+        '⚡ Keep the DHT22 and OLED away from water or condensation, as moisture may affect their operation or damage the electronics.',
+        '⚡ Do not expose the MQ135 directly to flames, smoke at very close range, or concentrated gases during classroom testing.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'mq135-gas-sensor',
+        shortName: 'MQ135',
+        name: 'MQ135 Gas Sensor',
+        image: 'lof-titan/lostbot-cooling/mq135-gas-sensor',
+        pinMapping: 'AIR-QUALITY INPUT',
+        whatIsIt:
+          'A gas sensor used to detect changes in air quality and the presence of certain gases around the robot.',
+        howItWorks:
+          'The MQ135 changes its electrical output when the concentration of detectable gases changes. The controller reads this value and compares it with programmed limits to determine when a warning or cooling response is required.',
+      },
+      {
+        id: 'dht22-temperature-sensor',
+        shortName: 'DHT22',
+        name: 'DHT22 Temperature Sensor',
+        image: 'lof-titan/lostbot-cooling/dht22-temperature-sensor',
+        pinMapping: 'TEMPERATURE INPUT',
+        whatIsIt:
+          'A digital sensor used to measure the temperature and humidity around the cooling system.',
+        howItWorks:
+          'The DHT22 measures surrounding temperature and humidity and sends the readings to the controller. The temperature value can then be compared with programmed limits to control the cooling fan.',
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: 'OLED Display',
+        image: 'lof-titan/lostbot-cooling/oled-display',
+        pinMapping: 'DISPLAY OUTPUT',
+        whatIsIt:
+          'A compact screen used to show temperature, gas-level information, fan status, and system alerts.',
+        howItWorks:
+          'The controller processes the sensor readings and sends the required information to the OLED, allowing the current condition of the cooling system to be monitored visually.',
+      },
+      {
+        id: 'dc-fan',
+        shortName: 'DC Fan',
+        name: 'DC Fan',
+        image: 'lof-titan/lostbot-cooling/dc-fan',
+        pinMapping: 'PWM SPEED CONTROL',
+        whatIsIt:
+          'A motor-driven fan used to provide airflow and cool the robot when the detected temperature rises.',
+        howItWorks:
+          'The fan receives a controlled electrical signal that adjusts its speed. Using PWM, the system can run the fan slowly at lower temperatures and increase its speed as the temperature rises.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the fan not turning ON even when the temperature is high?',
+        a: 'Check whether the DHT22 is reporting a valid temperature and whether the measured value has crossed the programmed fan-control threshold. Also inspect the fan connection.',
+      },
+      {
+        q: 'Why does the MQ135 reading keep changing even when the air seems normal?',
+        a: 'The MQ135 may require time to warm up and stabilise after powering ON. Nearby fumes, cleaning sprays, or changes in ventilation can also affect its readings.',
+      },
+      {
+        q: 'Why is the fan running, but its speed is not changing with temperature?',
+        a: 'Check that the PWM control value is being updated according to the DHT22 reading. If the fan receives only a fixed ON/OFF signal, its speed will remain nearly constant.',
+      },
+    ],
+
+    challengesTitle: 'Robotics Mission Challenges',
+    challenges: [
+      {
+        id: 'temperature-rise-alarm',
+        level: 'Easy',
+        title: 'Challenge 1: Temperature Rise Alarm',
+        goal: 'Store the starting temperature and continuously compare it with the current reading. If the temperature rises beyond the selected amount, turn ON the Red LED, sound the buzzer and display TEMP RISING on the OLED.',
+        // The supplied hint described counting motion events with a visitorCount
+        // variable - AquaNova's challenge, not this one. Left out rather than
+        // printed under a temperature task. Add the real hint when it arrives.
+      },
+      // CHALLENGES 2 AND 3 WITHHELD. The supplied text for both described
+      // AquaNova: motion/water dual-hazard alerts, and driving the AquaNova
+      // rover across a wet surface. Neither mentions temperature, gas or the
+      // fan, so they were not published under this kit. Add them here once the
+      // cooling-system versions are written.
+    ],
+
+    // CONTENT PENDING: assembly[], coding[], code, and component artwork. The
+    // detail page hides any section with no data and renumbers the rest, so this
+    // renders correctly as-is.
   },
 ];

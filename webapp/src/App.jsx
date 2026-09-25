@@ -16,7 +16,7 @@ import { CodeRoute, AIRoute, MonitorRoute, FlashRoute } from './pages/ToolRoutes
 import { Redeem } from './pages/Redeem';
 import { Admin } from './pages/Admin';
 import { asset } from './lib/asset';
-import { PREVIEW_MODE } from './lib/backend';
+import { PREVIEW_MODE, OPEN_ACCESS } from './lib/backend';
 import { EMBED_KIT, EMBED_HOME, isEmbedPath } from './lib/embed';
 
 // Pages that keep the whole screen. /login and /redeem are single-purpose forms
@@ -221,8 +221,10 @@ function App() {
               )}
 
               {/* A static preview has nothing to sign in to, so offering the
-                  button would send visitors to a form that cannot succeed. */}
-              {!PREVIEW_MODE && !EMBED_KIT && !user && (
+                  button would send visitors to a form that cannot succeed. With
+                  OPEN_ACCESS there is no student sign-in either: /login is the
+                  staff door to /admin and is reached by URL, not from here. */}
+              {!PREVIEW_MODE && !EMBED_KIT && !OPEN_ACCESS && !user && (
                 <>
                 <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
                 <Link

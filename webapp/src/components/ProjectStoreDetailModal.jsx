@@ -130,6 +130,7 @@ export function ProjectStoreDetailModal({
     { id: 'safety', label: 'Safety', has: !!(project.safetyWarnings?.hardware?.length || project.safetyWarnings?.electronics?.length) },
     { id: 'components', label: 'Components Lab', has: !!project.components?.length },
     { id: 'assembly', label: 'Assembly', has: !!project.assembly?.length },
+    { id: 'coding', label: 'Coding', has: !!project.coding?.length },
     { id: 'code', label: 'Firmware', has: !!(project.code || project.codePrograms?.length) },
     { id: 'faq', label: 'FAQ', has: !!project.faq?.length },
     { id: 'challenges', label: 'Challenges', has: !!project.challenges?.length },
@@ -144,6 +145,7 @@ export function ProjectStoreDetailModal({
   // that has not had this content written yet never shows another kit's wording.
   const kitLabel = kitName || project.name;
   const assemblyTitle = project.assemblyTitle || 'Mechanical Assembly';
+  const codingTitle = project.codingTitle || 'Coding and Control';
   const codeFilename = project.codeFilename || `${String(project.id || 'main').replace(/-/g, '_')}.py`;
 
   // Some kits are one board running one program; others - anything with a
@@ -696,6 +698,35 @@ export function ProjectStoreDetailModal({
                   </div>
                 ))}
               </div>
+            </RequireKit>
+          </div>
+          )}
+
+          {/* ================= CODING & CONTROL =================
+              The path from a wired rover to a working one, in the order a
+              student should tackle it. Separate from Assembly (mechanical) and
+              from Firmware (the finished program). */}
+          {hasSection('coding') && (
+          <div id="section-coding" className="space-y-5">
+            <div className="flex items-center gap-2.5">
+              <Code size={24} className="text-violet-600" />
+              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('coding')}. {codingTitle}</h2>
+            </div>
+
+            <RequireKit kitId={project.id} kitName={kitName} sectionName="The coding guide">
+              <ol className="space-y-3">
+                {project.coding?.map((item) => (
+                  <li key={item.step} className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
+                    <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 font-extrabold text-sm flex items-center justify-center shrink-0">
+                      {item.step}
+                    </div>
+                    <div className="space-y-1.5">
+                      <h4 className="font-bold text-base text-slate-900">{item.title}</h4>
+                      <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">{item.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </RequireKit>
           </div>
           )}

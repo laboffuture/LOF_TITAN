@@ -17,3 +17,18 @@ export const PREVIEW_MODE = import.meta.env.PROD && !import.meta.env.VITE_API_UR
 
 /** The inverse, for code that reads better as a positive. */
 export const HAS_BACKEND = !PREVIEW_MODE;
+
+/**
+ * Is the catalogue open to whoever opens the app?
+ *
+ * The LMS owns accounts and purchases now: students arrive from a course page
+ * that already signed them in, so a second sign-in here would only be a wall in
+ * front of material they have already paid for. The app opens on the dashboard
+ * with every kit unlocked.
+ *
+ * Staff sign-in still exists - /login is reachable by URL and is the way into
+ * the admin area - it just is not part of the student's path any more.
+ *
+ * Set VITE_REQUIRE_LOGIN=true at build time to put the sign-in gate back.
+ */
+export const OPEN_ACCESS = import.meta.env.VITE_REQUIRE_LOGIN !== 'true';

@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
-  LogIn, UserPlus, AlertCircle, Loader2, FlaskConical, Package,
+  LogIn, UserPlus, AlertCircle, Loader2,
   ShieldCheck, LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '../auth/authContext';
-import { TEST_ACCOUNTS, TEST_PASSWORD } from '../auth/mockUsers';
 import { cld } from '../lib/cld';
 import { asset } from '../lib/asset';
 import { PREVIEW_MODE } from '../lib/backend';
@@ -94,13 +93,6 @@ export function Login() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const quickFill = (accountEmail) => {
-    setMode('signin');
-    setEmail(accountEmail);
-    setPassword(TEST_PASSWORD);
-    setError(null);
   };
 
   const tabClass = (active) =>
@@ -271,41 +263,6 @@ export function Login() {
           )}
         </div>
 
-        {/* Seeded accounts are a development convenience, not a feature. They are
-            compiled out of the production bundle entirely - shipping a list of
-            working logins on the real portal would be an open door. */}
-        {import.meta.env.DEV && !user && (
-          <details className="glass-panel rounded-2xl overflow-hidden">
-            <summary className="px-4 py-3 cursor-pointer text-xs font-bold text-amber-300 flex items-center gap-2 select-none">
-              <FlaskConical size={14} /> Dev only · seeded test accounts
-            </summary>
-            <div className="p-3 pt-0 space-y-2">
-              {TEST_ACCOUNTS.map((a) => (
-                <button
-                  key={a.email}
-                  type="button"
-                  onClick={() => quickFill(a.email)}
-                  className="w-full text-left rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-cyan-500/40 px-3.5 py-2.5 transition-all group"
-                >
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-bold text-sm text-white group-hover:text-cyan-300 transition-colors">
-                        {a.name}
-                      </span>
-                      <span className="font-mono text-[11px] text-gray-500">{a.email}</span>
-                    </div>
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-gray-400">
-                      <Package size={12} /> {a.kits} kit{a.kits === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                </button>
-              ))}
-              <p className="text-[11px] text-gray-500 px-1">
-                Password for all: <span className="font-mono text-gray-400">{TEST_PASSWORD}</span>
-              </p>
-            </div>
-          </details>
-        )}
       </div>
     </div>
   );

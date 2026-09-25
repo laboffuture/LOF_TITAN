@@ -196,10 +196,18 @@ export function Dashboard() {
 
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between text-xs text-slate-300">
-                    <div className="flex items-center gap-1 text-amber-400 font-bold">
-                      <span>&#9733;</span>
-                      <span>{p.rating || 4.9}</span>
-                    </div>
+                    {/* A kit with no rating is new, not a 4.9. Printing a
+                        default score would be inventing customer feedback. */}
+                    {p.rating ? (
+                      <div className="flex items-center gap-1 text-amber-400 font-bold">
+                        <span>&#9733;</span>
+                        <span>{p.rating}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/90">
+                        New
+                      </span>
+                    )}
                     <span className="text-[11px] text-slate-400 font-medium">
                       {p.duration || '45 Mins'}
                     </span>
