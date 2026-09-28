@@ -59,6 +59,11 @@ build-*/
 # on Cloudinary. Both folders are sources, never build inputs.
 /images/
 
+# The upstream snapshot this fork is merged from - 120 MB of another copy of
+# the app, including its node_modules and public assets. Kept on disk for
+# diffing, never committed.
+/lof-titan-webapp-main/
+
 # Everything the app used to serve locally is now a Cloudinary public id.
 # lab_of_future_logo is the one exception - small chrome inside the IDE modals.
 webapp/public/assets/**

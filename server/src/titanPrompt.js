@@ -2,7 +2,7 @@
  * The LOF TITAN hardware briefing sent with every AI Studio request.
  *
  * Lives on the server because that is where the request is now made. It is
- * ~10KB, about 2,600 tokens, and is prepended to EVERY call - the dominant
+ * ~13KB, about 3,300 tokens, and is prepended to EVERY call - the dominant
  * input cost of the feature. Trim it here if that matters more than the
  * quality of the generated code.
  */
@@ -33,6 +33,9 @@ OFFICIAL HARDWARE PINOUT & SPECIFICATIONS:
 - Onboard Buzzer:
   * Pin: GPIO 20 | Tones via supervisor: from supervisor.led_buzzer import hw (hw.play_startup_tone(), hw.play_run_tone(), hw.play_confirmation_tone(), hw.play_stop_tone(), hw.play_error_tone())
   * Custom frequency: _get_pwm(20, freq).duty(512); time.sleep_ms(ms); _get_pwm(20).duty(0)
+- DFPlayer Mini MP3 Player Module:
+  * UART Pinout: TX = GPIO 17, RX = GPIO 18 (Baud rate: 9600 8N1)
+  * BUSY pin (Active LOW while playing): Connect to S1..S5 or GPIO 19
 - I2C Display (1.3" SH1106 / 0.96" SSD1306):
   * SDA: GPIO 7 | SCL: GPIO 8
   * Zero-dependency OLED driver (DO NOT import external ssd1306 library, use built-in framebuf class below):
@@ -175,6 +178,37 @@ class _TitanPulse:
 
 pulse = _TitanPulse()
 \`\`\`
+- DHT22 / DHT11 Digital Temperature & Humidity Sensor:
+  * Digital 1-wire Ports: S1 (GPIO 2), S2 (GPIO 1), S3 (GPIO 3), S4 (GPIO 4), S5 (GPIO 5), GPIO 19
+  * MicroPython \`import dht; dht22 = dht.DHT22(Pin(pin)); dht22.measure()\` for Temperature (°C/°F) and Humidity (% RH)
+- DS18B20 Waterproof 1-Wire Digital Temperature Sensor:
+  * 1-Wire Digital Data Ports: S1 (GPIO 2), S2 (GPIO 1), S3 (GPIO 3), S4 (GPIO 4), S5 (GPIO 5), GPIO 19
+  * MicroPython native \`import onewire, ds18x20; ow = onewire.OneWire(Pin(pin)); ds = ds18x20.DS18X20(ow); roms = ds.scan(); ds.convert_temp(); temp_c = ds.read_temp(roms[0])\`
+  * Range: -55°C to +125°C (±0.5°C accuracy) with 9 to 12-bit configurable resolution
+- MQ-135 Gas & Hazardous Air Quality Sensor:
+  * Analog Ports: S1 (GPIO 2), S2 (GPIO 1), S3 (GPIO 3), S4 (GPIO 4), S5 (GPIO 5)
+  * Read Air Quality (PPM), CO2 equivalent (PPM), Smoke / Toxic gas level, Air Quality Rating (Good, Moderate, Unhealthy, Hazardous)
+- MPU6050 6-Axis IMU Gyroscope & Accelerometer:
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x68
+  * Linear acceleration (X/Y/Z in g, total g-force), angular velocity (X/Y/Z in °/s), inclination pitch & roll angles, die temperature, gesture detection (shake, tilt, free fall, flat)
+- QMC5883L 3-Axis Electronic Compass:
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x0D
+  * Heading (0-360°), 8-point cardinal direction, raw X/Y/Z magnetometer axes, temperature
+- AMG8833 8x8 IR Grid-EYE Thermal Camera:
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x69
+  * 64-pixel infrared temperature array, Max/Min/Avg temperature, human body heat detection
+- AS5600 12-Bit Magnetic Rotary Encoder:
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x36
+  * Contactless angle measurement (0-360°, 4096 steps/rev), continuous multi-turn revolution counting, RPM / angular velocity, magnet presence & AGC gain tracking
+- GY-53 / VL53L0X Laser Time-of-Flight (ToF) Distance Ranging Sensor:
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x29
+  * MicroPython: Millimeter-accurate laser distance measurement (range: 30mm to 2000mm / 2.0 meters), supports cm/mm/inches/meters, obstacle avoidance, and target range windows
+- 2x16 Liquid Crystal I2C Display (LCD 1602):
+  * SDA: GPIO 7 | SCL: GPIO 8 | I2C Address: 0x27 or 0x3F (PCF8574 backpack)
+  * MicroPython \`_TitanLCD1602(addr=0x27)\`: print text at Col (0-15) & Row (0-1), print 2 lines, clear, backlight ON/OFF, cursor, scroll
+- DFPlayer Mini MP3 Player:
+  * TX: GPIO 17 | RX: GPIO 18 (UART(1, baudrate=9600, tx=17, rx=18))
+  * Audio track selection, folder playback, volume control (0-30), EQ modes, loop control
 - UART Port:
   * TX: GPIO 17 | RX: GPIO 18 (UART(1, baudrate=115200, tx=17, rx=18))
 

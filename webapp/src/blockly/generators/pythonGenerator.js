@@ -4,7 +4,7 @@ export function registerPythonGenerators() {
   // ================= 1. TITAN BASE / START BLOCK (SCRATCH FLAG EQUIVALENT) =================
   pythonGenerator.forBlock['titan_start'] = function(block) {
     const branch = pythonGenerator.statementToCode(block, 'DO') || '    pass\n';
-    return `# ================= LOF TITAN MAIN =================\nimport time\nfrom machine import Pin, PWM, ADC, I2C, SoftI2C, UART\nfrom supervisor.led_buzzer import hw\n\n_pwm_pool = {}\ndef _get_pwm(pin, freq=1000):\n    if pin not in _pwm_pool:\n        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)\n    else:\n        try: _pwm_pool[pin].freq(freq)\n        except Exception: pass\n    return _pwm_pool[pin]\n\ndef main():\n${branch}\nif __name__ == '__main__':\n    main()\n`;
+    return `def main():\n${branch}\nif __name__ == '__main__':\n    main()\n`;
   };
 
   pythonGenerator.forBlock['project_info'] = function(block) {
@@ -611,8 +611,25 @@ export function registerPythonGenerators() {
   // ================= 4. DISPLAY =================
   pythonGenerator.forBlock['titan_oled_init'] = function(block) {
     const type = block.getFieldValue('TYPE') || 'SH1106';
+    if (type === 'SPI_242') {
+      return `global _oled_global, oled\n_oled_global = _TitanOLED(mode="SPI", sck=35, mosi=36, cs=38, dc=37)\noled = _oled_global\n`;
+    }
     const isSh1106 = (type === 'SH1106') ? 'True' : 'False';
-    return `global _oled_global, oled\n_oled_global = _TitanOLED(is_sh1106=${isSh1106})\noled = _oled_global\n`;
+    return `global _oled_global, oled\n_oled_global = _TitanOLED(mode="I2C", is_sh1106=${isSh1106})\noled = _oled_global\n`;
+  };
+
+  pythonGenerator.forBlock['titan_oled_spi_init'] = function(block) {
+    return `global _oled_global, oled\n_oled_global = _TitanOLED(mode="SPI", sck=35, mosi=36, cs=38, dc=37)\noled = _oled_global\n`;
+  };
+
+  pythonGenerator.forBlock['titan_oled_contrast'] = function(block) {
+    const val = pythonGenerator.valueToCode(block, 'CONTRAST', Order.NONE) || '255';
+    return `_get_oled().set_contrast(int(${val}))\n`;
+  };
+
+  pythonGenerator.forBlock['titan_oled_invert'] = function(block) {
+    const inv = block.getFieldValue('INVERT') === 'True' ? 'True' : 'False';
+    return `_get_oled().invert(${inv})\n`;
   };
 
   pythonGenerator.forBlock['titan_oled_print'] = function(block) {
@@ -900,19 +917,84 @@ def _get_shared_i2c():
 `;
 
 const OLED_DRIVER_CODE = `import framebuf
+from machine import Pin, SPI, SoftSPI
+
 class _TitanOLED(framebuf.FrameBuffer):
-  def __init__(self, is_sh1106=True):
+  def __init__(self, mode="I2C", is_sh1106=True, sck=35, mosi=36, cs=38, dc=37, rst=None):
+    self.mode = mode
     self.is_sh1106 = is_sh1106
     self.addr = 0x3C
     self.buf = bytearray(1024)
     super().__init__(self.buf, 128, 64, framebuf.MONO_VLSB)
-    self.i2c = _get_shared_i2c()
-    if self.i2c:
-      for c in (0xAE,0x20,0x00,0x40,0xA1,0xC8,0x81,0xCF,0xA6,0xA8,0x3F,0xD3,0x00,0xD5,0x80,0xD9,0xF1,0xDA,0x12,0xDB,0x40,0x8D,0x14,0xAF):
-        try: self.i2c.writeto(self.addr, bytearray([0x80, c]))
-        except Exception: pass
+    self.i2c = None
+    self.spi = None
+    self.cs = None
+    self.dc = None
+    self.rst = None
+
+    if self.mode == "SPI" or self.mode == "SPI_242":
+      self.cs = Pin(cs, Pin.OUT, value=1) if cs is not None else None
+      self.dc = Pin(dc, Pin.OUT, value=0) if dc is not None else None
+      self.rst = Pin(rst, Pin.OUT, value=1) if rst is not None else None
+      if self.rst:
+        self.rst.value(0)
+        time.sleep_ms(20)
+        self.rst.value(1)
+        time.sleep_ms(50)
+      try:
+        self.spi = SoftSPI(baudrate=5000000, polarity=0, phase=0, sck=Pin(sck), mosi=Pin(mosi), miso=Pin(sck))
+      except Exception:
+        try:
+          self.spi = SPI(1, baudrate=8000000, polarity=0, phase=0, sck=Pin(sck), mosi=Pin(mosi))
+        except Exception:
+          self.spi = None
+      # Official U8g2 SSD1309 Initialization Sequence
+      # 1. Unlock Command Lock (0xFD, 0x12)
+      self._write_cmd(0xFD); self._write_cmd(0x12)
+      # 2. Init sequence
+      for c in (0xAE, 0xD5, 0xA0, 0xA8, 0x3F, 0xD3, 0x00, 0x40, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0xDF, 0xD9, 0x82, 0xDB, 0x34, 0xA4, 0xA6, 0x20, 0x02, 0x8D, 0x14, 0xAF):
+        self._write_cmd(c)
       self.fill(0)
       self.show()
+    else:
+      self.i2c = _get_shared_i2c()
+      if self.i2c:
+        for c in (0xAE,0x20,0x00,0x40,0xA1,0xC8,0x81,0xCF,0xA6,0xA8,0x3F,0xD3,0x00,0xD5,0x80,0xD9,0xF1,0xDA,0x12,0xDB,0x40,0x8D,0x14,0xAF):
+          try: self.i2c.writeto(self.addr, bytearray([0x80, c]))
+          except Exception: pass
+        self.fill(0)
+        self.show()
+
+  def _write_cmd(self, cmd):
+    if self.mode == "SPI" or self.mode == "SPI_242":
+      if self.spi and self.cs and self.dc:
+        self.dc.value(0)
+        self.cs.value(0)
+        self.spi.write(bytearray([cmd]))
+        self.cs.value(1)
+    elif self.i2c:
+      try: self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+      except Exception: pass
+
+  def _write_data(self, buf):
+    if self.mode == "SPI" or self.mode == "SPI_242":
+      if self.spi and self.cs and self.dc:
+        self.dc.value(1)
+        self.cs.value(0)
+        self.spi.write(buf)
+        self.cs.value(1)
+    elif self.i2c:
+      try: self.i2c.writeto(self.addr, b'\\x40' + buf)
+      except Exception: pass
+
+  def set_contrast(self, val):
+    val = max(0, min(255, int(val)))
+    self._write_cmd(0x81)
+    self._write_cmd(val)
+
+  def invert(self, inv=True):
+    self._write_cmd(0xA7 if inv else 0xA6)
+
   def print_text(self, s, x, y, size=1, col=1):
     s = str(s)
     if size <= 1:
@@ -930,6 +1012,7 @@ class _TitanOLED(framebuf.FrameBuffer):
               for dy in range(size):
                 if 0 <= x + px * size + dx < 128 and 0 <= y + py * size + dy < 64:
                   self.pixel(x + px * size + dx, y + py * size + dy, col)
+
   def circle(self, cx, cy, r, c=1, fill=False):
     if fill:
       for y in range(-r, r + 1):
@@ -949,17 +1032,28 @@ class _TitanOLED(framebuf.FrameBuffer):
         if 2*(err - x) + 1 > 0:
           x -= 1
           err += 1 - 2*x
+
   def show(self):
-    if not self.i2c: return
-    try:
-      if self.is_sh1106:
+    if self.mode == "SPI" or self.mode == "SPI_242":
+      if not self.spi: return
+      try:
         for p in range(8):
-          self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + p, 0x80, 0x02, 0x80, 0x10]))
-          self.i2c.writeto(self.addr, b'\\x40' + self.buf[128*p:128*(p+1)])
-      else:
-        self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
-        self.i2c.writeto(self.addr, b'\\x40' + self.buf)
-    except Exception: pass
+          self._write_cmd(0xB0 + p)
+          self._write_cmd(0x00)
+          self._write_cmd(0x10)
+          self._write_data(self.buf[128*p:128*(p+1)])
+      except Exception: pass
+    else:
+      if not self.i2c: return
+      try:
+        if self.is_sh1106:
+          for p in range(8):
+            self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + p, 0x80, 0x02, 0x80, 0x10]))
+            self.i2c.writeto(self.addr, b'\\x40' + self.buf[128*p:128*(p+1)])
+        else:
+          self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
+          self.i2c.writeto(self.addr, b'\\x40' + self.buf)
+      except Exception: pass
 
 _oled_global = None
 def _get_oled():
@@ -2011,107 +2105,132 @@ def _read_ds18b20(pin=2, val_type="TEMP_C"):
 `;
 
 const VL53L0X_DRIVER_CODE = `
-# ================= VL53L0X LASER TOF DRIVER (DIRECT NO-CALIBRATION) =================
-class VL53L0X:
-    """Direct VL53L0X / V2 Laser Distance Driver for MicroPython."""
-    def __init__(self, i2c=None, address=0x29, offset_mm=-6):
+# ================= VL53L1X / VL53L0X LASER TOF DRIVER =================
+class VL53L1X:
+    """Single-file MicroPython driver for VL53L1X Laser ToF distance sensor (LOF TITAN)."""
+    def __init__(self, i2c=None, address=0x29, offset_mm=0):
         self.i2c = i2c if i2c else _get_shared_i2c()
         self.address = address
-        self.stop_variable = 0x3C
         self.offset_mm = offset_mm
-        self._filtered_mm = None
+        self.connected = False
         self._init_sensor()
 
-    def _w(self, reg, val):
+    def write8(self, reg, value):
         if not self.i2c: return
-        try: self.i2c.writeto_mem(self.address, reg, bytes([val]))
-        except: pass
+        try:
+            self.i2c.writeto_mem(self.address, reg, bytes([value]), addrsize=16)
+        except Exception: pass
 
-    def _r(self, reg, n=1):
-        if not self.i2c: return bytearray(n)
-        try: return self.i2c.readfrom_mem(self.address, reg, n)
-        except: return bytearray(n)
+    def write16(self, reg, value):
+        if not self.i2c: return
+        try:
+            self.i2c.writeto_mem(self.address, reg, bytes([(value >> 8) & 0xFF, value & 0xFF]), addrsize=16)
+        except Exception: pass
+
+    def read8(self, reg):
+        if not self.i2c: return 0
+        try:
+            return self.i2c.readfrom_mem(self.address, reg, 1, addrsize=16)[0]
+        except Exception: return 0
+
+    def read16(self, reg):
+        if not self.i2c: return 0
+        try:
+            d = self.i2c.readfrom_mem(self.address, reg, 2, addrsize=16)
+            return (d[0] << 8) | d[1]
+        except Exception: return 0
+
+    def reset(self):
+        self.write8(0x0000, 0x00)
+        time.sleep_ms(100)
+        self.write8(0x0000, 0x01)
+        time.sleep_ms(100)
 
     def _init_sensor(self):
         if not self.i2c: return
         try:
-            self._w(0x89, self._r(0x89)[0] | 0x01)
-            self._w(0x88, 0x00); self._w(0x80, 0x01); self._w(0xFF, 0x01); self._w(0x00, 0x00)
-            r91 = self._r(0x91)
-            if r91 and len(r91) > 0: self.stop_variable = r91[0]
-            self._w(0x00, 0x01); self._w(0xFF, 0x00); self._w(0x80, 0x00)
-            self._w(0x60, self._r(0x60)[0] | 0x12)
-            self._w(0x0A, 0x04); self._w(0x84, self._r(0x84)[0] & ~0x10); self._w(0x0B, 0x01)
+            self.reset()
+            time.sleep_ms(150)
+            model_id = self.read16(0x010F)
+            
+            config = bytes([
+                0x00, 0x00, 0x00, 0x01,
+                0x02, 0x00, 0x02, 0x08,
+                0x00, 0x08, 0x10, 0x01,
+                0x01, 0x00, 0x00, 0x00,
 
-            # Auto Zero-Point Calibration (VHV & Phase baseline locks true 0mm reference)
-            self._w(0x01, 0xE8)
-            self._w(0x01, 0x01); self._cal(0x40) # VHV bias
-            self._w(0x01, 0x02); self._cal(0x00) # Phase zero
-            self._w(0x01, 0xE8)
+                0x00, 0xFF, 0x00, 0x0F,
+                0x00, 0x00, 0x00, 0x00,
+                0x00, 0x20, 0x0B, 0x00,
+                0x00, 0x02, 0x0A, 0x21,
 
-            # Start continuous back-to-back measurement
-            self._w(0x80, 0x01); self._w(0xFF, 0x01); self._w(0x00, 0x00)
-            self._w(0x91, self.stop_variable); self._w(0x00, 0x01); self._w(0xFF, 0x00); self._w(0x80, 0x00)
-            self._w(0x00, 0x02)
-        except: pass
+                0x00, 0x00, 0x05, 0x00,
+                0x00, 0x00, 0x00, 0xC8,
+                0x00, 0x00, 0x38, 0xFF,
+                0x01, 0x00, 0x08, 0x00,
 
-    def _cal(self, b):
-        self._w(0x00, 0x01 | b)
-        for _ in range(40):
-            if self._r(0x13)[0] & 0x07: break
-            time.sleep_ms(2)
-        self._w(0x0B, 0x01); self._w(0x00, 0x00)
+                0x00, 0x01, 0xDB, 0x0F,
+                0x01, 0xF1, 0x0D, 0x01,
+                0x68, 0x00, 0x80, 0x08,
+                0xB8, 0x00, 0x00, 0x00,
+
+                0x00, 0x0F, 0x89, 0x00,
+                0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x01, 0x0F,
+                0x0D, 0x0E, 0x0E, 0x00,
+
+                0x00, 0x02, 0xC7, 0xFF,
+                0x9B, 0x00, 0x00, 0x00,
+                0x01, 0x01, 0x40
+            ])
+
+            self.i2c.writeto_mem(self.address, 0x002D, config, addrsize=16)
+            value = self.read16(0x0022)
+            self.write16(0x001E, value * 4)
+            time.sleep_ms(300)
+            self.connected = True
+        except Exception:
+            self.connected = False
 
     def set_offset(self, val):
         self.offset_mm = val
 
-    def _read_raw_mm(self):
-        if not self.i2c: return -1
+    def set_mode(self, mode):
+        pass
+
+    def read_distance_raw(self):
+        if not self.i2c: return 0, 255
         try:
-            for _ in range(40):
-                if self._r(0x13)[0] & 0x07: break
-                time.sleep_ms(2)
-            d = self._r(0x14, 12); self._w(0x0B, 0x01)
-            if len(d) >= 12:
-                status = (d[0] >> 3) & 0x07
-                mm = (d[10] << 8) | d[11]
-                if status != 4 and 20 <= mm <= 2000 and mm not in (8190, 8191):
-                    return max(0, mm + self.offset_mm)
-            return -1
-        except: return -1
+            data = self.i2c.readfrom_mem(self.address, 0x0089, 17, addrsize=16)
+            status = data[0]
+            distance = ((data[13] << 8) | data[14])
+            self.write8(0x0086, 0x01)
+            return distance, status
+        except Exception:
+            return 0, 255
 
     def read_distance_mm(self, smooth=True):
-        raw = self._read_raw_mm()
-        if raw == -1:
-            self._filtered_mm = None
-            return -1
-        if not smooth: return raw
-        if self._filtered_mm is None:
-            self._filtered_mm = float(raw)
-        else:
-            diff = abs(raw - self._filtered_mm)
-            if diff < 4.5:
-                self._filtered_mm = self._filtered_mm * 0.82 + raw * 0.18
-            elif diff < 15.0:
-                self._filtered_mm = self._filtered_mm * 0.5 + raw * 0.5
-            else:
-                self._filtered_mm = float(raw)
-        return int(round(self._filtered_mm))
+        dist, status = self.read_distance_raw()
+        if dist > 0 and dist < 4000:
+            return max(0, dist + self.offset_mm)
+        return -1
 
     def read_distance(self, unit="CM", smooth=True):
         mm = self.read_distance_mm(smooth=smooth)
         if mm == -1: return -1
         return round(mm / 10.0, 1) if unit == "CM" else round(mm / 25.4, 1) if unit == "INCHES" else round(mm / 1000.0, 2) if unit == "M" else mm
 
+VL53L0X = VL53L1X
+
 _vl53l0x_instance = None
 def _get_vl53l0x():
     global _vl53l0x_instance
     if _vl53l0x_instance is None:
-        _vl53l0x_instance = VL53L0X(_get_shared_i2c())
+        _vl53l0x_instance = VL53L1X(_get_shared_i2c())
     return _vl53l0x_instance
 `;
 
-const BUZZER_MELODIES_CODE = `def _play_titan_melody(name):
+const BUZZER_MELODY_FUNC = `def _play_titan_melody(name):
     _m = {
         "STAR_WARS": [(440, 500, 50), (440, 500, 50), (440, 500, 50), (349, 350, 50), (523, 150, 50), (440, 500, 50), (349, 350, 50), (523, 150, 50), (440, 650, 50)],
         "MARIO": [(660, 100, 50), (660, 100, 50), (660, 100, 100), (510, 100, 50), (660, 100, 50), (770, 100, 150), (380, 100, 50)],
@@ -2124,8 +2243,9 @@ const BUZZER_MELODIES_CODE = `def _play_titan_melody(name):
     for f, d, p in notes:
         getattr(hw, 'play_buzzer_freq', lambda freq, dur: None)(f, d)
         time.sleep_ms(p)
+`;
 
-def _play_titan_sound_effect(name):
+const BUZZER_EFFECT_FUNC = `def _play_titan_sound_effect(name):
     if name == "LASER":
         for f in range(2000, 400, -100):
             getattr(hw, 'play_buzzer_freq', lambda freq, dur: None)(f, 10)
@@ -2186,100 +2306,131 @@ def _mqtt_subscribe(topic):
 
 export function generateTitanWorkspaceCode(workspace) {
   if (!workspace) return '';
-  
-  const allBlocks = workspace.getAllBlocks(false);
-  const hasAmgHeatmap = allBlocks.some(b => b.type === 'titan_amg8833_oled_heatmap');
-  const hasPulseEcg = allBlocks.some(b => b.type === 'titan_pulse_oled_ecg');
-  const hasOled = allBlocks.some(b => b.type && b.type.startsWith('titan_oled')) || hasAmgHeatmap || hasPulseEcg;
-  const hasLcd = allBlocks.some(b => b.type && b.type.startsWith('titan_lcd1602'));
-  const hasPulse = allBlocks.some(b => b.type && (b.type.startsWith('titan_pulse') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'PULSE'))) || hasPulseEcg;
-  const hasDht = allBlocks.some(b => b.type && (b.type.startsWith('titan_dht') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'DHT22')));
-  const hasDs18b20 = allBlocks.some(b => b.type && (b.type.startsWith('titan_ds18b20') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'DS18B20')));
-  const hasVl53l0x = allBlocks.some(b => b.type && (b.type.startsWith('titan_vl53l0x') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'VL53L0X')));
-  const hasMq135 = allBlocks.some(b => b.type && (b.type.startsWith('titan_mq135') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'MQ135')));
-  const hasMpu = allBlocks.some(b => b.type && (b.type.startsWith('titan_mpu6050') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'MPU6050')));
-  const hasQmc = allBlocks.some(b => b.type && (b.type.startsWith('titan_qmc5883l') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'QMC5883L')));
-  const hasAmg = allBlocks.some(b => b.type && (b.type.startsWith('titan_amg8833') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'AMG8833')));
-  const hasAs5600 = allBlocks.some(b => b.type && (b.type.startsWith('titan_as5600') || (b.type === 'titan_print_sensor_monitor' && b.getFieldValue('TYPE') === 'AS5600')));
-  const hasDfPlayer = allBlocks.some(b => b.type && b.type.startsWith('titan_dfplayer'));
-  const hasBuzzerMelody = allBlocks.some(b => b.type === 'titan_onboard_buzzer_melody' || b.type === 'titan_onboard_buzzer_sound_effect');
-  const hasIot = allBlocks.some(b => b.type && (b.type.startsWith('titan_http') || b.type.startsWith('titan_mqtt')));
-  const hasI2C = hasOled || hasLcd || hasPulse || hasVl53l0x || hasMpu || hasQmc || hasAmg || hasAs5600;
 
   const topBlocks = workspace.getTopBlocks(true);
   const titanStartBlock = topBlocks.find(b => b.type === 'titan_start');
   const projectInfoBlock = topBlocks.find(b => b.type === 'project_info');
 
-  let code = '';
-  if (projectInfoBlock) {
-    code += pythonGenerator.blockToCode(projectInfoBlock) + '\n';
-  }
-
-  if (hasI2C) {
-    code += SHARED_I2C_DRIVER_CODE + '\n';
-  }
-
-  if (hasOled) {
-    code += OLED_DRIVER_CODE + '\n';
-  }
-
-  if (hasLcd) {
-    code += LCD1602_DRIVER_CODE + '\n';
-  }
-
-  if (hasBuzzerMelody) {
-    code += BUZZER_MELODIES_CODE + '\n';
-  }
-
-  if (hasIot) {
-    code += IOT_DRIVER_CODE + '\n';
-  }
-
-  if (hasPulse) {
-    code += PULSE_DRIVER_CODE + '\n';
-  }
-
-  if (hasDht) {
-    code += DHT_DRIVER_CODE + '\n';
-  }
-
-  if (hasDs18b20) {
-    code += DS18B20_DRIVER_CODE + '\n';
-  }
-
-  if (hasVl53l0x) {
-    code += VL53L0X_DRIVER_CODE + '\n';
-  }
-
-  if (hasMq135) {
-    code += MQ135_DRIVER_CODE + '\n';
-  }
-
-  if (hasMpu) {
-    code += MPU6050_DRIVER_CODE + '\n';
-  }
-
-  if (hasQmc) {
-    code += QMC5883L_DRIVER_CODE + '\n';
-  }
-
-  if (hasAmg) {
-    code += AMG8833_DRIVER_CODE + '\n';
-  }
-
-  if (hasAs5600) {
-    code += AS5600_DRIVER_CODE + '\n';
-  }
-
-  if (hasDfPlayer) {
-    code += DFPLAYER_DRIVER_CODE + '\n';
-  }
-
+  // 1. Generate executable body code
+  let bodyCode = '';
   if (titanStartBlock) {
-    code += pythonGenerator.blockToCode(titanStartBlock);
+    bodyCode = pythonGenerator.blockToCode(titanStartBlock);
   } else {
-    code += pythonGenerator.workspaceToCode(workspace);
+    bodyCode = pythonGenerator.workspaceToCode(workspace);
   }
 
-  return code;
+  // Also include any function definitions from workspace
+  const procedureBlocks = topBlocks.filter(b => b.type === 'procedures_defnoreturn' || b.type === 'procedures_defreturn');
+  let procCode = '';
+  procedureBlocks.forEach(b => {
+    if (b !== titanStartBlock) {
+      procCode += pythonGenerator.blockToCode(b) + '\n';
+    }
+  });
+
+  const fullProgramContent = procCode + '\n' + bodyCode;
+
+  // 2. Detect which peripheral drivers are actually referenced in the generated code
+  const needsOled = fullProgramContent.includes('_TitanOLED') || fullProgramContent.includes('oled.') || fullProgramContent.includes('_oled_global');
+  const needsLcd = fullProgramContent.includes('_TitanLCD1602') || fullProgramContent.includes('lcd.') || fullProgramContent.includes('_lcd_global');
+  const needsBuzzerMelody = fullProgramContent.includes('_play_titan_melody');
+  const needsBuzzerEffect = fullProgramContent.includes('_play_titan_sound_effect');
+  const needsIot = fullProgramContent.includes('_http_') || fullProgramContent.includes('_mqtt_');
+  const needsPulse = fullProgramContent.includes('_get_pulse') || fullProgramContent.includes('titan_pulse') || fullProgramContent.includes('_pulse_oled_ecg');
+  const needsDht = fullProgramContent.includes('_read_dht');
+  const needsDs18b20 = fullProgramContent.includes('_read_ds18b20');
+  const needsVl53l0x = fullProgramContent.includes('_get_vl53l0x') || fullProgramContent.includes('VL53L0X');
+  const needsMq135 = fullProgramContent.includes('_read_mq135') || fullProgramContent.includes('_get_mq135');
+  const needsMpu = fullProgramContent.includes('_read_mpu6050') || fullProgramContent.includes('_get_mpu6050');
+  const needsQmc = fullProgramContent.includes('_read_qmc5883l') || fullProgramContent.includes('_get_qmc5883l');
+  const needsAmg = fullProgramContent.includes('_read_amg8833') || fullProgramContent.includes('_get_amg8833') || fullProgramContent.includes('_amg8833_oled_heatmap');
+  const needsAs5600 = fullProgramContent.includes('_get_as5600') || fullProgramContent.includes('_read_as5600') || fullProgramContent.includes('_compare_as5600');
+  const needsDfPlayer = fullProgramContent.includes('_TitanDFPlayer') || fullProgramContent.includes('_get_dfplayer');
+  const needsPwmPool = fullProgramContent.includes('_get_pwm(');
+
+  const needsI2C = needsOled || needsLcd || needsPulse || needsVl53l0x || needsMpu || needsQmc || needsAmg || needsAs5600 || fullProgramContent.includes('_get_shared_i2c');
+
+  // 3. Assemble required driver code blocks
+  let driverCode = '';
+  if (needsI2C) driverCode += SHARED_I2C_DRIVER_CODE + '\n';
+  if (needsOled) driverCode += OLED_DRIVER_CODE + '\n';
+  if (needsLcd) driverCode += LCD1602_DRIVER_CODE + '\n';
+  if (needsBuzzerMelody) driverCode += BUZZER_MELODY_FUNC + '\n';
+  if (needsBuzzerEffect) driverCode += BUZZER_EFFECT_FUNC + '\n';
+  if (needsIot) driverCode += IOT_DRIVER_CODE + '\n';
+  if (needsPulse) driverCode += PULSE_DRIVER_CODE + '\n';
+  if (needsDht) driverCode += DHT_DRIVER_CODE + '\n';
+  if (needsDs18b20) driverCode += DS18B20_DRIVER_CODE + '\n';
+  if (needsVl53l0x) driverCode += VL53L0X_DRIVER_CODE + '\n';
+  if (needsMq135) driverCode += MQ135_DRIVER_CODE + '\n';
+  if (needsMpu) driverCode += MPU6050_DRIVER_CODE + '\n';
+  if (needsQmc) driverCode += QMC5883L_DRIVER_CODE + '\n';
+  if (needsAmg) driverCode += AMG8833_DRIVER_CODE + '\n';
+  // 4. Build helper functions (PWM pool, etc.)
+  let helperCode = '';
+  if (needsPwmPool) {
+    helperCode += `\n_pwm_pool = {}
+def _get_pwm(pin, freq=1000):
+    if pin not in _pwm_pool:
+        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+    else:
+        try: _pwm_pool[pin].freq(freq)
+        except Exception: pass
+    return _pwm_pool[pin]\n`;
+  }
+
+  // 5. Combine all code to inspect required standard library imports
+  const totalCode = driverCode + '\n' + helperCode + '\n' + fullProgramContent;
+
+  const hasTime = /\btime\b/.test(totalCode) || totalCode.includes('sleep');
+  const hasPin = /\bPin\b/.test(totalCode) || needsPwmPool;
+  const hasPwm = /\bPWM\b/.test(totalCode) || needsPwmPool;
+  const hasAdc = /\bADC\b/.test(totalCode);
+  const hasSoftSPI = /\bSoftSPI\b/.test(totalCode);
+  const hasSPIModule = /\bSPI\b/.test(totalCode) || hasSoftSPI;
+  const hasSoftI2C = /\bSoftI2C\b/.test(totalCode);
+  const hasI2CModule = /\bI2C\b/.test(totalCode) || hasSoftI2C;
+  const hasUart = /\bUART\b/.test(totalCode);
+  const hasHw = /\bhw\b/.test(totalCode);
+
+  // 6. Build minimal, block-specific imports
+  const machineImports = [];
+  if (hasPin || hasPwm || hasAdc || hasSoftI2C || hasI2CModule || hasSPIModule) machineImports.push('Pin');
+  if (hasPwm) machineImports.push('PWM');
+  if (hasAdc) machineImports.push('ADC');
+  if (hasI2CModule) machineImports.push('I2C');
+  if (hasSoftI2C) machineImports.push('SoftI2C');
+  if (hasSPIModule) machineImports.push('SPI');
+  if (hasSoftSPI) machineImports.push('SoftSPI');
+  if (hasUart) machineImports.push('UART');
+
+  let importHeader = '# ================= LOF TITAN MAIN =================\n';
+  if (hasTime) {
+    importHeader += 'import time\n';
+  }
+  if (machineImports.length > 0) {
+    importHeader += `from machine import ${machineImports.join(', ')}\n`;
+  }
+  if (hasHw) {
+    importHeader += 'from supervisor.led_buzzer import hw\n';
+  }
+
+  // 7. Combine final project code
+  let finalCode = '';
+  if (projectInfoBlock) {
+    finalCode += pythonGenerator.blockToCode(projectInfoBlock) + '\n';
+  }
+  finalCode += importHeader;
+  if (driverCode.trim()) {
+    finalCode += '\n' + driverCode.trim() + '\n';
+  }
+  if (helperCode.trim()) {
+    finalCode += helperCode;
+  }
+  if (procCode.trim()) {
+    finalCode += '\n' + procCode.trim() + '\n';
+  }
+  finalCode += '\n' + bodyCode.trim() + '\n';
+
+  return finalCode;
 }

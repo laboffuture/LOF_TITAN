@@ -1352,7 +1352,21 @@ export class TitanSimulatorEngine {
           atten: () => {}
         };
       },
-      _TitanOLED: function(is_sh1106) {
+      SPI: (id, ...args) => ({
+        write: (buf) => {},
+        read: (n) => new Uint8Array(n),
+        readinto: (buf) => {},
+        write_readinto: () => {},
+        deinit: () => {}
+      }),
+      SoftSPI: (opts) => ({
+        write: (buf) => {},
+        read: (n) => new Uint8Array(n),
+        readinto: (buf) => {},
+        write_readinto: () => {},
+        deinit: () => {}
+      }),
+      _TitanOLED: function(mode, is_sh1106) {
         self.initOLED();
         return oledObj;
       },
@@ -1649,7 +1663,13 @@ export class TitanSimulatorEngine {
     let skipUntilIndent = -1;
 
     // Sandbox-provided helpers — skip user redefinitions to keep them synchronous
-    const SANDBOX_HELPERS = ['_get_oled', '_get_lcd', '_get_pulse', '_get_pwm', '_get_qmc5883l', '_get_amg8833', '_get_as5600', '_get_ds18b20', '_read_ds18b20'];
+    const SANDBOX_HELPERS = [
+      '_get_oled', '_get_lcd', '_get_pulse', '_get_pwm', '_get_qmc5883l', '_get_amg8833', 
+      '_get_as5600', '_get_ds18b20', '_read_ds18b20', '_get_shared_i2c', '_get_vl53l0x',
+      '_read_dht', '_read_mq135', '_read_mpu6050', '_get_mpu6050', '_read_qmc5883l',
+      '_read_amg8833', '_get_dfplayer', '_play_titan_melody', '_play_titan_sound_effect',
+      '_http_get', '_http_post', '_mqtt_connect', '_mqtt_publish', '_mqtt_subscribe'
+    ];
 
     for (let raw of rawLines) {
       let trimmed = raw.trim();
@@ -1693,7 +1713,7 @@ export class TitanSimulatorEngine {
       }
 
       // Skip TOP-LEVEL sandbox state variable re-initializations (indent 0 only)
-      if (earlyIndent === 0 && /^(_pwm_pool|_oled_global|_pulse_inst|_qmc_inst|_amg_inst)\s*=/.test(trimmed)) continue;
+      if (earlyIndent === 0 && /^(_pwm_pool|_oled_global|_shared_i2c|_pulse_inst|_qmc_inst|_amg_inst|_vl53l0x_instance)\s*=/.test(trimmed)) continue;
 
       const currentIndent = earlyIndent;
 
@@ -1723,6 +1743,9 @@ export class TitanSimulatorEngine {
       const condTransform = (c) => c
         .replace(/([^\s\(\)]+)\s+not\s+in\s+([^\s,:\)\{]+)/g, (m, p1, p2) => `_not_in(${p1}, ${p2})`)
         .replace(/([^\s\(\)]+)\s+in\s+([^\s,:\)\{]+)/g, (m, p1, p2) => `_in(${p1}, ${p2})`)
+        .replace(/\bis\s+not\b/g, '!==')
+        .replace(/\bis\b/g, '===')
+        .replace(/\bnot\s*\(/g, '!(')
         .replace(/\bnot\b\s+/g, '!')
         .replace(/ == /g, ' === ')
         .replace(/ != /g, ' !== ')
@@ -1806,6 +1829,11 @@ export class TitanSimulatorEngine {
       // not in / in operators in statements
       line = line.replace(/([^\s\(\)]+)\s+not\s+in\s+([^\s,:\)\{]+)/g, (m, p1, p2) => `_not_in(${p1}, ${p2})`);
       line = line.replace(/([^\s\(\)]+)\s+in\s+([^\s,:\)\{]+)/g, (m, p1, p2) => `_in(${p1}, ${p2})`);
+
+      // is not / is operators
+      line = line.replace(/\bis\s+not\b/g, '!==');
+      line = line.replace(/\bis\b/g, '===');
+      line = line.replace(/\bnot\s*\(/g, '!(');
 
       // Tuple unpacking: a, b = x, y
       if (/^[a-zA-Z0-9_]+,\s*[a-zA-Z0-9_]+\s*=\s*/.test(line)) {

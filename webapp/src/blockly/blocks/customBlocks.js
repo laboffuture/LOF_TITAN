@@ -1244,20 +1244,66 @@ export function registerCustomBlocks() {
     }
   };
 
-  // ================= 4. DISPLAY (OLED SDA: 7, SCL: 8) =================
+  // ================= 4. DISPLAY (OLED I2C / SPI & LCD) =================
   Blockly.Blocks['titan_oled_init'] = {
     init: function() {
       this.appendDummyInput()
           .appendField("Initialize OLED Display")
           .appendField(new Blockly.FieldDropdown([
-            ["1.3 inch (SH1106)", "SH1106"],
-            ["0.96 inch (SSD1306)", "SSD1306"]
-          ]), "TYPE")
-          .appendField("(I2C SDA: 7, SCL: 8)");
+            ["1.3 inch I2C (SH1106 SDA:7, SCL:8)", "SH1106"],
+            ["0.96 inch I2C (SSD1306 SDA:7, SCL:8)", "SSD1306"],
+            ["2.42 inch SPI Waveshare (SSD1309 SCK:35, MOSI:36, CS:38, DC:37)", "SPI_242"]
+          ]), "TYPE");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('display_blocks');
-      this.setTooltip("Initialize 1.3-inch (SH1106) or 0.96-inch (SSD1306) OLED display on I2C port");
+      this.setTooltip("Initialize 1.3-inch (SH1106), 0.96-inch (SSD1306) I2C or 2.42-inch Waveshare (SSD1309) SPI OLED");
+      this.setHelpUrl("");
+    }
+  };
+
+  Blockly.Blocks['titan_oled_spi_init'] = {
+    init: function() {
+      this.appendDummyInput()
+          .appendField("Initialize Waveshare 2.42\" SPI OLED")
+          .appendField(new Blockly.FieldDropdown([
+            ["SSD1309 (128x64)", "SSD1309"]
+          ]), "CONTROLLER");
+      this.appendDummyInput()
+          .appendField("SCK: Pin 35 | MOSI: Pin 36 | CS: Pin 38 | DC: Pin 37");
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setStyle('display_blocks');
+      this.setTooltip("Initialize Waveshare 2.42 inch SPI OLED Display (SSD1309) with SCK 35, MOSI 36, CS 38, DC 37");
+      this.setHelpUrl("");
+    }
+  };
+
+  Blockly.Blocks['titan_oled_contrast'] = {
+    init: function() {
+      this.appendValueInput("CONTRAST")
+          .setCheck("Number")
+          .appendField("OLED set contrast (0-255)");
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setStyle('display_blocks');
+      this.setTooltip("Set OLED screen brightness / contrast level (0 to 255)");
+      this.setHelpUrl("");
+    }
+  };
+
+  Blockly.Blocks['titan_oled_invert'] = {
+    init: function() {
+      this.appendDummyInput()
+          .appendField("OLED invert colors")
+          .appendField(new Blockly.FieldDropdown([
+            ["True (Inverted)", "True"],
+            ["False (Normal)", "False"]
+          ]), "INVERT");
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setStyle('display_blocks');
+      this.setTooltip("Invert display colors between dark and light modes");
       this.setHelpUrl("");
     }
   };
@@ -1983,13 +2029,13 @@ export function registerCustomBlocks() {
     }
   };
 
-  // ================= GY-53 / VL53L0X LASER TOF DISTANCE SENSOR =================
+  // ================= GY-53 / VL53L1X & VL53L0X LASER TOF DISTANCE SENSOR =================
   Blockly.Blocks['titan_vl53l0x_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Initialize Laser ToF Sensor (VL53L0X)")
+          .appendField("🎯 Initialize Laser ToF Sensor (VL53L1X / VL53L0X)")
           .appendField("Offset:")
-          .appendField(new Blockly.FieldNumber(-60, -1000, 1000), "OFFSET")
+          .appendField(new Blockly.FieldNumber(0, -1000, 1000), "OFFSET")
           .appendField(new Blockly.FieldDropdown([
             ["mm", "MM"],
             ["cm", "CM"]
@@ -1997,7 +2043,7 @@ export function registerCustomBlocks() {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('machine_blocks');
-      this.setTooltip("Initialize VL53L0X laser sensor on I2C (GPIO 7, 8) with calibration offset (+/-)");
+      this.setTooltip("Initialize VL53L1X / VL53L0X laser sensor on I2C (GPIO 7, 8) with calibration offset (+/-)");
       this.setHelpUrl("");
     }
   };
@@ -2005,8 +2051,8 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_set_offset'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Set Laser Distance Offset (VL53L0X) to")
-          .appendField(new Blockly.FieldNumber(-60, -1000, 1000), "OFFSET")
+          .appendField("🎯 Set Laser Distance Offset (VL53L1X) to")
+          .appendField(new Blockly.FieldNumber(0, -1000, 1000), "OFFSET")
           .appendField(new Blockly.FieldDropdown([
             ["mm", "MM"],
             ["cm", "CM"]
@@ -2022,7 +2068,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_read_distance'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Laser Distance (VL53L0X) in")
+          .appendField("🎯 Laser Distance (VL53L1X / ToF) in")
           .appendField(new Blockly.FieldDropdown([
             ["cm", "CM"],
             ["mm", "MM"],
@@ -2031,7 +2077,7 @@ export function registerCustomBlocks() {
           ]), "UNIT");
       this.setOutput(true, "Number");
       this.setStyle('machine_blocks');
-      this.setTooltip("Measure distance using VL53L0X / GY-53 Laser Time-of-Flight ranging sensor (30mm to 2000mm)");
+      this.setTooltip("Measure distance using VL53L1X / VL53L0X Laser Time-of-Flight ranging sensor (up to 4000mm)");
       this.setHelpUrl("");
     }
   };

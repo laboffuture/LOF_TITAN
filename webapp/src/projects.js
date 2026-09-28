@@ -14,7 +14,7 @@ export const projects = [
     tagline: 'UV Light Following 4-Bar Linkage 8-Leg Walking Robot',
     // Kit-specific page copy. Omit any of these and the detail page falls back to
     // a generic equivalent rather than showing another kit's wording.
-    codeFilename: 'invisible_rover.py',
+    codeFilename: 'invisible_line_follower.py',
     assemblyTitle: '4-Bar Linkage Mechanical Assembly',
     outroCopy: 'Connect your LOF TITAN board via Web Bluetooth, upload the firmware code, or customize the 8-leg walking algorithm in Block Code Studio!',
     specs: [
@@ -504,7 +504,7 @@ def handle_http_request(conn, request_str):
     global auto_uv_mode, motor_speed, uv_threshold
 
     try:
-        first_line = request_str.split("\r\n")[0]
+        first_line = request_str.split("\\r\\n")[0].replace("\\r", "")
         parts = first_line.split(" ")
         if len(parts) < 2:
             return
@@ -647,7 +647,7 @@ def main():
 
 if __name__ == '__main__':
     main()
-`
+`,
   },
   {
     id: 'heat-seek-rover',
@@ -777,106 +777,452 @@ while True:
     ],
 
     // MicroPython Main Script
-    code: `# ==============================================================================
-# LOF TITAN - HEAT SEEK ROVER WITH AUTONOMOUS OBSTACLE AVOIDANCE
-# ==============================================================================
-
+    code: `from machine import Pin, PWM, ADC
+import machine
 import time
-from machine import Pin, PWM, ADC, time_pulse_us
-from supervisor.led_buzzer import hw
 
-# Pins
-PIN_L1, PIN_L2 = 15, 16  # Motor M1 (Left)
-PIN_R1, PIN_R2 = 13, 14  # Motor M2 (Right)
-PIN_FLAME_L = 2          # Flame Left S1 (GPIO 2)
-PIN_FLAME_R = 1          # Flame Right S2 (GPIO 1)
-PIN_TRIG = 6             # Ultrasonic Trig
-PIN_ECHO = 19            # Ultrasonic Echo
+# =====================================================
+# HEAT SEEK ROVER - LOF TITAN ESP32-S3
+# MicroPython conversion
+# =====================================================
 
-# Sensors
-flame_left = ADC(Pin(PIN_FLAME_L), atten=ADC.ATTN_11DB)
-flame_right = ADC(Pin(PIN_FLAME_R), atten=ADC.ATTN_11DB)
-trig_pin = Pin(PIN_TRIG, Pin.OUT)
-echo_pin = Pin(PIN_ECHO, Pin.IN)
-trig_pin.value(0)
+# ---------------- MOTOR PINS ----------------
+LEFT_IN1 = 15
+LEFT_IN2 = 16
+RIGHT_IN1 = 13
+RIGHT_IN2 = 14
 
-# Singleton PWM Pool
-_pwm_pool = {}
-def _get_pwm(pin, freq=1000):
-    if pin not in _pwm_pool:
-        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
-    else:
-        try: _pwm_pool[pin].freq(freq)
-        except Exception: pass
-    return _pwm_pool[pin]
+# ---------------- SENSOR PINS ----------------
+FIRE_PIN = 2
+TRIG_PIN = 6
+ECHO_PIN = 19
 
-def set_motors(left_speed, right_speed):
-    # Left Motor M1
-    spd_l = max(-100, min(100, left_speed))
-    duty_l = int(abs(spd_l) * 10.23)
-    if spd_l >= 0:
-        _get_pwm(PIN_L1).duty(duty_l)
-        Pin(PIN_L2, Pin.OUT).value(0)
-    else:
-        Pin(PIN_L1, Pin.OUT).value(0)
-        _get_pwm(PIN_L2).duty(duty_l)
+# ---------------- BUZZER ----------------
+BUZZER_PIN = 20
 
-    # Right Motor M2
-    spd_r = max(-100, min(100, right_speed))
-    duty_r = int(abs(spd_r) * 10.23)
-    if spd_r >= 0:
-        _get_pwm(PIN_R1).duty(duty_r)
-        Pin(PIN_R2, Pin.OUT).value(0)
-    else:
-        Pin(PIN_R1, Pin.OUT).value(0)
-        _get_pwm(PIN_R2).duty(duty_r)
+# ---------------- PWM SETTINGS ----------------
+PWM_FREQ = 5000
 
-def read_sonar_cm():
-    trig_pin.value(1)
+# ---------------- ROBOT SETTINGS ----------------
+MOTOR_SPEED = 150
+TURN_SPEED = 130
+OBSTACLE_CM = 30
+
+# ---------------- FLAME SENSOR ----------------
+# 12-bit equivalent range: 0...4095
+FIRE_FOUND_TH = 1500
+
+# ---------------- MOVEMENT TIMINGS (ms) ----------------
+AVOID_BACK_TIME = 450
+AVOID_TURN_TIME = 500
+
+FIRE_STOP_TIME = 5000
+FIRE_BACK_TIME = 900
+FIRE_TURN_TIME = 900
+
+# ---------------- BUZZER TIMING (ms) ----------------
+BUZZER_ON_TIME = 1000
+BUZZER_OFF_TIME = 1000
+
+# ---------------- SENSOR SAMPLE TIMINGS (ms) ----------------
+FIRE_SAMPLE_MS = 50
+DIST_SAMPLE_MS = 120
+SERIAL_PRINT_MS = 300
+
+# =====================================================
+# STATES
+# =====================================================
+RUN_FORWARD = 0
+AVOID_BACKWARD = 1
+AVOID_TURNLEFT = 2
+FIRE_WAIT = 3
+FIRE_BACKWARD = 4
+FIRE_TURN_LEFT = 5
+FIRE_TURN_RIGHT = 6
+
+STATE_NAMES = {
+    RUN_FORWARD: "RUN",
+    AVOID_BACKWARD: "AVOID BACK",
+    AVOID_TURNLEFT: "AVOID LEFT",
+    FIRE_WAIT: "FIRE WAIT",
+    FIRE_BACKWARD: "FIRE BACK",
+    FIRE_TURN_LEFT: "FIRE LEFT",
+    FIRE_TURN_RIGHT: "FIRE RIGHT",
+}
+
+# =====================================================
+# PIN SETUP
+# =====================================================
+trig = Pin(TRIG_PIN, Pin.OUT, value=0)
+echo = Pin(ECHO_PIN, Pin.IN)
+buzzer = Pin(BUZZER_PIN, Pin.OUT, value=0)
+
+fire_adc = ADC(Pin(FIRE_PIN))
+
+try:
+    fire_adc.atten(ADC.ATTN_11DB)
+except Exception:
+    pass
+
+# =====================================================
+# PWM SETUP
+# =====================================================
+left_in1_pwm = PWM(Pin(LEFT_IN1), freq=PWM_FREQ, duty_u16=0)
+left_in2_pwm = PWM(Pin(LEFT_IN2), freq=PWM_FREQ, duty_u16=0)
+right_in1_pwm = PWM(Pin(RIGHT_IN1), freq=PWM_FREQ, duty_u16=0)
+right_in2_pwm = PWM(Pin(RIGHT_IN2), freq=PWM_FREQ, duty_u16=0)
+
+# =====================================================
+# PWM FUNCTIONS
+# =====================================================
+def pwm_write(pwm, value):
+    value = max(0, min(255, int(value)))
+    duty = (value * 65535) // 255
+    pwm.duty_u16(duty)
+
+
+def stop_motors():
+    pwm_write(left_in1_pwm, 0)
+    pwm_write(left_in2_pwm, 0)
+    pwm_write(right_in1_pwm, 0)
+    pwm_write(right_in2_pwm, 0)
+
+
+def left_motor_forward(speed):
+    pwm_write(left_in1_pwm, speed)
+    pwm_write(left_in2_pwm, 0)
+
+
+def left_motor_backward(speed):
+    pwm_write(left_in1_pwm, 0)
+    pwm_write(left_in2_pwm, speed)
+
+
+def right_motor_forward(speed):
+    pwm_write(right_in1_pwm, speed)
+    pwm_write(right_in2_pwm, 0)
+
+
+def right_motor_backward(speed):
+    pwm_write(right_in1_pwm, 0)
+    pwm_write(right_in2_pwm, speed)
+
+
+def drive_forward(speed):
+    left_motor_forward(speed)
+    right_motor_forward(speed)
+
+
+def drive_backward(speed):
+    left_motor_backward(speed)
+    right_motor_backward(speed)
+
+
+def turn_left(speed):
+    left_motor_backward(speed)
+    right_motor_forward(speed)
+
+
+def turn_right(speed):
+    left_motor_forward(speed)
+    right_motor_backward(speed)
+
+
+# =====================================================
+# ULTRASONIC SENSOR
+# =====================================================
+def get_distance_cm():
+    trig.value(0)
+    time.sleep_us(2)
+
+    trig.value(1)
     time.sleep_us(10)
-    trig_pin.value(0)
-    dur = time_pulse_us(echo_pin, 1, 25000)
-    return (dur / 58.0) if dur > 0 else 999.0
+    trig.value(0)
 
-def main():
-    print("=== LOF TITAN HEAT SEEK ROVER RUNNING ===")
-    hw.play_startup_tone()
-    
-    FLAME_THRESHOLD = 1500  # Threshold for heat detection
+    try:
+        duration = machine.time_pulse_us(echo, 1, 30000)
+    except Exception:
+        return -1
 
-    while True:
-        val_l = flame_left.read()
-        val_r = flame_right.read()
-        dist = read_sonar_cm()
+    if duration <= 0:
+        return -1
 
-        print(f"Flame L: {val_l:4d} | Flame R: {val_r:4d} | Sonar: {dist:.1f} cm")
+    distance = (duration * 0.0343) / 2.0
 
-        # 1. Obstacle Avoidance Priority
-        if dist < 15.0:
-            print("Obstacle Detected! Backing up and turning right...")
-            set_motors(-60, -60)
-            time.sleep_ms(400)
-            set_motors(70, -70)
-            time.sleep_ms(500)
-        # 2. Heat Seeking Logic
-        elif val_l < FLAME_THRESHOLD or val_r < FLAME_THRESHOLD:
-            hw.play_confirmation_tone()
-            if abs(val_l - val_r) < 300:
-                print("Target Ahead! Moving Forward...")
-                set_motors(70, 70)
-            elif val_l < val_r:
-                print("Target Left! Pivot Turning Left...")
-                set_motors(-60, 70)
-            else:
-                print("Target Right! Pivot Turning Right...")
-                set_motors(70, -60)
+    if distance < 2 or distance > 400:
+        return -1
+
+    return int(distance)
+
+
+# =====================================================
+# FLAME SENSOR
+# =====================================================
+def read_fire_raw():
+    # MicroPython ADC returns 0...65535.
+    # Convert to Arduino-style 12-bit range 0...4095.
+    return fire_adc.read_u16() >> 4
+
+
+def get_fire_strength(raw_value):
+    return 4095 - raw_value
+
+
+def fire_detected(raw_value):
+    return raw_value <= FIRE_FOUND_TH
+
+
+def obstacle_detected(distance_cm):
+    return distance_cm > 0 and distance_cm < OBSTACLE_CM
+
+
+# =====================================================
+# BUZZER
+# =====================================================
+buzzer_state = False
+last_buzzer_ms = time.ticks_ms()
+
+
+def buzzer_off():
+    global buzzer_state
+    buzzer_state = False
+    buzzer.value(0)
+
+
+def update_emergency_buzzer(alarm_active):
+    global buzzer_state, last_buzzer_ms
+
+    now = time.ticks_ms()
+
+    if not alarm_active:
+        buzzer_off()
+        last_buzzer_ms = now
+        return
+
+    elapsed = time.ticks_diff(now, last_buzzer_ms)
+
+    if buzzer_state:
+        if elapsed >= BUZZER_ON_TIME:
+            buzzer_state = False
+            last_buzzer_ms = now
+            buzzer.value(0)
+    else:
+        if elapsed >= BUZZER_OFF_TIME:
+            buzzer_state = True
+            last_buzzer_ms = now
+            buzzer.value(1)
+
+
+# =====================================================
+# STARTUP
+# =====================================================
+stop_motors()
+buzzer_off()
+
+state = RUN_FORWARD
+state_start_ms = time.ticks_ms()
+
+last_fire_sample_ms = time.ticks_ms()
+last_dist_sample_ms = time.ticks_ms()
+last_serial_ms = time.ticks_ms()
+
+distance_cm = -1
+fire_value = 4095
+fire_strength = 0
+
+escape_turn_left = True
+
+print()
+print("=================================")
+print(" CAN-BOT - LOF TITAN PCB")
+print(" MicroPython")
+print("=================================")
+print()
+print("TITAN PCB PINOUT")
+print("Flame Sensor: S1 -> GPIO2")
+print("Ultrasonic: TRIG -> GPIO6 | ECHO -> GPIO19")
+print("Motors: LEFT -> M1 GPIO15/16 | RIGHT -> M2 GPIO13/14")
+print("Buzzer -> GPIO20")
+print("Obstacle threshold = {} cm".format(OBSTACLE_CM))
+print("Fire threshold = {}".format(FIRE_FOUND_TH))
+print("System Started...")
+
+# =====================================================
+# MAIN LOOP
+# =====================================================
+while True:
+    now = time.ticks_ms()
+
+    # ---------------- ULTRASONIC SAMPLE ----------------
+    if time.ticks_diff(now, last_dist_sample_ms) >= DIST_SAMPLE_MS:
+        last_dist_sample_ms = now
+        distance_cm = get_distance_cm()
+
+    # ---------------- FLAME SENSOR SAMPLE ----------------
+    if time.ticks_diff(now, last_fire_sample_ms) >= FIRE_SAMPLE_MS:
+        last_fire_sample_ms = now
+        fire_value = read_fire_raw()
+        fire_strength = get_fire_strength(fire_value)
+
+    fire_now = fire_detected(fire_value)
+    obstacle_now = obstacle_detected(distance_cm)
+
+    # ---------------- FIRE ALARM MODE ----------------
+    fire_mode = (
+        fire_now
+        or state == FIRE_WAIT
+        or state == FIRE_BACKWARD
+        or state == FIRE_TURN_LEFT
+        or state == FIRE_TURN_RIGHT
+    )
+
+    update_emergency_buzzer(fire_mode)
+
+    # ---------------- SERIAL / REPL MONITOR ----------------
+    if time.ticks_diff(now, last_serial_ms) >= SERIAL_PRINT_MS:
+        last_serial_ms = now
+
+        if distance_cm == -1:
+            distance_text = "NO READING"
         else:
-            # Patrol Search Scan
-            set_motors(45, 45)
+            distance_text = "{} cm".format(distance_cm)
 
-        time.sleep_ms(20)
+        print(
+            "STATE: {} | DIST: {} | FIRE RAW: {} | "
+            "FIRE STRENGTH: {} | FIRE: {} | OBSTACLE: {}".format(
+                STATE_NAMES.get(state, "UNKNOWN"),
+                distance_text,
+                fire_value,
+                fire_strength,
+                "YES" if fire_now else "NO",
+                "YES" if obstacle_now else "NO",
+            )
+        )
 
-`
+    # ---------------- FIRE PRIORITY ----------------
+    if (
+        fire_now
+        and state != FIRE_WAIT
+        and state != FIRE_BACKWARD
+        and state != FIRE_TURN_LEFT
+        and state != FIRE_TURN_RIGHT
+    ):
+        stop_motors()
+
+        print()
+        print("!!! FIRE DETECTED !!!")
+        print("STOP FOR 5 SECONDS + ALARM")
+
+        state = FIRE_WAIT
+        state_start_ms = now
+
+        time.sleep_ms(1)
+        continue
+
+    # =================================================
+    # STATE MACHINE
+    # =================================================
+
+    # ---------------- NORMAL FORWARD ----------------
+    if state == RUN_FORWARD:
+        if obstacle_now:
+            stop_motors()
+
+            print("OBSTACLE DETECTED -> BACKWARD")
+
+            state = AVOID_BACKWARD
+            state_start_ms = now
+        else:
+            drive_forward(MOTOR_SPEED)
+
+    # ---------------- OBSTACLE BACKWARD ----------------
+    elif state == AVOID_BACKWARD:
+        drive_backward(MOTOR_SPEED)
+
+        if time.ticks_diff(now, state_start_ms) >= AVOID_BACK_TIME:
+            stop_motors()
+
+            print("BACKWARD DONE -> TURN LEFT")
+
+            state = AVOID_TURNLEFT
+            state_start_ms = now
+
+    # ---------------- OBSTACLE TURN LEFT ----------------
+    elif state == AVOID_TURNLEFT:
+        turn_left(TURN_SPEED)
+
+        if time.ticks_diff(now, state_start_ms) >= AVOID_TURN_TIME:
+            stop_motors()
+
+            print("TURN COMPLETE -> FORWARD")
+
+            state = RUN_FORWARD
+            state_start_ms = now
+
+    # ---------------- FIRE WAIT ----------------
+    elif state == FIRE_WAIT:
+        stop_motors()
+
+        if time.ticks_diff(now, state_start_ms) >= FIRE_STOP_TIME:
+            print("5 SEC COMPLETE -> FIRE ESCAPE")
+
+            state = FIRE_BACKWARD
+            state_start_ms = now
+
+    # ---------------- FIRE BACKWARD ----------------
+    elif state == FIRE_BACKWARD:
+        drive_backward(MOTOR_SPEED)
+
+        if time.ticks_diff(now, state_start_ms) >= FIRE_BACK_TIME:
+            stop_motors()
+
+            if escape_turn_left:
+                print("FIRE ESCAPE -> TURN LEFT")
+                state = FIRE_TURN_LEFT
+            else:
+                print("FIRE ESCAPE -> TURN RIGHT")
+                state = FIRE_TURN_RIGHT
+
+            state_start_ms = now
+
+    # ---------------- FIRE TURN LEFT ----------------
+    elif state == FIRE_TURN_LEFT:
+        turn_left(TURN_SPEED)
+
+        if time.ticks_diff(now, state_start_ms) >= FIRE_TURN_TIME:
+            stop_motors()
+
+            escape_turn_left = False
+
+            if fire_detected(fire_value):
+                print("FIRE STILL DETECTED -> WAIT AGAIN")
+                state = FIRE_WAIT
+            else:
+                print("FIRE CLEARED -> FORWARD")
+                state = RUN_FORWARD
+
+            state_start_ms = now
+
+    # ---------------- FIRE TURN RIGHT ----------------
+    elif state == FIRE_TURN_RIGHT:
+        turn_right(TURN_SPEED)
+
+        if time.ticks_diff(now, state_start_ms) >= FIRE_TURN_TIME:
+            stop_motors()
+
+            escape_turn_left = True
+
+            if fire_detected(fire_value):
+                print("FIRE STILL DETECTED -> WAIT AGAIN")
+                state = FIRE_WAIT
+            else:
+                print("FIRE CLEARED -> FORWARD")
+                state = RUN_FORWARD
+
+            state_start_ms = now
+
+    time.sleep_ms(1)
+`,
   },
   {
     id: 'heartbeat',
@@ -3020,6 +3366,7 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-terrain-trek',
     thumbnail: 'lof-titan/banners/banner-terrain-trek',
     tagline: 'Four-Wheel Rocker-Bogie Rover with Ultrasonic Ranging',
+    codeFilename: 'terrain_trek.py',
     description:
       'Build a four-wheel rocker-bogie rover, wire it up, and drive it wirelessly across a terrain course of ramps and bumps. Explore how real planetary rovers keep every wheel on the ground over uneven terrain, and how they sense an obstacle before it becomes a problem.',
 
@@ -3233,6 +3580,686 @@ if __name__ == '__main__':
         hint: "Change one rule at a time, or you won't know which change caused the improvement.",
       },
     ],
+
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — TERRAIN TREK: Light-Activated 4WD Incline-Crawling Rover
+# ------------------------------------------------------------------------------
+# Hardware:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - 4WD Motors (Independently Controlled):
+#       * M1: GPIO 15, 16 (Front-Left Motor)
+#       * M2: GPIO 13, 14 (Front-Right Motor)
+#       * M3: GPIO 11, 12 (Rear-Left Motor)
+#       * M4: GPIO 9, 10  (Rear-Right Motor)
+#   - IMU Sensor: MPU6050 6-Axis Gyroscope & Accelerometer (I2C: SDA 7, SCL 8, Addr 0x68)
+#   - Distance Sensor: Ultrasonic Sensor (Trig: GPIO 6, Echo: GPIO 19)
+#   - Light Sensor: LDR Analog Sensor (Port S1 / GPIO 2 ADC)
+#   - Push Buttons: BTN 1-4 (GPIO 39, 40, 41, 42)
+#   - Indicators: Red LED (GPIO 47), Green LED (GPIO 48)
+#
+# Core Operation:
+#   1. Light-Activated Lifecycle:
+#      - LIGHT DETECTED (> Threshold): Rover wakes up, activates 4WD, and navigates.
+#      - DARK DETECTED (<= Threshold): Rover enters STANDBY MODE (all motors STOP,
+#        system sleeps, awaiting light).
+#   2. MPU6050 Adaptive Slope Crawling:
+#      - Uphill Slope (> 11.5° Pitch): Shifts to high-torque slow CRAWL MODE (prevents slip).
+#      - Downhill Decline (< -11.5° Pitch): Controlled low-speed descent engine braking.
+#      - Critical Rollover Protection (> 38° Pitch/Roll): Emergency safety brake.
+#   3. Ultrasonic Intelligent Obstacle Avoidance:
+#      - Multi-stage collision avoidance (Safe, Decelerate Arc-Steer, Reverse-Pivot Escape).
+#   4. Comprehensive Live Serial Telemetry:
+#      - Continuous formatted debug printing of Light %, Mode, Pitch, Distance, and 4WD status.
+# ==============================================================================
+
+import time
+import math
+import struct
+from machine import Pin, PWM, ADC, SoftI2C
+
+# ================= 1. HARDWARE PINOUT & ACTIVE-PIN PWM MANAGER =================
+_pwm_pool = {}
+
+def _set_pin_pwm(pin, duty, freq=1000):
+    """
+    Assigns hardware PWM only when duty > 0.
+    When duty == 0, deinitializes PWM immediately and drives as digital LOW (0)
+    to guarantee at most 4 hardware PWM channels are ever used across the entire 4WD rover.
+    """
+    if duty > 0:
+        if pin not in _pwm_pool:
+            try:
+                _pwm_pool[pin] = PWM(Pin(pin, Pin.OUT), freq=freq)
+            except Exception:
+                # If pool was full, clear idle pins and retry
+                _clean_idle_pwms()
+                _pwm_pool[pin] = PWM(Pin(pin, Pin.OUT), freq=freq)
+        else:
+            try:
+                _pwm_pool[pin].freq(freq)
+            except Exception:
+                pass
+        _pwm_pool[pin].duty(duty)
+    else:
+        if pin in _pwm_pool:
+            try:
+                _pwm_pool[pin].duty(0)
+                _pwm_pool[pin].deinit()
+            except Exception:
+                pass
+            del _pwm_pool[pin]
+        try:
+            Pin(pin, Pin.OUT).value(0)
+        except Exception:
+            pass
+
+def _clean_idle_pwms():
+    """Emergency helper to free all allocated PWM channels."""
+    for p, obj in list(_pwm_pool.items()):
+        try:
+            obj.duty(0)
+            obj.deinit()
+        except Exception:
+            pass
+    _pwm_pool.clear()
+
+# Status Indicators
+led_red = Pin(47, Pin.OUT)
+led_grn = Pin(48, Pin.OUT)
+led_red.value(0)
+led_grn.value(0)
+
+# Push Buttons (Active LOW)
+btn1 = Pin(39, Pin.IN, Pin.PULL_UP)  # Manual Override / Force Wake Toggle
+btn2 = Pin(40, Pin.IN, Pin.PULL_UP)  # Calibrate IMU Zero Horizon
+btn3 = Pin(41, Pin.IN, Pin.PULL_UP)  # Toggle High / Low LDR Sensitivity
+btn4 = Pin(42, Pin.IN, Pin.PULL_UP)  # Diagnostic Test Button
+
+# Ultrasonic Sensor Pins
+trig_pin = Pin(6, Pin.OUT)
+echo_pin = Pin(19, Pin.IN)
+trig_pin.value(0)
+
+# LDR Light Sensor (Analog Port S1 = GPIO 2)
+try:
+    ldr_adc = ADC(Pin(2))
+    ldr_adc.atten(ADC.ATTN_11DB)  # Full 0 - 3.3V range
+except Exception:
+    ldr_adc = None
+
+
+# ================= 2. 4-WHEEL DRIVE (4WD) MOTOR ENGINE =================
+def _drive_motor(pin_a, pin_b, duty_pct, fwd=True):
+    """
+    H-Bridge motor control using at most 1 PWM channel per motor.
+    PWM Duty Cycle Percentage: 0 - 100% (Flat: 80%, Slight tilt: 70%, Strong tilt: 50%).
+    Maps 0-100% duty to 0-1023 (10-bit ESP32 PWM duty).
+    Forward: pin_a is PWM, pin_b is digital LOW (0).
+    Reverse: pin_b is PWM, pin_a is digital LOW (0).
+    Stop:    both pins are digital LOW (0, PWM released).
+    """
+    pct = max(0.0, min(100.0, float(duty_pct)))
+    duty = int(pct * 1023 / 100) if pct > 0 else 0
+    if duty == 0:
+        _set_pin_pwm(pin_a, 0)
+        _set_pin_pwm(pin_b, 0)
+    elif fwd:
+        _set_pin_pwm(pin_b, 0)      # Release PWM on reverse pin first
+        _set_pin_pwm(pin_a, duty)   # Drive forward pin with PWM
+    else:
+        _set_pin_pwm(pin_a, 0)      # Release PWM on forward pin first
+        _set_pin_pwm(pin_b, duty)   # Drive reverse pin with PWM
+
+def _raw_m1(duty_pct, fwd=True):
+    """M1 Front-Left: GPIO 15, 16"""
+    _drive_motor(15, 16, duty_pct, fwd)
+
+def _raw_m2(duty_pct, fwd=True):
+    """M2 Front-Right: GPIO 13, 14"""
+    _drive_motor(13, 14, duty_pct, fwd)
+
+def _raw_m3(duty_pct, fwd=True):
+    """M3 Rear-Left: GPIO 11, 12"""
+    _drive_motor(11, 12, duty_pct, fwd)
+
+def _raw_m4(duty_pct, fwd=True):
+    """M4 Rear-Right: GPIO 9, 10"""
+    _drive_motor(9, 10, duty_pct, fwd)
+
+class Titan4WDEngine:
+    """
+    Independent 4WD Controller with smooth slew rate acceleration
+    for maximum traction on rocky, steep, and uneven terrain.
+    """
+    def __init__(self):
+        self.m1 = 0.0  # Front-Left (%)
+        self.m2 = 0.0  # Front-Right (%)
+        self.m3 = 0.0  # Rear-Left (%)
+        self.m4 = 0.0  # Rear-Right (%)
+        self.slew_step = 6.0
+
+    def set_targets(self, m1_t, m2_t, m3_t, m4_t, max_step=None):
+        step = max_step if max_step is not None else self.slew_step
+
+        # Slew M1
+        if self.m1 < m1_t: self.m1 = min(m1_t, self.m1 + step)
+        elif self.m1 > m1_t: self.m1 = max(m1_t, self.m1 - step)
+
+        # Slew M2
+        if self.m2 < m2_t: self.m2 = min(m2_t, self.m2 + step)
+        elif self.m2 > m2_t: self.m2 = max(m2_t, self.m2 - step)
+
+        # Slew M3
+        if self.m3 < m3_t: self.m3 = min(m3_t, self.m3 + step)
+        elif self.m3 > m3_t: self.m3 = max(m3_t, self.m3 - step)
+
+        # Slew M4
+        if self.m4 < m4_t: self.m4 = min(m4_t, self.m4 + step)
+        elif self.m4 > m4_t: self.m4 = max(m4_t, self.m4 - step)
+
+        # Output to PWM
+        _raw_m1(abs(self.m1), fwd=(self.m1 >= 0))
+        _raw_m2(abs(self.m2), fwd=(self.m2 >= 0))
+        _raw_m3(abs(self.m3), fwd=(self.m3 >= 0))
+        _raw_m4(abs(self.m4), fwd=(self.m4 >= 0))
+
+    def drive_skid(self, left_pct, right_pct, max_step=None):
+        """Differential Skid Steering across all 4 wheels."""
+        self.set_targets(left_pct, right_pct, left_pct, right_pct, max_step)
+
+    def emergency_brake(self):
+        """Instant active brake for all wheels."""
+        self.m1 = 0.0
+        self.m2 = 0.0
+        self.m3 = 0.0
+        self.m4 = 0.0
+        _raw_m1(0); _raw_m2(0); _raw_m3(0); _raw_m4(0)
+
+motors = Titan4WDEngine()
+
+
+# ================= 3. MPU6050 6-AXIS IMU (SLOPE & CRAWL DETECTOR) =================
+class MPU6050:
+    """
+    MPU6050 IMU Driver (I2C Addr: 0x68) on SDA: GPIO 7, SCL: GPIO 8.
+    Calculates stable pitch (slope climb/descent) and roll angles using
+    vibration-filtered gravity vectors without gyro integration runaway.
+    """
+    ADDR = 0x68
+    def __init__(self, i2c):
+        self.i2c = i2c
+        self.connected = False
+        self.pitch_raw = 0.0
+        self.roll_raw = 0.0
+        self.pitch = 0.0      # + Climbing uphill, - Downhill
+        self.roll = 0.0       # + Right tilt, - Left tilt
+        self.accel_z = 1.0
+        self.pitch_offset = 0.0
+        self.roll_offset = 0.0
+        self.alpha = 0.15     # Low-pass filter smoothing coefficient
+        self.init_sensor()
+
+    def _w(self, reg, val):
+        try: self.i2c.writeto_mem(self.ADDR, reg, bytearray([val]))
+        except Exception: pass
+
+    def _r(self, reg, n=1):
+        try: return self.i2c.readfrom_mem(self.ADDR, reg, n)
+        except Exception: return bytearray(n)
+
+    def init_sensor(self):
+        try:
+            self._w(0x6B, 0x00)  # Wake up (PWR_MGMT_1)
+            time.sleep_ms(25)
+            self._w(0x1C, 0x08)  # Accel ±4g (8192 LSB/g)
+            self._w(0x1B, 0x08)  # Gyro ±500°/s (65.5 LSB/deg/s)
+            time.sleep_ms(20)
+            who = self._r(0x75, 1)
+            self.connected = len(who) > 0
+        except Exception:
+            self.connected = False
+
+    def calibrate_zero(self):
+        """Zero the horizon on flat ground by averaging 25 accelerometer samples."""
+        p_acc, r_acc = 0.0, 0.0
+        samples = 25
+        valid_cnt = 0
+        for _ in range(samples):
+            try:
+                data = self._r(0x3B, 6)
+                if len(data) == 6:
+                    ax, ay, az = struct.unpack('>hhh', data)
+                    acc_x = ax / 8192.0
+                    acc_y = ay / 8192.0
+                    acc_z = az / 8192.0
+                    p = math.atan2(acc_x, math.sqrt(acc_y**2 + acc_z**2)) * 57.2958
+                    r = math.atan2(acc_y, math.sqrt(acc_x**2 + acc_z**2)) * 57.2958
+                    p_acc += p
+                    r_acc += r
+                    valid_cnt += 1
+            except Exception:
+                pass
+            time.sleep_ms(15)
+
+        if valid_cnt > 0:
+            self.pitch_offset = p_acc / valid_cnt
+            self.roll_offset = r_acc / valid_cnt
+            self.pitch_raw = self.pitch_offset
+            self.roll_raw = self.roll_offset
+            self.pitch = 0.0
+            self.roll = 0.0
+        print(">>> [IMU] Zero Horizon Calibrated. Pitch Offset: {:.1f}°, Roll Offset: {:.1f}°".format(
+            self.pitch_offset, self.roll_offset))
+
+    def update(self):
+        """Read 6-axis accelerometer & gyroscope and compute smooth tilt angles."""
+        try:
+            data = self._r(0x3B, 14)
+            if len(data) == 14:
+                ax, ay, az, _, gx, gy, gz = struct.unpack('>hhhhhhh', data)
+                accel_x = ax / 8192.0
+                accel_y = ay / 8192.0
+                self.accel_z = az / 8192.0
+
+                # Compute instantaneous geometric tilt angles from gravity vector (symmetrical 3D)
+                acc_p = math.atan2(accel_x, math.sqrt(accel_y**2 + self.accel_z**2)) * 57.2958
+                acc_r = math.atan2(accel_y, math.sqrt(accel_x**2 + self.accel_z**2)) * 57.2958
+
+                # Low-pass filter to reject motor chassis vibration & rough terrain noise
+                self.pitch_raw = self.pitch_raw * (1.0 - self.alpha) + acc_p * self.alpha
+                self.roll_raw = self.roll_raw * (1.0 - self.alpha) + acc_r * self.alpha
+
+                # Output zero-calibrated slope and tilt angles
+                self.pitch = round(self.pitch_raw - self.pitch_offset, 1)
+                self.roll = round(self.roll_raw - self.roll_offset, 1)
+                return True
+        except Exception:
+            pass
+        return False
+
+
+# ================= 4. ULTRASONIC SENSOR DRIVER =================
+def read_ultrasonic_cm():
+    """Measure obstacle distance in cm with median filtering."""
+    readings = []
+    for _ in range(3):
+        try:
+            trig_pin.value(0)
+            time.sleep_us(2)
+            trig_pin.value(1)
+            time.sleep_us(10)
+            trig_pin.value(0)
+
+            t_start = time.ticks_us()
+            while echo_pin.value() == 0:
+                if time.ticks_diff(time.ticks_us(), t_start) > 20000:
+                    break
+
+            pulse_start = time.ticks_us()
+            while echo_pin.value() == 1:
+                if time.ticks_diff(time.ticks_us(), pulse_start) > 25000:
+                    break
+            pulse_end = time.ticks_us()
+
+            dist = time.ticks_diff(pulse_end, pulse_start) / 58.0
+            if 2.0 <= dist <= 400.0:
+                readings.append(dist)
+        except Exception:
+            pass
+        time.sleep_ms(3)
+
+    if readings:
+        readings.sort()
+        return round(readings[len(readings) // 2], 1)
+    return 250.0  # Clear path
+
+
+# ================= 5. LDR LIGHT SENSOR DRIVER (INVERTED POLARITY) =================
+def read_ldr_percentage():
+    """
+    Read ambient light intensity from LDR (Port S1 / GPIO 2).
+    Standard LDR voltage drops in bright light (raw -> 0) and rises in dark (raw -> 4095).
+    Inverted formula: ((4095 - raw) / 4095) * 100% -> High % = Bright Daylight, Low % = Darkness.
+    """
+    if ldr_adc is None:
+        return 75.0
+    try:
+        raw = ldr_adc.read()  # 0 to 4095
+        # Inverted ADC scaling: Low raw voltage in light -> High light percentage
+        pct = ((4095.0 - raw) / 4095.0) * 100.0
+        return round(max(0.0, min(100.0, pct)), 1)
+    except Exception:
+        return 50.0
+
+
+# ================= 6. TERRAIN TREK AUTONOMOUS CONTROLLER =================
+class TerrainTrekEngine:
+    def __init__(self, imu):
+        self.imu = imu
+        
+        # Rover Operational States:
+        # "STANDBY" (Dark detected, sleeping)
+        # "ACTIVE_TREK" (Light detected, navigating)
+        # "AVOID_REVERSE", "AVOID_TURN"
+        self.state = "STANDBY"
+        
+        # LDR Light Activation Thresholds (with Hysteresis to prevent flickering)
+        self.LDR_WAKE_THRESHOLD = 30.0   # Light level to Wake Up and Move (%)
+        self.LDR_SLEEP_THRESHOLD = 20.0  # Dark level to enter Standby Mode (%)
+
+        # Exact Motor PWM Cycle Percentages (0 - 100%)
+        self.SPEED_FLAT = 80.0           # Flat MPU (Tilt < 8°) -> 70% PWM Duty
+        self.SPEED_SLIGHT_TILT = 55.0    # Slight tilt (8° <= Tilt < 20°) -> 55% PWM Duty
+        self.SPEED_STRONG_TILT = 30.0    # Strong tilt (20° <= Tilt < 60°) -> 30% PWM Duty
+        self.SPEED_TURN = 65.0           # Pivot turn obstacle escape speed
+        self.SPEED_REVERSE = 60.0        # Reverse avoidance speed
+
+        # Tilt Angle Boundaries (Degrees)
+        self.TILT_SLIGHT_THRESHOLD = 5.0   # Boundary for Slight Tilt
+        self.TILT_STRONG_THRESHOLD = 15.0  # Boundary for Strong Tilt / High-Torque Crawl
+        self.ROLLOVER_LIMIT = 45.0         # Critical rollover threshold (60°)
+
+        # Avoidance State Machine
+        self.avoid_start_ms = 0
+        self.avoid_duration_ms = 0
+        self.avoid_dir = 1
+
+    def update_lifecycle(self, ldr_pct):
+        """Manage Wake / Standby transitions based on LDR light."""
+        if self.state == "STANDBY":
+            if ldr_pct >= self.LDR_WAKE_THRESHOLD:
+                # LIGHT DETECTED -> WAKE UP & ACTIVATE 4WD
+                self.state = "ACTIVE_TREK"
+                led_grn.value(1)
+                led_red.value(0)
+                print("\\n=======================================================")
+                print(">>> [LDR TRIGGER] LIGHT DETECTED ({:.1f}%) -> WAKING UP!".format(ldr_pct))
+                print(">>> 4WD PROPULSION SYSTEM ENGAGED.")
+                print("=======================================================")
+                return "WAKE"
+
+        elif self.state in ["ACTIVE_TREK", "AVOID_REVERSE", "AVOID_TURN"]:
+            if ldr_pct < self.LDR_SLEEP_THRESHOLD:
+                # DARK DETECTED -> ENTER STANDBY MODE
+                self.state = "STANDBY"
+                motors.emergency_brake()
+                led_grn.value(0)
+                led_red.value(0)
+                print("\\n=======================================================")
+                print(">>> [LDR TRIGGER] DARK DETECTED ({:.1f}%) -> ENTERING STANDBY".format(ldr_pct))
+                print(">>> MOTORS SHUT DOWN. WAITING FOR LIGHT...")
+                print("=======================================================")
+                return "SLEEP"
+
+        return "NO_CHANGE"
+
+    def evaluate_slope(self):
+        """
+        Analyze MPU6050 3D tilt angle and determine adaptive motor PWM cycle:
+          * Flat ground (Tilt < 8°): 70% PWM Cycle
+          * Slight tilt (8° <= Tilt < 20°): 55% PWM Cycle
+          * Strong tilt (Tilt >= 20°): 30% PWM Cycle
+          * Rollover (Tilt >= 60°): Emergency Brake (0% Duty)
+        """
+        pitch = self.imu.pitch
+        roll = self.imu.roll
+        tilt = math.sqrt(pitch * pitch + roll * roll)
+
+        # 1. Rollover Safety Check (> 60°)
+        if abs(pitch) > self.ROLLOVER_LIMIT or abs(roll) > self.ROLLOVER_LIMIT or tilt > self.ROLLOVER_LIMIT:
+            motors.emergency_brake()
+            led_red.value(1)
+            led_grn.value(0)
+            return "ROLLOVER_LOCK", 0.0, tilt
+
+        # 2. Strong Tilt (Incline/Decline/Rock Crawl >= 20°) -> 30% PWM Duty
+        if tilt >= self.TILT_STRONG_THRESHOLD:
+            return "STRONG_TILT", self.SPEED_STRONG_TILT, tilt
+
+        # 3. Slight Tilt (8° to 20°) -> 55% PWM Duty
+        elif tilt >= self.TILT_SLIGHT_THRESHOLD:
+            return "SLIGHT_TILT", self.SPEED_SLIGHT_TILT, tilt
+
+        # 4. Flat / Level Ground (< 8°) -> 70% PWM Duty
+        else:
+            return "FLAT_CRUISE", self.SPEED_FLAT, tilt
+
+    def execute_navigation(self, dist_cm, slope_mode, target_spd):
+        """Execute 4WD obstacle avoidance and tilt-adaptive motor drive."""
+        now = time.ticks_ms()
+
+        # If in Standby Mode or Rollover Lock, stop all 4 motors
+        if self.state == "STANDBY" or slope_mode == "ROLLOVER_LOCK":
+            motors.emergency_brake()
+            return
+
+        # Avoidance State 1: Reverse Backwards away from Obstacle
+        if self.state == "AVOID_REVERSE":
+            if time.ticks_diff(now, self.avoid_start_ms) < self.avoid_duration_ms:
+                motors.drive_skid(-self.SPEED_REVERSE, -self.SPEED_REVERSE * 0.85, max_step=12.0)
+                led_red.value(1)
+                return
+            else:
+                self.state = "AVOID_TURN"
+                self.avoid_start_ms = now
+                self.avoid_duration_ms = 500  # 500ms escape turn
+                return
+
+        # Avoidance State 2: Pivot Turn to Open Vector
+        elif self.state == "AVOID_TURN":
+            if time.ticks_diff(now, self.avoid_start_ms) < self.avoid_duration_ms:
+                if self.avoid_dir > 0:
+                    motors.drive_skid(self.SPEED_TURN, -self.SPEED_TURN, max_step=12.0)
+                else:
+                    motors.drive_skid(-self.SPEED_TURN, self.SPEED_TURN, max_step=12.0)
+                led_red.value(1)
+                return
+            else:
+                self.state = "ACTIVE_TREK"
+                led_red.value(0)
+                print(">>> [OBSTACLE] Avoidance Complete. Resuming Forward Trek.")
+
+        # Active Trekking
+        if self.state == "ACTIVE_TREK":
+            # --- Ultrasonic Obstacle Reaction ---
+            if dist_cm < 18.0:
+                # DANGER ZONE (<18cm): Emergency stop, start avoidance
+                motors.emergency_brake()
+                print(">>> [OBSTACLE] Critical Danger! Distance: {:.1f}cm -> REVERSING".format(dist_cm))
+                self.state = "AVOID_REVERSE"
+                self.avoid_start_ms = now
+                self.avoid_duration_ms = 550
+                self.avoid_dir = 1 if (now % 2 == 0) else -1
+                return
+
+            elif dist_cm < 35.0:
+                # CAUTION ZONE (18-35cm): Decelerate and curved arc steer
+                caution_spd = max(25.0, target_spd * 0.6)
+                motors.drive_skid(caution_spd * 0.4, caution_spd, max_step=6.0)
+                led_red.value(1)
+                return
+
+            # --- Clear Path: Speed Regulated by MPU6050 Slope ---
+            led_red.value(0)
+            if slope_mode == "STRONG_TILT":
+                # Strong Tilt: 30% PWM crawler duty
+                motors.drive_skid(target_spd, target_spd, max_step=6.0)
+                led_grn.value((now // 250) % 2)  # Blink green on steep climb
+
+            elif slope_mode == "SLIGHT_TILT":
+                # Slight Tilt: 55% PWM duty
+                motors.drive_skid(target_spd, target_spd, max_step=8.0)
+                led_grn.value(1)
+
+            else:
+                # Flat Terrain: 70% PWM cruise duty
+                motors.drive_skid(target_spd, target_spd, max_step=10.0)
+                led_grn.value(1)
+
+
+# ================= 7. MAIN PROGRAM ENTRY & SERIAL DEBUG LOOP =================
+def main():
+    print("\\n=======================================================")
+    print("LOF TITAN — TERRAIN TREK: LIGHT-ACTIVATED 4WD ROVER")
+    print("-------------------------------------------------------")
+    print(" * MPU6050 (I2C: SDA 7, SCL 8) -> PWM: Flat 70% | Slight 55% | Strong 30%")
+    print(" * Ultrasonic (Trig 6, Echo 19) -> Radar Collision Avoidance")
+    print(" * LDR Sensor (Port S1 / GPIO 2) -> Light Wake / Dark Standby")
+    print(" * 4WD Motors (M1:15,16 | M2:13,14 | M3:11,12 | M4:9,10)")
+    print("=======================================================\\n")
+
+    # Initial Power-on Visual LED Indication
+    led_grn.value(1); led_red.value(1)
+    time.sleep_ms(100)
+    led_grn.value(0); led_red.value(0)
+
+    # Initialize I2C for MPU6050
+    try:
+        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=200000, timeout=1000)
+        devices = i2c.scan()
+        print("[I2C] Bus Initialized. Found Devices:", [hex(d) for d in devices])
+    except Exception as e:
+        print("[I2C] Error initializing bus:", e)
+        i2c = None
+
+    # Initialize MPU6050
+    imu = None
+    if i2c:
+        try:
+            imu = MPU6050(i2c)
+            print("[MPU6050] Connected:", imu.connected)
+            for _ in range(8):
+                imu.update()
+                time.sleep_ms(10)
+        except Exception as e:
+            print("[MPU6050] Init Error:", e)
+
+    if imu is None:
+        class DummyIMU:
+            pitch = 0.0
+            roll = 0.0
+            accel_z = 1.0
+            def update(self): pass
+            def calibrate_zero(self): pass
+        imu = DummyIMU()
+
+    trek = TerrainTrekEngine(imu)
+
+    # Button tracking
+    last_b1, last_b2, last_b3, last_b4 = 1, 1, 1, 1
+
+    last_radar_ms = time.ticks_ms()
+    last_debug_ms = time.ticks_ms()
+    cached_dist = 250.0
+    cached_ldr = 50.0
+
+    print("[SYSTEM] Calibrating Sensors... Hold Rover Still.")
+    time.sleep_ms(400)
+    imu.calibrate_zero()
+    print("[SYSTEM] Ready! Rover will ACTIVATE when light is detected.\\n")
+
+    # Continuous Control Loop
+    while True:
+        now = time.ticks_ms()
+
+        # 1. Update MPU6050 IMU Pitch & Roll (~50Hz)
+        imu.update()
+
+        # 2. Update Sensors (~10Hz)
+        if time.ticks_diff(now, last_radar_ms) > 90:
+            cached_dist = read_ultrasonic_cm()
+            cached_ldr = read_ldr_percentage()
+            last_radar_ms = now
+
+        # 3. LDR Light Lifecycle (Wake on Light / Standby on Dark)
+        trek.update_lifecycle(cached_ldr)
+
+        # 4. MPU6050 Slope Analysis (Flat: 70% | Slight: 55% | Strong: 30%)
+        slope_mode, target_spd, tilt_deg = trek.evaluate_slope()
+
+        # 5. 4WD Autonomous Navigation & Obstacle Avoidance
+        trek.execute_navigation(cached_dist, slope_mode, target_spd)
+
+        # 6. Push Button Controls
+        # BTN 1: Force Wake / Toggle Override
+        b1 = btn1.value()
+        if b1 == 0 and last_b1 == 1:
+            if trek.state == "STANDBY":
+                trek.state = "ACTIVE_TREK"
+                print(">>> [BTN1] Manual Force WAKE Triggered.")
+                led_grn.value(1)
+            else:
+                trek.state = "STANDBY"
+                motors.emergency_brake()
+                print(">>> [BTN1] Manual Force STANDBY Triggered.")
+                led_grn.value(0)
+            time.sleep_ms(60)
+        last_b1 = b1
+
+        # BTN 2: Re-zero IMU Flat Horizon
+        b2 = btn2.value()
+        if b2 == 0 and last_b2 == 1:
+            motors.emergency_brake()
+            imu.calibrate_zero()
+            time.sleep_ms(60)
+        last_b2 = b2
+
+        # BTN 3: Adjust LDR Sensitivity
+        b3 = btn3.value()
+        if b3 == 0 and last_b3 == 1:
+            if trek.LDR_WAKE_THRESHOLD == 30.0:
+                trek.LDR_WAKE_THRESHOLD = 50.0
+                trek.LDR_SLEEP_THRESHOLD = 40.0
+                print(">>> [BTN3] LDR Sensitivity: HIGH LIGHT REQUIRED (Wake > 50%)")
+            else:
+                trek.LDR_WAKE_THRESHOLD = 30.0
+                trek.LDR_SLEEP_THRESHOLD = 20.0
+                print(">>> [BTN3] LDR Sensitivity: NORMAL SENSITIVITY (Wake > 30%)")
+            led_grn.value(1)
+            time.sleep_ms(40)
+            led_grn.value(0)
+            time.sleep_ms(60)
+        last_b3 = b3
+
+        # BTN 4: Diagnostic LED Test
+        b4 = btn4.value()
+        if b4 == 0 and last_b4 == 1:
+            led_red.value(1); led_grn.value(1)
+            time.sleep_ms(100)
+            led_red.value(0); led_grn.value(0)
+            time.sleep_ms(60)
+        last_b4 = b4
+
+        # 7. Real-Time Serial Telemetry Debug Printing & JSON Stream (~5Hz)
+        if time.ticks_diff(now, last_debug_ms) > 200:
+            m1, m2, m3, m4 = motors.m1, motors.m2, motors.m3, motors.m4
+            
+            # Formatted Serial Output
+            if trek.state == "STANDBY":
+                print("[STANDBY] Light: {:4.1f}% (DARK < {:2.0f}%) | Tilt: {:4.1f}° | Dist: {:3.0f}cm | Motors: [OFF]".format(
+                    cached_ldr, trek.LDR_SLEEP_THRESHOLD, tilt_deg, cached_dist
+                ))
+            else:
+                gear_tag = "[ROLLOVER]" if slope_mode == "ROLLOVER_LOCK" else (
+                    "[STRONG(30%)]" if slope_mode == "STRONG_TILT" else (
+                        "[SLIGHT(55%)]" if slope_mode == "SLIGHT_TILT" else "[FLAT(70%)]"
+                    )
+                )
+                print("[ACTIVE] LDR:{:4.1f}% | Tilt:{:4.1f}° (P:{:+4.1f}° R:{:+4.1f}°) {:14s} | Radar:{:3.0f}cm | 4WD:[FL:{:3.0f}% FR:{:3.0f}% RL:{:3.0f}% RR:{:3.0f}%]".format(
+                    cached_ldr, tilt_deg, imu.pitch, imu.roll, gear_tag, cached_dist, m1, m2, m3, m4
+                ))
+            
+            # Compact JSON Telemetry Stream for Web Dashboard UI
+            print("TLM:{" + f'"ldr":{cached_ldr:.1f},"pitch":{imu.pitch:.1f},"roll":{imu.roll:.1f},"tilt":{tilt_deg:.1f},"dist":{cached_dist:.1f},"state":"{trek.state}","mode":"{slope_mode}","spd":{int(target_spd)},"m1":{int(m1)},"m2":{int(m2)},"m3":{int(m3)},"m4":{int(m4)}' + "}")
+            last_debug_ms = now
+
+        # CPU Safety Yield (prevents task watchdog reset)
+        time.sleep_ms(5)
+
+if __name__ == '__main__':
+    main()
+`,
   },
   {
     id: 'aquanova',
@@ -4307,6 +5334,7 @@ if __name__ == '__main__':
     heroImage: 'v1788948844/lof-titan/banners/banner-bluetooth-navigator',
     thumbnail: 'v1788948844/lof-titan/banners/banner-bluetooth-navigator',
     tagline: 'Joystick-Driven Bluetooth Rover Control',
+    codeFilename: 'bluetooth_navigator.py',
     description:
       'Students learn how a joystick module input is converted into a wireless Bluetooth command, which the rover receives and interprets to control the motors and move forward, backward, left, or right.',
 
@@ -4431,6 +5459,1442 @@ if __name__ == '__main__':
     // guessed - the detail page hides any section with no data and
     // renumbers the rest, so this renders correctly as-is.
     // ---------------------------------------------------------------
+
+    // MicroPython Main Script
+    code: `# ============================================================
+# LOF TITAN ESP32-S3 BLE ROVER
+# MicroPython RX
+#
+# FIXED FOR:
+# RuntimeError: out of PWM channels:8
+#
+# Uses only 4 PWM channels:
+#
+# M1 PWM = GPIO15   DIR = GPIO16
+# M2 PWM = GPIO13   DIR = GPIO14
+# M3 PWM = GPIO11   DIR = GPIO12
+# M4 PWM = GPIO9    DIR = GPIO10
+#
+# TX JOYSTICK:
+# Forward  = +Y
+# Backward = -Y
+# Right    = +X
+# Left     = -X
+#
+# Joystick range:
+# -1000 to +1000
+# ============================================================
+
+import time
+import struct
+import bluetooth
+
+from machine import Pin, PWM
+from micropython import const
+
+
+# ============================================================
+# BLE UUID
+# ============================================================
+
+SERVICE_UUID = bluetooth.UUID(
+    "d60f0001-8bcb-4d5f-9a6b-4d1e6d001001"
+)
+
+CHARACTERISTIC_UUID = bluetooth.UUID(
+    "d60f0002-8bcb-4d5f-9a6b-4d1e6d001002"
+)
+
+
+# ============================================================
+# MOTOR PINS
+#
+# Only IN1 uses hardware PWM.
+# IN2 is normal digital direction control.
+# ============================================================
+
+# Motor 1
+M1_PWM = 15
+M1_DIR = 16
+
+# Motor 2
+M2_PWM = 13
+M2_DIR = 14
+
+# Motor 3
+M3_PWM = 11
+M3_DIR = 12
+
+# Motor 4
+M4_PWM = 9
+M4_DIR = 10
+
+
+# ============================================================
+# BUZZER
+# ============================================================
+
+BUZZER_PIN = 20
+
+
+# ============================================================
+# PWM
+# ============================================================
+
+PWM_FREQ = 5000
+
+
+# ============================================================
+# SPEED
+#
+# Same 0-255 scale as Arduino
+# ============================================================
+
+MOVE_SPEED = 170
+TURN_SPEED = 150
+
+
+# ============================================================
+# JOYSTICK
+# ============================================================
+
+JOYSTICK_THRESHOLD = 180
+
+
+# ============================================================
+# SAFETY
+# ============================================================
+
+FIRST_CONNECT_WAIT = 3000
+
+# Stop rover if TX data stops for 1 second
+DATA_TIMEOUT = 1000
+
+
+# ============================================================
+# BLE IRQ
+# ============================================================
+
+_IRQ_CENTRAL_CONNECT = const(1)
+_IRQ_CENTRAL_DISCONNECT = const(2)
+_IRQ_GATTS_WRITE = const(3)
+
+
+# ============================================================
+# BLE FLAGS
+# ============================================================
+
+_FLAG_WRITE_NO_RESPONSE = const(0x0004)
+_FLAG_WRITE = const(0x0008)
+
+
+# ============================================================
+# BLE PACKET
+#
+# Must match ESP32-C3 TX exactly:
+#
+# bool      joystickMode = 1 byte
+# int16_t   joyX         = 2
+# int16_t   joyY         = 2
+#
+# uint16_t flex1         = 2
+# uint16_t flex2         = 2
+# uint16_t flex3         = 2
+# uint16_t flex4         = 2
+#
+# bool up                = 1
+# bool down              = 1
+# bool left              = 1
+# bool right             = 1
+# bool joyButton         = 1
+#
+# TOTAL = 18 bytes
+# ============================================================
+
+PACKET_FORMAT = "<BhhHHHHBBBBB"
+
+PACKET_SIZE = struct.calcsize(
+    PACKET_FORMAT
+)
+
+
+# ============================================================
+# MOTOR CLASS
+#
+# IMPORTANT:
+#
+# We use only ONE hardware PWM channel per motor.
+#
+# FORWARD electrical:
+#
+# DIR = 0
+# PWM = speed
+#
+# BACKWARD electrical:
+#
+# DIR = 1
+# PWM is inverted.
+#
+# This works like:
+#
+# IN1   IN2
+# PWM    0     -> forward
+# ~PWM   1     -> backward
+#
+# ============================================================
+
+class Motor:
+
+    def __init__(self, pwm_pin, dir_pin):
+
+        self.dir = Pin(
+            dir_pin,
+            Pin.OUT
+        )
+
+        self.dir.value(0)
+
+        self.pwm = PWM(
+            Pin(pwm_pin),
+            freq=PWM_FREQ
+        )
+
+        self.pwm.duty_u16(0)
+
+
+    # --------------------------------------------------------
+    # Convert Arduino 0-255 PWM to MicroPython 0-65535
+    # --------------------------------------------------------
+
+    def _duty(self, value):
+
+        value = max(
+            0,
+            min(255, int(value))
+        )
+
+        return value * 257
+
+
+    # --------------------------------------------------------
+    # STOP
+    # --------------------------------------------------------
+
+    def stop(self):
+
+        self.pwm.duty_u16(0)
+
+        self.dir.value(0)
+
+
+    # --------------------------------------------------------
+    # ELECTRICAL FORWARD
+    # --------------------------------------------------------
+
+    def forward(self, speed):
+
+        speed = max(
+            0,
+            min(255, int(speed))
+        )
+
+        # Remove PWM before direction change
+        self.pwm.duty_u16(0)
+
+        self.dir.value(0)
+
+        self.pwm.duty_u16(
+            self._duty(speed)
+        )
+
+
+    # --------------------------------------------------------
+    # ELECTRICAL BACKWARD
+    #
+    # IN2 stays HIGH.
+    #
+    # PWM must be inverted because:
+    #
+    # IN1 LOW  + IN2 HIGH = reverse
+    # IN1 HIGH + IN2 HIGH = brake
+    # --------------------------------------------------------
+
+    def backward(self, speed):
+
+        speed = max(
+            0,
+            min(255, int(speed))
+        )
+
+        # Stop first
+        self.pwm.duty_u16(0)
+
+        self.dir.value(1)
+
+        # Inverted PWM
+        inverse = 255 - speed
+
+        self.pwm.duty_u16(
+            self._duty(inverse)
+        )
+
+
+# ============================================================
+# CREATE 4 MOTORS
+#
+# ONLY 4 PWM CHANNELS ARE USED
+# ============================================================
+
+m1 = Motor(
+    M1_PWM,
+    M1_DIR
+)
+
+m2 = Motor(
+    M2_PWM,
+    M2_DIR
+)
+
+m3 = Motor(
+    M3_PWM,
+    M3_DIR
+)
+
+m4 = Motor(
+    M4_PWM,
+    M4_DIR
+)
+
+
+# ============================================================
+# BUZZER
+# ============================================================
+
+buzzer = Pin(
+    BUZZER_PIN,
+    Pin.OUT
+)
+
+buzzer.value(0)
+
+
+# ============================================================
+# STOP ALL
+# ============================================================
+
+def stop_motors():
+
+    m1.stop()
+    m2.stop()
+    m3.stop()
+    m4.stop()
+
+
+# ============================================================
+# LEFT SIDE
+#
+# M1 + M3
+# ============================================================
+
+def left_side_forward(speed):
+
+    m1.forward(speed)
+    m3.forward(speed)
+
+
+def left_side_backward(speed):
+
+    m1.backward(speed)
+    m3.backward(speed)
+
+
+# ============================================================
+# RIGHT SIDE
+#
+# M2 + M4
+# ============================================================
+
+def right_side_forward(speed):
+
+    m2.forward(speed)
+    m4.forward(speed)
+
+
+def right_side_backward(speed):
+
+    m2.backward(speed)
+    m4.backward(speed)
+
+
+# ============================================================
+# FINAL ROVER MOVEMENT
+#
+# Based on your tested rover motor polarity.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# PHYSICAL FORWARD
+#
+# Electrical backwards on both sides
+# ------------------------------------------------------------
+
+def move_forward():
+
+    left_side_backward(
+        MOVE_SPEED
+    )
+
+    right_side_backward(
+        MOVE_SPEED
+    )
+
+
+# ------------------------------------------------------------
+# PHYSICAL BACKWARD
+# ------------------------------------------------------------
+
+def move_backward():
+
+    left_side_forward(
+        MOVE_SPEED
+    )
+
+    right_side_forward(
+        MOVE_SPEED
+    )
+
+
+# ------------------------------------------------------------
+# LEFT
+#
+# Corrected based on your test
+# ------------------------------------------------------------
+
+def turn_left():
+
+    left_side_forward(
+        TURN_SPEED
+    )
+
+    right_side_backward(
+        TURN_SPEED
+    )
+
+
+# ------------------------------------------------------------
+# RIGHT
+#
+# Corrected based on your test
+# ------------------------------------------------------------
+
+def turn_right():
+
+    left_side_backward(
+        TURN_SPEED
+    )
+
+    right_side_forward(
+        TURN_SPEED
+    )
+
+
+# ============================================================
+# NON-BLOCKING BUZZER
+# ============================================================
+
+class Buzzer:
+
+    def __init__(self, pin):
+
+        self.pin = pin
+
+        self.count = 0
+
+        self.state = 0
+
+        self.running = False
+
+        self.next_time = 0
+
+
+    def beep(self, count):
+
+        self.count = count
+
+        self.state = 1
+
+        self.running = True
+
+        self.pin.value(1)
+
+        self.next_time = time.ticks_add(
+            time.ticks_ms(),
+            180
+        )
+
+
+    def update(self):
+
+        if not self.running:
+            return
+
+
+        now = time.ticks_ms()
+
+
+        if time.ticks_diff(
+            now,
+            self.next_time
+        ) < 0:
+
+            return
+
+
+        # ----------------------------------------------------
+        # Buzzer currently ON
+        # ----------------------------------------------------
+
+        if self.state == 1:
+
+            self.pin.value(0)
+
+            self.state = 0
+
+            self.next_time = time.ticks_add(
+                now,
+                180
+            )
+
+
+        # ----------------------------------------------------
+        # Buzzer currently OFF
+        # ----------------------------------------------------
+
+        else:
+
+            self.count -= 1
+
+
+            if self.count <= 0:
+
+                self.pin.value(0)
+
+                self.running = False
+
+                return
+
+
+            self.pin.value(1)
+
+            self.state = 1
+
+            self.next_time = time.ticks_add(
+                now,
+                180
+            )
+
+
+buzzer_control = Buzzer(
+    buzzer
+)
+
+
+# ============================================================
+# BLE ADVERTISING
+#
+# Keep service UUID in advertisement because ESP32-C3
+# searches specifically for this service.
+#
+# Device name goes in scan response.
+# ============================================================
+
+_ADV_TYPE_FLAGS = const(0x01)
+
+_ADV_TYPE_NAME = const(0x09)
+
+_ADV_TYPE_UUID16_COMPLETE = const(0x03)
+_ADV_TYPE_UUID32_COMPLETE = const(0x05)
+_ADV_TYPE_UUID128_COMPLETE = const(0x07)
+
+
+def add_field(
+    payload,
+    adv_type,
+    value
+):
+
+    payload += struct.pack(
+        "BB",
+        len(value) + 1,
+        adv_type
+    )
+
+    payload += value
+
+    return payload
+
+
+def make_adv_payload():
+
+    payload = bytearray()
+
+    # General Discoverable + BLE only
+    payload = add_field(
+        payload,
+        _ADV_TYPE_FLAGS,
+        b"\\x06"
+    )
+
+
+    uuid_bytes = bytes(
+        SERVICE_UUID
+    )
+
+
+    if len(uuid_bytes) == 2:
+
+        payload = add_field(
+            payload,
+            _ADV_TYPE_UUID16_COMPLETE,
+            uuid_bytes
+        )
+
+
+    elif len(uuid_bytes) == 4:
+
+        payload = add_field(
+            payload,
+            _ADV_TYPE_UUID32_COMPLETE,
+            uuid_bytes
+        )
+
+
+    else:
+
+        payload = add_field(
+            payload,
+            _ADV_TYPE_UUID128_COMPLETE,
+            uuid_bytes
+        )
+
+
+    return payload
+
+
+def make_scan_response():
+
+    payload = bytearray()
+
+    payload = add_field(
+        payload,
+        _ADV_TYPE_NAME,
+        b"LOF_TITAN_ROVER"
+    )
+
+    return payload
+
+
+# ============================================================
+# BLE SERVICE
+# ============================================================
+
+ROVER_SERVICE = (
+
+    SERVICE_UUID,
+
+    (
+        (
+            CHARACTERISTIC_UUID,
+
+            _FLAG_WRITE |
+            _FLAG_WRITE_NO_RESPONSE
+        ),
+    ),
+)
+
+
+# ============================================================
+# BLE SERVER
+# ============================================================
+
+class BLERover:
+
+    def __init__(self):
+
+        self.ble = bluetooth.BLE()
+
+        self.ble.active(True)
+
+
+        self.connected_flag = False
+
+        self.just_connected = False
+
+        self.just_disconnected = False
+
+        self.write_pending = False
+
+        self.restart_advertising = False
+
+
+        self.connections = set()
+
+
+        self.ble.irq(
+            self._irq
+        )
+
+
+        handles = (
+            self.ble.gatts_register_services(
+                (ROVER_SERVICE,)
+            )
+        )
+
+
+        ((self.rx_handle,),) = handles
+
+
+        # More than enough for 18 byte packet
+        self.ble.gatts_set_buffer(
+            self.rx_handle,
+            32,
+            False
+        )
+
+
+        self.adv_data = (
+            make_adv_payload()
+        )
+
+
+        self.resp_data = (
+            make_scan_response()
+        )
+
+
+        self.advertise()
+
+
+    # ========================================================
+    # ADVERTISE
+    # ========================================================
+
+    def advertise(self):
+
+        try:
+
+            self.ble.gap_advertise(
+                100000,
+                adv_data=self.adv_data,
+                resp_data=self.resp_data
+            )
+
+            print(
+                "BLE advertising started"
+            )
+
+        except Exception as e:
+
+            print(
+                "Advertising error:",
+                e
+            )
+
+
+    # ========================================================
+    # IRQ
+    # ========================================================
+
+    def _irq(self, event, data):
+
+        # ----------------------------------------------------
+        # CONTROLLER CONNECTED
+        # ----------------------------------------------------
+
+        if event == _IRQ_CENTRAL_CONNECT:
+
+            conn_handle, addr_type, addr = data
+
+            self.connections.add(
+                conn_handle
+            )
+
+            self.connected_flag = True
+
+            self.just_connected = True
+
+
+        # ----------------------------------------------------
+        # CONTROLLER DISCONNECTED
+        # ----------------------------------------------------
+
+        elif event == _IRQ_CENTRAL_DISCONNECT:
+
+            conn_handle, addr_type, addr = data
+
+
+            if conn_handle in self.connections:
+
+                self.connections.remove(
+                    conn_handle
+                )
+
+
+            self.connected_flag = False
+
+            self.just_disconnected = True
+
+            self.restart_advertising = True
+
+
+        # ----------------------------------------------------
+        # CONTROLLER DATA RECEIVED
+        # ----------------------------------------------------
+
+        elif event == _IRQ_GATTS_WRITE:
+
+            conn_handle, attr_handle = data
+
+
+            if attr_handle == self.rx_handle:
+
+                # Don't do heavy work inside BLE IRQ.
+                self.write_pending = True
+
+
+    # ========================================================
+    # CONNECTED?
+    # ========================================================
+
+    def connected(self):
+
+        return self.connected_flag
+
+
+    # ========================================================
+    # GET LATEST PACKET
+    # ========================================================
+
+    def get_packet(self):
+
+        if not self.write_pending:
+
+            return None
+
+
+        self.write_pending = False
+
+
+        try:
+
+            return self.ble.gatts_read(
+                self.rx_handle
+            )
+
+        except Exception as e:
+
+            print(
+                "BLE read error:",
+                e
+            )
+
+            return None
+
+
+    # ========================================================
+    # UPDATE BLE
+    # ========================================================
+
+    def update(self):
+
+        if self.restart_advertising:
+
+            self.restart_advertising = False
+
+            self.advertise()
+
+
+# ============================================================
+# START BLE
+# ============================================================
+
+ble_rover = BLERover()
+
+
+# ============================================================
+# RECEIVED CONTROLLER STATE
+# ============================================================
+
+got_data = False
+
+last_receive_time = 0
+
+
+joy_x = 0
+joy_y = 0
+
+
+btn_up = False
+btn_down = False
+btn_left = False
+btn_right = False
+
+joy_button = False
+
+
+# ============================================================
+# PROCESS BLE PACKET
+# ============================================================
+
+def process_packet(packet):
+
+    global got_data
+    global last_receive_time
+
+    global joy_x
+    global joy_y
+
+    global btn_up
+    global btn_down
+    global btn_left
+    global btn_right
+
+    global joy_button
+
+
+    if packet is None:
+
+        return
+
+
+    # --------------------------------------------------------
+    # Packet must be exactly 18 bytes
+    # --------------------------------------------------------
+
+    if len(packet) != PACKET_SIZE:
+
+        print(
+            "Wrong packet size:",
+            len(packet),
+            "Expected:",
+            PACKET_SIZE
+        )
+
+        return
+
+
+    try:
+
+        (
+            joystick_mode,
+
+            joy_x,
+            joy_y,
+
+            flex1,
+            flex2,
+            flex3,
+            flex4,
+
+            up,
+            down,
+            left,
+            right,
+
+            joy_btn
+
+        ) = struct.unpack(
+            PACKET_FORMAT,
+            packet
+        )
+
+
+        # Flex sensors ignored
+
+
+        btn_up = bool(up)
+
+        btn_down = bool(down)
+
+        btn_left = bool(left)
+
+        btn_right = bool(right)
+
+        joy_button = bool(
+            joy_btn
+        )
+
+
+        got_data = True
+
+
+        last_receive_time = (
+            time.ticks_ms()
+        )
+
+
+        print(
+            "RX X={:+d} Y={:+d} U={} D={} L={} R={}".format(
+                joy_x,
+                joy_y,
+                int(btn_up),
+                int(btn_down),
+                int(btn_left),
+                int(btn_right)
+            )
+        )
+
+
+    except Exception as e:
+
+        print(
+            "Packet decode error:",
+            e
+        )
+
+
+# ============================================================
+# DISPLAY ACTION ONLY WHEN IT CHANGES
+# ============================================================
+
+last_action = None
+
+
+def show_action(action):
+
+    global last_action
+
+
+    if action == last_action:
+
+        return
+
+
+    last_action = action
+
+
+    print(
+        "ROVER ->",
+        action
+    )
+
+
+# ============================================================
+# CONTROL ROVER
+# ============================================================
+
+def control_rover():
+
+    # --------------------------------------------------------
+    # NO DATA
+    # --------------------------------------------------------
+
+    if not got_data:
+
+        stop_motors()
+
+        show_action(
+            "STOP"
+        )
+
+        return
+
+
+    # ========================================================
+    # BUTTONS HAVE PRIORITY
+    # ========================================================
+
+    if btn_up:
+
+        move_forward()
+
+        show_action(
+            "FORWARD"
+        )
+
+        return
+
+
+    if btn_down:
+
+        move_backward()
+
+        show_action(
+            "BACKWARD"
+        )
+
+        return
+
+
+    if btn_left:
+
+        turn_left()
+
+        show_action(
+            "LEFT"
+        )
+
+        return
+
+
+    if btn_right:
+
+        turn_right()
+
+        show_action(
+            "RIGHT"
+        )
+
+        return
+
+
+    # ========================================================
+    # JOYSTICK CENTER
+    # ========================================================
+
+    if (
+        abs(joy_x) <= JOYSTICK_THRESHOLD
+        and
+        abs(joy_y) <= JOYSTICK_THRESHOLD
+    ):
+
+        stop_motors()
+
+        show_action(
+            "STOP"
+        )
+
+        return
+
+
+    # ========================================================
+    # STRONGEST AXIS
+    #
+    # Prevents small X drift when moving forward/backward.
+    # ========================================================
+
+    if abs(joy_y) >= abs(joy_x):
+
+
+        # ----------------------------------------------------
+        # FORWARD
+        # ----------------------------------------------------
+
+        if joy_y > JOYSTICK_THRESHOLD:
+
+            move_forward()
+
+            show_action(
+                "FORWARD"
+            )
+
+
+        # ----------------------------------------------------
+        # BACKWARD
+        # ----------------------------------------------------
+
+        elif joy_y < -JOYSTICK_THRESHOLD:
+
+            move_backward()
+
+            show_action(
+                "BACKWARD"
+            )
+
+
+        else:
+
+            stop_motors()
+
+            show_action(
+                "STOP"
+            )
+
+
+    else:
+
+
+        # ----------------------------------------------------
+        # RIGHT
+        # ----------------------------------------------------
+
+        if joy_x > JOYSTICK_THRESHOLD:
+
+            turn_right()
+
+            show_action(
+                "RIGHT"
+            )
+
+
+        # ----------------------------------------------------
+        # LEFT
+        # ----------------------------------------------------
+
+        elif joy_x < -JOYSTICK_THRESHOLD:
+
+            turn_left()
+
+            show_action(
+                "LEFT"
+            )
+
+
+        else:
+
+            stop_motors()
+
+            show_action(
+                "STOP"
+            )
+
+
+# ============================================================
+# START
+# ============================================================
+
+stop_motors()
+
+
+print()
+print(
+    "================================"
+)
+
+print(
+    "LOF TITAN BLE ROVER"
+)
+
+print(
+    "MicroPython RX"
+)
+
+print(
+    "================================"
+)
+
+print(
+    "PWM channels used: 4"
+)
+
+print(
+    "Packet size:",
+    PACKET_SIZE
+)
+
+print()
+print(
+    "FORWARD  = +Y"
+)
+
+print(
+    "BACKWARD = -Y"
+)
+
+print(
+    "RIGHT    = +X"
+)
+
+print(
+    "LEFT     = -X"
+)
+
+print()
+print(
+    "Waiting for ESP32-C3 controller..."
+)
+
+
+boot_time = (
+    time.ticks_ms()
+)
+
+no_connection_beep_done = False
+
+ever_connected = False
+
+
+# ============================================================
+# MAIN LOOP
+# ============================================================
+
+while True:
+
+    now = time.ticks_ms()
+
+
+    # ========================================================
+    # BLE HOUSEKEEPING
+    # ========================================================
+
+    ble_rover.update()
+
+
+    # ========================================================
+    # BUZZER
+    # ========================================================
+
+    buzzer_control.update()
+
+
+    # ========================================================
+    # CONNECTED EVENT
+    # ========================================================
+
+    if ble_rover.just_connected:
+
+        ble_rover.just_connected = False
+
+        ever_connected = True
+
+        got_data = False
+
+        stop_motors()
+
+
+        print()
+        print(
+            "=============================="
+        )
+
+        print(
+            "CONTROLLER CONNECTED"
+        )
+
+        print(
+            "=============================="
+        )
+
+
+        # One beep
+        buzzer_control.beep(1)
+
+
+    # ========================================================
+    # DISCONNECTED EVENT
+    # ========================================================
+
+    if ble_rover.just_disconnected:
+
+        ble_rover.just_disconnected = False
+
+        got_data = False
+
+        stop_motors()
+
+
+        print()
+        print(
+            "=============================="
+        )
+
+        print(
+            "CONTROLLER DISCONNECTED"
+        )
+
+        print(
+            "=============================="
+        )
+
+
+        # Three beeps
+        buzzer_control.beep(3)
+
+
+    # ========================================================
+    # NO CONNECTION AFTER 3 SECONDS
+    # ========================================================
+
+    if (
+        not ever_connected
+        and
+        not ble_rover.connected()
+        and
+        not no_connection_beep_done
+    ):
+
+        if time.ticks_diff(
+            now,
+            boot_time
+        ) >= FIRST_CONNECT_WAIT:
+
+            print(
+                "Controller not connected -> 3 beeps"
+            )
+
+            buzzer_control.beep(3)
+
+            no_connection_beep_done = True
+
+
+    # ========================================================
+    # GET BLE PACKET
+    # ========================================================
+
+    packet = ble_rover.get_packet()
+
+
+    if packet is not None:
+
+        process_packet(
+            packet
+        )
+
+
+    # ========================================================
+    # DATA TIMEOUT
+    # ========================================================
+
+    if (
+        ble_rover.connected()
+        and
+        got_data
+    ):
+
+        if time.ticks_diff(
+            now,
+            last_receive_time
+        ) > DATA_TIMEOUT:
+
+            print(
+                "BLE DATA TIMEOUT -> STOP"
+            )
+
+            got_data = False
+
+            stop_motors()
+
+            show_action(
+                "STOP"
+            )
+
+
+    # ========================================================
+    # CONTROL ROVER
+    # ========================================================
+
+    if (
+        ble_rover.connected()
+        and
+        got_data
+    ):
+
+        control_rover()
+
+
+    else:
+
+        stop_motors()
+
+
+    # ========================================================
+    # KEEP LOOP FAST + WATCHDOG SAFE
+    # ========================================================
+
+    time.sleep_ms(20)
+`,
   },
   {
     id: 'lost-bots-navigation',
@@ -6081,6 +8545,7 @@ if __name__ == '__main__':
     // kit's banner and implying it is this one. Add them as
     // lof-titan/banners/banner-navigation-radar once the art arrives.
     tagline: 'Aircraft Heading Tracking with Ultrasonic Obstacle Detection',
+    codeFilename: 'navigation_radar_system.py',
     description:
       'Build a Navigation Radar System that tracks aircraft direction and detects nearby obstacles. You will learn how navigation and obstacle detection work together to provide real-time information and support safer flight in low-visibility conditions.',
 
@@ -6213,6 +8678,3525 @@ if __name__ == '__main__':
     // CONTENT PENDING: no coding steps or firmware were supplied, and the
     // components carry no pin mapping. The detail page hides any section with
     // no data and renumbers the rest, so this renders correctly as-is.
+
+    // MicroPython Main Script
+    code: `# ============================================================
+# LOF TITAN - NAVIGATION RADAR SYSTEM
+#
+# LEFT  : GYRO HORIZON
+# RIGHT : NAVIGATION RADAR
+#
+# MPU6050:
+# SDA = GPIO 7
+# SCL = GPIO 8
+#
+# Ultrasonic:
+# TRIG = GPIO 6
+# ECHO = GPIO 19
+#
+# WiFi:
+# SSID     : NAV_RADAR
+# Password : 12345678
+#
+# Open:
+# http://192.168.4.1
+# ============================================================
+
+
+import time
+import math
+import socket
+import network
+import gc
+
+from machine import Pin, I2C
+from supervisor.led_buzzer import hw
+
+
+# ============================================================
+# HARDWARE
+# ============================================================
+
+SDA_PIN = 7
+SCL_PIN = 8
+
+TRIG_PIN = 6
+ECHO_PIN = 19
+
+
+# ============================================================
+# WIFI
+# ============================================================
+
+SSID = "NAV_RADAR"
+PASSWORD = "12345678"
+
+
+# ============================================================
+# MPU6050
+# ============================================================
+
+MPU_ADDR = 0x68
+
+PWR_MGMT_1 = 0x6B
+GYRO_CONFIG = 0x1B
+ACCEL_CONFIG = 0x1C
+
+ACCEL_XOUT_H = 0x3B
+GYRO_ZOUT_H = 0x47
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+heading = 0.0
+pitch = 0.0
+roll = 0.0
+
+distance_cm = -1.0
+
+gyro_z_offset = 0.0
+
+last_gyro_time = time.ticks_us()
+last_attitude_time = time.ticks_ms()
+last_distance_time = time.ticks_ms()
+
+GYRO_DEADBAND = 0.7
+
+
+# ============================================================
+# I2C
+# ============================================================
+
+i2c = I2C(
+    0,
+    sda=Pin(SDA_PIN),
+    scl=Pin(SCL_PIN),
+    freq=400000
+)
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def signed16(high, low):
+
+    value = (high << 8) | low
+
+    if value & 0x8000:
+        value -= 65536
+
+    return value
+
+
+# ============================================================
+# MPU6050 INITIALISATION
+# ============================================================
+
+def mpu_write(register, value):
+
+    i2c.writeto_mem(
+        MPU_ADDR,
+        register,
+        bytes([value])
+    )
+
+
+def init_mpu6050():
+
+    print()
+    print("Scanning I2C...")
+
+    devices = i2c.scan()
+
+    print("I2C devices:", devices)
+
+    if MPU_ADDR not in devices:
+
+        print("MPU6050 NOT FOUND")
+
+        return False
+
+
+    # Wake sensor
+    mpu_write(
+        PWR_MGMT_1,
+        0x00
+    )
+
+    time.sleep_ms(100)
+
+
+    # Gyro +/-250 deg/sec
+    mpu_write(
+        GYRO_CONFIG,
+        0x00
+    )
+
+
+    # Accelerometer +/-2G
+    mpu_write(
+        ACCEL_CONFIG,
+        0x00
+    )
+
+
+    print("MPU6050 detected")
+
+    return True
+
+
+# ============================================================
+# SENSOR READING
+# ============================================================
+
+def read_gyro_z():
+
+    data = i2c.readfrom_mem(
+        MPU_ADDR,
+        GYRO_ZOUT_H,
+        2
+    )
+
+    raw = signed16(
+        data[0],
+        data[1]
+    )
+
+    return raw / 131.0
+
+
+def read_accel_xyz():
+
+    data = i2c.readfrom_mem(
+        MPU_ADDR,
+        ACCEL_XOUT_H,
+        6
+    )
+
+
+    ax = signed16(
+        data[0],
+        data[1]
+    ) / 16384.0
+
+
+    ay = signed16(
+        data[2],
+        data[3]
+    ) / 16384.0
+
+
+    az = signed16(
+        data[4],
+        data[5]
+    ) / 16384.0
+
+
+    return ax, ay, az
+
+
+# ============================================================
+# MPU CALIBRATION
+# ============================================================
+
+def calibrate_mpu(seconds=5):
+
+    global gyro_z_offset
+    global heading
+    global pitch
+    global roll
+    global last_gyro_time
+
+
+    print()
+    print("==============================")
+    print("CALIBRATING MPU6050")
+    print("KEEP SENSOR STILL")
+    print("==============================")
+
+
+    total = 0.0
+    samples = 0
+
+    start = time.ticks_ms()
+
+
+    while time.ticks_diff(
+        time.ticks_ms(),
+        start
+    ) < seconds * 1000:
+
+
+        try:
+
+            total += read_gyro_z()
+
+            samples += 1
+
+        except:
+            pass
+
+
+        time.sleep_ms(10)
+
+
+    if samples > 0:
+
+        gyro_z_offset = (
+            total / samples
+        )
+
+    else:
+
+        gyro_z_offset = 0.0
+
+
+    heading = 0.0
+    pitch = 0.0
+    roll = 0.0
+
+    last_gyro_time = time.ticks_us()
+
+
+    print(
+        "Gyro offset:",
+        gyro_z_offset
+    )
+
+    print(
+        "Calibration complete"
+    )
+
+    print()
+
+
+# ============================================================
+# HEADING
+# ============================================================
+
+def update_heading():
+
+    global heading
+    global last_gyro_time
+
+
+    now = time.ticks_us()
+
+
+    dt_us = time.ticks_diff(
+        now,
+        last_gyro_time
+    )
+
+
+    last_gyro_time = now
+
+
+    dt = dt_us / 1000000.0
+
+
+    if dt <= 0 or dt > 0.3:
+        return
+
+
+    try:
+
+        gz = (
+            read_gyro_z()
+            - gyro_z_offset
+        )
+
+
+        if abs(gz) < GYRO_DEADBAND:
+
+            gz = 0.0
+
+
+        heading += (
+            gz * dt
+        )
+
+
+        heading %= 360.0
+
+
+    except:
+        pass
+
+
+# ============================================================
+# PITCH + ROLL
+# ============================================================
+
+def update_attitude():
+
+    global pitch
+    global roll
+    global last_attitude_time
+
+
+    now = time.ticks_ms()
+
+
+    if time.ticks_diff(
+        now,
+        last_attitude_time
+    ) < 35:
+
+        return
+
+
+    last_attitude_time = now
+
+
+    try:
+
+        ax, ay, az = \\
+            read_accel_xyz()
+
+
+        # Correct pitch direction
+        new_pitch = math.degrees(
+            math.atan2(
+                ax,
+                math.sqrt(
+                    ay * ay +
+                    az * az
+                )
+            )
+        )
+
+
+        new_roll = math.degrees(
+            math.atan2(
+                ay,
+                az
+            )
+        )
+
+
+        # Smooth movement
+        pitch = (
+            pitch * 0.72
+            + new_pitch * 0.28
+        )
+
+
+        roll = (
+            roll * 0.72
+            + new_roll * 0.28
+        )
+
+
+    except:
+        pass
+
+
+# ============================================================
+# ULTRASONIC
+# ============================================================
+
+def read_ultrasonic():
+
+    try:
+
+        value = \\
+            hw.read_ultrasonic_distance(
+                trig=TRIG_PIN,
+                echo=ECHO_PIN,
+                unit="CM"
+            )
+
+
+        if value is None:
+            return -1
+
+
+        value = float(value)
+
+
+        if value < 2:
+            return -1
+
+
+        if value > 400:
+            return -1
+
+
+        return value
+
+
+    except Exception as e:
+
+        print(
+            "Ultrasonic error:",
+            e
+        )
+
+        return -1
+
+
+# ============================================================
+# ULTRASONIC UPDATE
+# ============================================================
+
+def update_distance():
+
+    global distance_cm
+    global last_distance_time
+
+
+    now = time.ticks_ms()
+
+
+    if time.ticks_diff(
+        now,
+        last_distance_time
+    ) < 60:
+
+        return
+
+
+    last_distance_time = now
+
+
+    value = read_ultrasonic()
+
+
+    if value > 0:
+
+        if distance_cm < 0:
+
+            distance_cm = value
+
+        else:
+
+            # Fast + smooth
+            distance_cm = (
+                distance_cm * 0.30
+                + value * 0.70
+            )
+
+
+    else:
+
+        distance_cm = -1
+
+
+# ============================================================
+# WEB PAGE
+# ============================================================
+
+HTML = """<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport"
+content="width=device-width,
+initial-scale=1,
+maximum-scale=1,
+minimum-scale=1,
+user-scalable=no,
+viewport-fit=cover">
+
+<title>Navigation Radar System</title>
+
+
+<style>
+
+*{
+box-sizing:border-box;
+margin:0;
+padding:0;
+-webkit-tap-highlight-color:transparent;
+}
+
+html,
+body{
+width:100%;
+height:100%;
+overflow:hidden;
+background:#010305;
+font-family:Arial,Consolas,monospace;
+touch-action:none;
+}
+
+
+/* ========================================================
+   MAIN APP
+======================================================== */
+
+#app{
+
+position:fixed;
+inset:0;
+
+width:100vw;
+
+height:100vh;
+height:100dvh;
+
+display:grid;
+
+grid-template-rows:
+clamp(28px,7vh,48px)
+minmax(0,1fr);
+
+background:#010305;
+
+}
+
+
+/* ========================================================
+   TITLE
+======================================================== */
+
+#header{
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+color:#6bffa4;
+
+background:#030709;
+
+border-bottom:
+1px solid #145338;
+
+font-size:
+clamp(11px,2.2vw,20px);
+
+font-weight:bold;
+
+letter-spacing:
+clamp(1px,0.35vw,4px);
+
+white-space:nowrap;
+
+}
+
+
+/* ========================================================
+   DISPLAY GRID
+======================================================== */
+
+#content{
+
+min-width:0;
+min-height:0;
+
+display:grid;
+
+grid-template-columns:
+minmax(0,1fr)
+minmax(0,1fr);
+
+gap:
+clamp(3px,0.7vw,9px);
+
+padding:
+clamp(3px,0.7vw,8px);
+
+}
+
+
+/* ========================================================
+   PANELS
+======================================================== */
+
+.panel{
+
+position:relative;
+
+width:100%;
+height:100%;
+
+min-width:0;
+min-height:0;
+
+overflow:hidden;
+
+background:#010304;
+
+border:
+1px solid #154832;
+
+border-radius:
+clamp(5px,1vw,12px);
+
+}
+
+
+canvas{
+
+position:absolute;
+
+left:0;
+top:0;
+
+width:100%;
+height:100%;
+
+display:block;
+
+}
+
+
+/* ========================================================
+   SMALL LABEL
+======================================================== */
+
+.panelTitle{
+
+position:absolute;
+
+left:
+clamp(5px,1vw,12px);
+
+top:
+clamp(4px,1vh,9px);
+
+z-index:20;
+
+color:#64f49c;
+
+font-size:
+clamp(7px,1vw,12px);
+
+font-weight:bold;
+
+letter-spacing:1px;
+
+}
+
+
+/* ========================================================
+   DISTANCE BOX
+======================================================== */
+
+#distanceBox{
+
+position:absolute;
+
+right:
+clamp(5px,1vw,12px);
+
+bottom:
+clamp(5px,1vh,12px);
+
+z-index:25;
+
+min-width:
+clamp(70px,14vw,125px);
+
+padding:
+clamp(4px,0.8vw,9px);
+
+border:
+1px solid #298455;
+
+border-radius:7px;
+
+background:
+rgba(0,15,8,0.90);
+
+text-align:center;
+
+}
+
+
+#distanceLabel{
+
+font-size:
+clamp(6px,0.8vw,10px);
+
+color:#5db67f;
+
+letter-spacing:1px;
+
+}
+
+
+#distanceValue{
+
+margin-top:2px;
+
+font-size:
+clamp(13px,2vw,25px);
+
+font-weight:bold;
+
+color:#8dffad;
+
+}
+
+
+/* ========================================================
+   SMALL RADAR STATUS
+======================================================== */
+
+#radarStatus{
+
+position:absolute;
+
+right:
+clamp(5px,1vw,12px);
+
+top:
+clamp(4px,1vh,9px);
+
+z-index:25;
+
+padding:
+clamp(3px,0.6vw,7px)
+clamp(5px,0.9vw,10px);
+
+border:
+1px solid #26734d;
+
+border-radius:6px;
+
+background:
+rgba(0,20,10,0.92);
+
+color:#8bffb8;
+
+font-size:
+clamp(6px,0.9vw,11px);
+
+font-weight:bold;
+
+white-space:nowrap;
+
+}
+
+
+#radarStatus.near{
+
+color:#ffe16d;
+
+border-color:#c89923;
+
+background:
+rgba(50,32,0,0.95);
+
+}
+
+
+/* ========================================================
+   FULL SCREEN WARNING
+======================================================== */
+
+#warningOverlay{
+
+position:fixed;
+
+inset:0;
+
+z-index:500;
+
+display:none;
+
+align-items:center;
+
+justify-content:center;
+
+background:
+radial-gradient(
+circle at center,
+rgba(110,0,0,0.92) 0%,
+rgba(48,0,0,0.97) 50%,
+rgba(8,0,0,1) 100%
+);
+
+overflow:hidden;
+
+}
+
+
+/* RED HUD RINGS */
+
+.hudRing{
+
+position:absolute;
+
+left:50%;
+top:50%;
+
+border:
+2px solid rgba(255,45,20,0.35);
+
+border-radius:50%;
+
+transform:
+translate(-50%,-50%);
+
+animation:
+hudSpin 8s linear infinite;
+
+}
+
+
+.ring1{
+
+width:85vmin;
+height:85vmin;
+
+border-style:dashed;
+
+}
+
+
+.ring2{
+
+width:68vmin;
+height:68vmin;
+
+animation-direction:reverse;
+
+}
+
+
+.ring3{
+
+width:50vmin;
+height:50vmin;
+
+border-style:dotted;
+
+}
+
+
+@keyframes hudSpin{
+
+from{
+transform:
+translate(-50%,-50%)
+rotate(0deg);
+}
+
+to{
+transform:
+translate(-50%,-50%)
+rotate(360deg);
+}
+
+}
+
+
+/* WARNING BOX */
+
+#warningContent{
+
+position:relative;
+
+z-index:510;
+
+display:flex;
+
+flex-direction:column;
+
+align-items:center;
+
+justify-content:center;
+
+text-align:center;
+
+animation:
+warningPulse
+0.45s infinite alternate;
+
+}
+
+
+@keyframes warningPulse{
+
+from{
+transform:scale(0.96);
+filter:brightness(0.75);
+}
+
+to{
+transform:scale(1.03);
+filter:brightness(1.25);
+}
+
+}
+
+
+/* TRIANGLE */
+
+.warningTriangle{
+
+position:relative;
+
+width:
+clamp(75px,17vmin,160px);
+
+height:
+clamp(65px,15vmin,140px);
+
+margin-bottom:
+clamp(10px,2vh,20px);
+
+}
+
+
+.warningTriangle:before{
+
+content:"";
+
+position:absolute;
+
+left:50%;
+
+transform:
+translateX(-50%);
+
+width:0;
+height:0;
+
+border-left:
+clamp(40px,9vmin,85px)
+solid transparent;
+
+border-right:
+clamp(40px,9vmin,85px)
+solid transparent;
+
+border-bottom:
+clamp(70px,15vmin,145px)
+solid #ff361c;
+
+filter:
+drop-shadow(
+0 0 18px #ff2a00
+);
+
+}
+
+
+.warningTriangle:after{
+
+content:"!";
+
+position:absolute;
+
+left:50%;
+top:
+clamp(23px,5vmin,48px);
+
+transform:
+translateX(-50%);
+
+color:#ffe45b;
+
+font-size:
+clamp(38px,8vmin,78px);
+
+font-weight:bold;
+
+z-index:5;
+
+}
+
+
+/* WARNING TEXT */
+
+#warningText{
+
+padding:
+clamp(7px,1.4vh,14px)
+clamp(25px,5vw,60px);
+
+border-top:
+2px solid #ff351c;
+
+border-bottom:
+2px solid #ff351c;
+
+background:
+rgba(150,12,0,0.42);
+
+color:#ffb52e;
+
+font-size:
+clamp(22px,6vmin,58px);
+
+font-weight:bold;
+
+letter-spacing:
+clamp(2px,0.6vw,7px);
+
+box-shadow:
+0 0 30px
+rgba(255,40,0,0.5);
+
+}
+
+
+#warningDistance{
+
+margin-top:
+clamp(12px,2.5vh,26px);
+
+color:#ffffff;
+
+font-size:
+clamp(16px,3.5vmin,36px);
+
+font-weight:bold;
+
+letter-spacing:2px;
+
+}
+
+
+/* ========================================================
+   PORTRAIT MESSAGE
+======================================================== */
+
+#rotateScreen{
+
+position:fixed;
+
+inset:0;
+
+z-index:800;
+
+display:none;
+
+align-items:center;
+
+justify-content:center;
+
+background:#010305;
+
+color:#72ffa3;
+
+font-size:
+clamp(15px,5vw,26px);
+
+font-weight:bold;
+
+letter-spacing:2px;
+
+text-align:center;
+
+}
+
+
+@media
+(orientation:portrait){
+
+#rotateScreen{
+display:flex;
+}
+
+}
+
+
+/* SMALL PHONES */
+
+@media
+(orientation:landscape)
+and
+(max-height:390px){
+
+#app{
+
+grid-template-rows:
+27px
+minmax(0,1fr);
+
+}
+
+#content{
+
+gap:3px;
+padding:2px;
+
+}
+
+.panelTitle{
+
+top:3px;
+left:4px;
+
+}
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div id="app">
+
+
+<div id="header">
+
+NAVIGATION RADAR SYSTEM
+
+</div>
+
+
+<div id="content">
+
+
+<!-- =============================================== -->
+<!-- LEFT - GYRO HORIZON                             -->
+<!-- =============================================== -->
+
+<div class="panel">
+
+<div class="panelTitle">
+
+GYRO HORIZON
+
+</div>
+
+
+<canvas
+id="horizonCanvas">
+</canvas>
+
+</div>
+
+
+<!-- =============================================== -->
+<!-- RIGHT - RADAR                                   -->
+<!-- =============================================== -->
+
+<div class="panel">
+
+
+<div class="panelTitle">
+
+RADAR
+
+</div>
+
+
+<div id="radarStatus">
+
+NO OBSTACLE DETECTED
+
+</div>
+
+
+<div id="distanceBox">
+
+<div id="distanceLabel">
+
+OBSTACLE DISTANCE
+
+</div>
+
+
+<div id="distanceValue">
+
+--- CM
+
+</div>
+
+</div>
+
+
+<canvas
+id="radarCanvas">
+</canvas>
+
+
+</div>
+
+
+</div>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- FULL SCREEN DANGER                                 -->
+<!-- ================================================= -->
+
+<div id="warningOverlay">
+
+
+<div class="hudRing ring1">
+</div>
+
+<div class="hudRing ring2">
+</div>
+
+<div class="hudRing ring3">
+</div>
+
+
+<div id="warningContent">
+
+
+<div class="warningTriangle">
+</div>
+
+
+<div id="warningText">
+
+WARNING
+
+</div>
+
+
+<div id="warningDistance">
+
+DISTANCE 0 CM
+
+</div>
+
+
+</div>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- PORTRAIT SCREEN                                   -->
+<!-- ================================================= -->
+
+<div id="rotateScreen">
+
+ROTATE PHONE TO LANDSCAPE
+
+</div>
+
+
+
+<script>
+
+
+// ============================================================
+// ELEMENTS
+// ============================================================
+
+const horizonCanvas =
+document.getElementById(
+"horizonCanvas"
+);
+
+
+const radarCanvas =
+document.getElementById(
+"radarCanvas"
+);
+
+
+const hctx =
+horizonCanvas.getContext(
+"2d"
+);
+
+
+const rctx =
+radarCanvas.getContext(
+"2d"
+);
+
+
+const distanceValue =
+document.getElementById(
+"distanceValue"
+);
+
+
+const radarStatus =
+document.getElementById(
+"radarStatus"
+);
+
+
+const warningOverlay =
+document.getElementById(
+"warningOverlay"
+);
+
+
+const warningDistance =
+document.getElementById(
+"warningDistance"
+);
+
+
+// ============================================================
+// SENSOR VALUES
+// ============================================================
+
+let targetHeading = 0;
+
+let targetPitch = 0;
+
+let targetRoll = 0;
+
+let targetDistance = -1;
+
+
+// ============================================================
+// DISPLAY VALUES
+// ============================================================
+
+let smoothHeading = 0;
+
+let smoothPitch = 0;
+
+let smoothRoll = 0;
+
+let smoothDistance = -1;
+
+
+// ============================================================
+// CANVAS SIZE
+// ============================================================
+
+let horizonW = 100;
+let horizonH = 100;
+
+let radarW = 100;
+let radarH = 100;
+
+
+// ============================================================
+// RESPONSIVE CANVAS
+// ============================================================
+
+function resizeCanvas(
+canvas,
+ctx
+){
+
+const rect =
+canvas.parentElement
+.getBoundingClientRect();
+
+
+const width =
+Math.max(
+1,
+Math.floor(
+rect.width
+)
+);
+
+
+const height =
+Math.max(
+1,
+Math.floor(
+rect.height
+)
+);
+
+
+const dpr =
+Math.min(
+window.devicePixelRatio || 1,
+2
+);
+
+
+canvas.width =
+Math.floor(
+width*dpr
+);
+
+
+canvas.height =
+Math.floor(
+height*dpr
+);
+
+
+canvas.style.width =
+width+"px";
+
+
+canvas.style.height =
+height+"px";
+
+
+ctx.setTransform(
+dpr,
+0,
+0,
+dpr,
+0,
+0
+);
+
+
+return{
+
+width:width,
+height:height
+
+};
+
+}
+
+
+function resizeAll(){
+
+let h =
+resizeCanvas(
+horizonCanvas,
+hctx
+);
+
+
+horizonW =
+h.width;
+
+horizonH =
+h.height;
+
+
+let r =
+resizeCanvas(
+radarCanvas,
+rctx
+);
+
+
+radarW =
+r.width;
+
+radarH =
+r.height;
+
+}
+
+
+window.addEventListener(
+"resize",
+resizeAll
+);
+
+
+window.addEventListener(
+"orientationchange",
+function(){
+
+setTimeout(
+resizeAll,
+250
+);
+
+}
+);
+
+
+// ============================================================
+// LANDSCAPE LOCK
+// ============================================================
+
+async function lockLandscape(){
+
+try{
+
+if(
+screen.orientation &&
+screen.orientation.lock
+){
+
+await screen.orientation.lock(
+"landscape"
+);
+
+}
+
+}
+catch(e){
+
+}
+
+}
+
+
+document.body.addEventListener(
+"touchstart",
+lockLandscape,
+{once:true}
+);
+
+
+document.body.addEventListener(
+"click",
+lockLandscape,
+{once:true}
+);
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function rad(deg){
+
+return deg *
+Math.PI /
+180;
+
+}
+
+
+function shortestAngle(
+current,
+target
+){
+
+return(
+(
+target-current+540
+)%360
+)-180;
+
+}
+
+
+// ============================================================
+// DRAW ARTIFICIAL HORIZON
+// ============================================================
+
+function drawHorizon(){
+
+const W =
+horizonW;
+
+const H =
+horizonH;
+
+
+hctx.clearRect(
+0,
+0,
+W,
+H
+);
+
+
+// smooth motion
+
+smoothPitch +=
+(
+targetPitch -
+smoothPitch
+)*0.18;
+
+
+smoothRoll +=
+(
+targetRoll -
+smoothRoll
+)*0.18;
+
+
+const cx =
+W*0.50;
+
+
+const cy =
+H*0.53;
+
+
+const radius =
+Math.min(
+W*0.40,
+H*0.40
+);
+
+
+if(radius<15){
+return;
+}
+
+
+// ==========================================================
+// CLIP CIRCLE
+// ==========================================================
+
+hctx.save();
+
+
+hctx.beginPath();
+
+
+hctx.arc(
+cx,
+cy,
+radius,
+0,
+Math.PI*2
+);
+
+
+hctx.clip();
+
+
+hctx.translate(
+cx,
+cy
+);
+
+
+hctx.rotate(
+rad(
+-smoothRoll
+)
+);
+
+
+const pitchScale =
+radius/35;
+
+
+const pitchOffset =
+smoothPitch *
+pitchScale;
+
+
+// SKY
+
+hctx.fillStyle =
+"#568cf7";
+
+
+hctx.fillRect(
+-radius*3,
+-radius*3+
+pitchOffset,
+radius*6,
+radius*3
+);
+
+
+// GROUND
+
+hctx.fillStyle =
+"#724b20";
+
+
+hctx.fillRect(
+-radius*3,
+pitchOffset,
+radius*6,
+radius*3
+);
+
+
+// HORIZON
+
+hctx.strokeStyle =
+"#ffffff";
+
+
+hctx.lineWidth =
+Math.max(
+2,
+radius*0.014
+);
+
+
+hctx.beginPath();
+
+
+hctx.moveTo(
+-radius*3,
+pitchOffset
+);
+
+
+hctx.lineTo(
+radius*3,
+pitchOffset
+);
+
+
+hctx.stroke();
+
+
+// ==========================================================
+// PITCH LADDER
+// ==========================================================
+
+for(
+let deg=-30;
+deg<=30;
+deg+=5
+){
+
+if(deg===0){
+continue;
+}
+
+
+let y =
+pitchOffset +
+deg *
+pitchScale;
+
+
+let major =
+deg%10===0;
+
+
+let length =
+major
+?
+radius*0.33
+:
+radius*0.19;
+
+
+hctx.strokeStyle =
+"#ffffff";
+
+
+hctx.lineWidth =
+Math.max(
+1.3,
+radius*0.009
+);
+
+
+hctx.beginPath();
+
+
+hctx.moveTo(
+-length,
+y
+);
+
+
+hctx.lineTo(
+length,
+y
+);
+
+
+hctx.stroke();
+
+
+if(major){
+
+let fontSize =
+Math.max(
+8,
+radius*0.075
+);
+
+
+hctx.fillStyle =
+"#ffffff";
+
+
+hctx.font =
+"bold "+
+fontSize+
+"px monospace";
+
+
+hctx.textAlign =
+"center";
+
+
+let text =
+String(
+Math.abs(
+deg
+)
+);
+
+
+hctx.fillText(
+text,
+-length-
+radius*0.11,
+y+
+fontSize*0.3
+);
+
+
+hctx.fillText(
+text,
+length+
+radius*0.11,
+y+
+fontSize*0.3
+);
+
+}
+
+}
+
+
+hctx.restore();
+
+
+// ==========================================================
+// OUTER CIRCLE
+// ==========================================================
+
+hctx.strokeStyle =
+"#ffffff";
+
+
+hctx.lineWidth =
+Math.max(
+2,
+radius*0.014
+);
+
+
+hctx.beginPath();
+
+
+hctx.arc(
+cx,
+cy,
+radius,
+0,
+Math.PI*2
+);
+
+
+hctx.stroke();
+
+
+// ==========================================================
+// BANK MARKS
+// ==========================================================
+
+let bankMarks =
+[
+-60,
+-45,
+-30,
+-20,
+-10,
+10,
+20,
+30,
+45,
+60
+];
+
+
+hctx.strokeStyle =
+"#ffffff";
+
+
+hctx.lineWidth =
+Math.max(
+1.3,
+radius*0.009
+);
+
+
+for(
+let i=0;
+i<bankMarks.length;
+i++
+){
+
+let a =
+rad(
+bankMarks[i]-90
+);
+
+
+let outer =
+radius+
+radius*0.055;
+
+
+let inner =
+radius-
+radius*0.055;
+
+
+hctx.beginPath();
+
+
+hctx.moveTo(
+cx+
+Math.cos(a)*outer,
+cy+
+Math.sin(a)*outer
+);
+
+
+hctx.lineTo(
+cx+
+Math.cos(a)*inner,
+cy+
+Math.sin(a)*inner
+);
+
+
+hctx.stroke();
+
+}
+
+
+// top pointer
+
+hctx.fillStyle =
+"#ffffff";
+
+
+hctx.beginPath();
+
+
+hctx.moveTo(
+cx,
+cy-radius-
+radius*0.055
+);
+
+
+hctx.lineTo(
+cx-radius*0.04,
+cy-radius+
+radius*0.03
+);
+
+
+hctx.lineTo(
+cx+radius*0.04,
+cy-radius+
+radius*0.03
+);
+
+
+hctx.closePath();
+
+hctx.fill();
+
+
+// ==========================================================
+// FIXED AIRCRAFT
+// ==========================================================
+
+hctx.strokeStyle =
+"#ffffff";
+
+
+hctx.lineWidth =
+Math.max(
+2,
+radius*0.016
+);
+
+
+let wing =
+radius*0.43;
+
+
+let gap =
+radius*0.10;
+
+
+hctx.beginPath();
+
+
+hctx.moveTo(
+cx-wing,
+cy
+);
+
+
+hctx.lineTo(
+cx-gap,
+cy
+);
+
+
+hctx.lineTo(
+cx,
+cy+
+radius*0.075
+);
+
+
+hctx.lineTo(
+cx+gap,
+cy
+);
+
+
+hctx.lineTo(
+cx+wing,
+cy
+);
+
+
+hctx.stroke();
+
+}
+
+
+// ============================================================
+// DRAW RADAR
+// ============================================================
+
+function drawRadar(){
+
+const W =
+radarW;
+
+const H =
+radarH;
+
+
+rctx.clearRect(
+0,
+0,
+W,
+H
+);
+
+
+// smooth heading
+
+smoothHeading +=
+shortestAngle(
+smoothHeading,
+targetHeading
+)*0.18;
+
+
+if(
+smoothHeading<0
+){
+
+smoothHeading+=360;
+
+}
+
+
+if(
+smoothHeading>=360
+){
+
+smoothHeading-=360;
+
+}
+
+
+// smooth distance
+
+if(
+targetDistance>0
+){
+
+if(
+smoothDistance<0
+){
+
+smoothDistance =
+targetDistance;
+
+}
+
+else{
+
+smoothDistance +=
+(
+targetDistance -
+smoothDistance
+)*0.30;
+
+}
+
+}
+
+else{
+
+smoothDistance=-1;
+
+}
+
+
+const cx =
+W*0.50;
+
+
+const cy =
+H*0.53;
+
+
+const radius =
+Math.min(
+W*0.40,
+H*0.40
+);
+
+
+if(radius<15){
+return;
+}
+
+
+// ==========================================================
+// OUTER RINGS
+// ==========================================================
+
+rctx.strokeStyle =
+"#20dc8b";
+
+
+rctx.lineWidth =
+Math.max(
+2,
+radius*0.012
+);
+
+
+rctx.beginPath();
+
+
+rctx.arc(
+cx,
+cy,
+radius,
+0,
+Math.PI*2
+);
+
+
+rctx.stroke();
+
+
+rctx.strokeStyle =
+"#164e37";
+
+
+rctx.lineWidth=1;
+
+
+rctx.beginPath();
+
+
+rctx.arc(
+cx,
+cy,
+radius*0.94,
+0,
+Math.PI*2
+);
+
+
+rctx.stroke();
+
+
+// ==========================================================
+// COMPASS SCALE
+// ==========================================================
+
+for(
+let angle=0;
+angle<360;
+angle+=5
+){
+
+let display =
+angle -
+smoothHeading;
+
+
+let a =
+rad(
+display-90
+);
+
+
+let major =
+angle%30===0;
+
+
+let medium =
+angle%10===0;
+
+
+let outer =
+radius*0.985;
+
+
+let inner =
+radius-
+(
+major
+?
+radius*0.11
+:
+medium
+?
+radius*0.07
+:
+radius*0.035
+);
+
+
+let x1 =
+cx+
+Math.cos(a)*outer;
+
+
+let y1 =
+cy+
+Math.sin(a)*outer;
+
+
+let x2 =
+cx+
+Math.cos(a)*inner;
+
+
+let y2 =
+cy+
+Math.sin(a)*inner;
+
+
+rctx.strokeStyle =
+major
+?
+"#a7f7d4"
+:
+"#1c694a";
+
+
+rctx.lineWidth =
+major
+?
+Math.max(
+1.5,
+radius*0.009
+)
+:
+1;
+
+
+rctx.beginPath();
+
+
+rctx.moveTo(
+x1,
+y1
+);
+
+
+rctx.lineTo(
+x2,
+y2
+);
+
+
+rctx.stroke();
+
+
+// labels
+
+if(major){
+
+let tr =
+radius*0.79;
+
+
+let tx =
+cx+
+Math.cos(a)*tr;
+
+
+let ty =
+cy+
+Math.sin(a)*tr;
+
+
+let label;
+
+
+if(angle===0){
+
+label="N";
+
+}
+
+else if(
+angle===90
+){
+
+label="E";
+
+}
+
+else if(
+angle===180
+){
+
+label="S";
+
+}
+
+else if(
+angle===270
+){
+
+label="W";
+
+}
+
+else{
+
+label=
+String(
+angle
+);
+
+}
+
+
+rctx.fillStyle =
+"#c7ffe7";
+
+
+let fontSize =
+Math.max(
+8,
+radius*0.065
+);
+
+
+rctx.font =
+"bold "+
+fontSize+
+"px monospace";
+
+
+rctx.textAlign =
+"center";
+
+
+rctx.textBaseline =
+"middle";
+
+
+rctx.save();
+
+
+rctx.translate(
+tx,
+ty
+);
+
+
+rctx.rotate(
+a+
+Math.PI/2
+);
+
+
+rctx.fillText(
+label,
+0,
+0
+);
+
+
+rctx.restore();
+
+}
+
+}
+
+
+// ==========================================================
+// TOP MARKER
+// ==========================================================
+
+rctx.fillStyle =
+"#ffd94d";
+
+
+rctx.beginPath();
+
+
+rctx.moveTo(
+cx,
+cy-radius+
+radius*0.03
+);
+
+
+rctx.lineTo(
+cx-radius*0.03,
+cy-radius+
+radius*0.10
+);
+
+
+rctx.lineTo(
+cx+radius*0.03,
+cy-radius+
+radius*0.10
+);
+
+
+rctx.closePath();
+
+rctx.fill();
+
+
+// ==========================================================
+// CENTRE COURSE LINE
+// ==========================================================
+
+rctx.strokeStyle =
+"#dd9638";
+
+
+rctx.lineWidth =
+Math.max(
+1,
+radius*0.007
+);
+
+
+rctx.beginPath();
+
+
+rctx.moveTo(
+cx,
+cy-radius*0.68
+);
+
+
+rctx.lineTo(
+cx,
+cy+radius*0.62
+);
+
+
+rctx.stroke();
+
+
+// ==========================================================
+// AIRCRAFT
+// ==========================================================
+
+rctx.strokeStyle =
+"#f1f3d5";
+
+
+rctx.lineWidth =
+Math.max(
+2,
+radius*0.012
+);
+
+
+rctx.beginPath();
+
+
+rctx.moveTo(
+cx-radius*0.08,
+cy
+);
+
+
+rctx.lineTo(
+cx,
+cy-radius*0.05
+);
+
+
+rctx.lineTo(
+cx+radius*0.08,
+cy
+);
+
+
+rctx.moveTo(
+cx-radius*0.055,
+cy-radius*0.015
+);
+
+
+rctx.lineTo(
+cx+radius*0.055,
+cy-radius*0.015
+);
+
+
+rctx.moveTo(
+cx,
+cy-radius*0.05
+);
+
+
+rctx.lineTo(
+cx,
+cy+radius*0.09
+);
+
+
+rctx.stroke();
+
+
+// green centre light
+
+rctx.shadowColor =
+"#31ff72";
+
+
+rctx.shadowBlur =
+radius*0.06;
+
+
+rctx.fillStyle =
+"#31ff72";
+
+
+rctx.beginPath();
+
+
+rctx.arc(
+cx,
+cy-radius*0.105,
+Math.max(
+3,
+radius*0.025
+),
+0,
+Math.PI*2
+);
+
+
+rctx.fill();
+
+
+rctx.shadowBlur=0;
+
+
+// ==========================================================
+// HEADING VALUE
+// ==========================================================
+
+let headingText =
+String(
+Math.round(
+smoothHeading
+)%360
+).padStart(
+3,
+"0"
+);
+
+
+rctx.fillStyle =
+"#f4e98b";
+
+
+rctx.font =
+"bold "+
+Math.max(
+11,
+radius*0.10
+)+
+"px monospace";
+
+
+rctx.textAlign =
+"center";
+
+
+rctx.fillText(
+headingText,
+cx,
+cy+
+radius*0.52
+);
+
+
+// ==========================================================
+// TARGET
+// ==========================================================
+
+if(
+smoothDistance>0 &&
+smoothDistance<=200
+){
+
+let ratio =
+Math.min(
+smoothDistance/200,
+1
+);
+
+
+let objectRadius =
+radius*
+(
+0.16+
+ratio*0.56
+);
+
+
+let tx =
+cx;
+
+
+let ty =
+cy-objectRadius;
+
+
+let color;
+
+
+if(
+smoothDistance<20
+){
+
+color=
+"#ff3030";
+
+}
+
+else if(
+smoothDistance<50
+){
+
+color=
+"#ffd549";
+
+}
+
+else{
+
+color=
+"#44ff78";
+
+}
+
+
+rctx.strokeStyle =
+color;
+
+
+rctx.fillStyle =
+color;
+
+
+rctx.shadowColor =
+color;
+
+
+rctx.shadowBlur =
+radius*0.07;
+
+
+// dot
+
+rctx.beginPath();
+
+
+rctx.arc(
+tx,
+ty,
+Math.max(
+4,
+radius*0.027
+),
+0,
+Math.PI*2
+);
+
+
+rctx.fill();
+
+
+// outer circle
+
+rctx.beginPath();
+
+
+rctx.arc(
+tx,
+ty,
+Math.max(
+9,
+radius*0.065
+),
+0,
+Math.PI*2
+);
+
+
+rctx.stroke();
+
+
+rctx.shadowBlur=0;
+
+}
+
+}
+
+
+// ============================================================
+// UPDATE WARNING DISPLAY
+// ============================================================
+
+function updateWarning(){
+
+// ----------------------------------------------------------
+// NO VALID READING
+// ----------------------------------------------------------
+
+if(
+targetDistance <= 0
+){
+
+distanceValue.innerText =
+"--- CM";
+
+
+radarStatus.className =
+"";
+
+
+radarStatus.innerText =
+"NO OBSTACLE DETECTED";
+
+
+warningOverlay.style.display =
+"none";
+
+
+return;
+
+}
+
+
+// ----------------------------------------------------------
+// DISTANCE NUMBER
+// ----------------------------------------------------------
+
+let d =
+Math.round(
+targetDistance
+);
+
+
+distanceValue.innerText =
+d+" CM";
+
+
+// ----------------------------------------------------------
+// DANGER BELOW 20 CM
+// ----------------------------------------------------------
+
+if(
+targetDistance<20
+){
+
+radarStatus.className =
+"near";
+
+
+radarStatus.innerText =
+"OBSTACLE";
+
+
+warningDistance.innerText =
+"DISTANCE "+
+d+
+" CM";
+
+
+warningOverlay.style.display =
+"flex";
+
+}
+
+
+// ----------------------------------------------------------
+// 20 TO 50 CM
+// ----------------------------------------------------------
+
+else if(
+targetDistance<50
+){
+
+radarStatus.className =
+"near";
+
+
+radarStatus.innerText =
+"OBJECT NEAR";
+
+
+warningOverlay.style.display =
+"none";
+
+}
+
+
+// ----------------------------------------------------------
+// CLEAR
+// ----------------------------------------------------------
+
+else{
+
+radarStatus.className =
+"";
+
+
+radarStatus.innerText =
+"NO OBSTACLE DETECTED";
+
+
+warningOverlay.style.display =
+"none";
+
+}
+
+}
+
+
+// ============================================================
+// DATA REQUEST
+//
+// IMPORTANT:
+// This does NOT use setInterval.
+// Next request starts only AFTER previous request finishes.
+// Prevents overlapping requests and ECONNRESET spam.
+// ============================================================
+
+async function updateData(){
+
+try{
+
+let response =
+await fetch(
+"/data",
+{
+cache:"no-store"
+}
+);
+
+
+let data =
+await response.json();
+
+
+targetHeading =
+Number(
+data.heading
+)||0;
+
+
+targetPitch =
+Number(
+data.pitch
+)||0;
+
+
+targetRoll =
+Number(
+data.roll
+)||0;
+
+
+let d =
+Number(
+data.distance
+);
+
+
+if(
+isNaN(d)
+){
+
+targetDistance=-1;
+
+}
+
+else{
+
+targetDistance=d;
+
+}
+
+
+updateWarning();
+
+}
+
+catch(error){
+
+// Ignore temporary WiFi fetch failure
+
+}
+
+
+// Request again only after this request finished
+
+setTimeout(
+updateData,
+100
+);
+
+}
+
+
+// ============================================================
+// DRAW LOOP
+// ============================================================
+
+function animate(){
+
+drawHorizon();
+
+drawRadar();
+
+
+requestAnimationFrame(
+animate
+);
+
+}
+
+
+// ============================================================
+// START
+// ============================================================
+
+resizeAll();
+
+
+setTimeout(
+resizeAll,
+200
+);
+
+
+setTimeout(
+resizeAll,
+500
+);
+
+
+animate();
+
+
+updateData();
+
+</script>
+
+</body>
+
+</html>
+"""
+
+
+# ============================================================
+# WIFI
+# ============================================================
+
+def start_wifi():
+
+    ap = network.WLAN(
+        network.AP_IF
+    )
+
+
+    ap.active(False)
+
+    time.sleep_ms(300)
+
+    ap.active(True)
+
+
+    try:
+
+        ap.config(
+            essid=SSID,
+            password=PASSWORD
+        )
+
+    except:
+
+        ap.config(
+            essid=SSID
+        )
+
+
+    while not ap.active():
+
+        time.sleep_ms(100)
+
+
+    ip = ap.ifconfig()[0]
+
+
+    print()
+    print("==============================")
+    print("NAVIGATION RADAR WIFI")
+    print("==============================")
+
+    print("SSID:", SSID)
+    print("PASSWORD:", PASSWORD)
+    print("IP:", ip)
+
+    print()
+    print("OPEN:")
+    print("http://" + ip)
+    print()
+
+
+    return ap
+
+
+# ============================================================
+# SAFE HTTP SEND
+# ============================================================
+
+def safe_send(client, data):
+
+    if isinstance(data, str):
+
+        data = data.encode()
+
+
+    total = 0
+
+    length = len(data)
+
+
+    while total < length:
+
+        try:
+
+            sent = client.send(
+                data[total:]
+            )
+
+
+            if not sent:
+                break
+
+
+            total += sent
+
+
+        except OSError:
+            break
+
+
+# ============================================================
+# HTTP RESPONSE
+# ============================================================
+
+def send_response(
+    client,
+    content,
+    content_type="text/html"
+):
+
+    header = (
+        "HTTP/1.1 200 OK\\r\\n"
+        "Content-Type: "
+        + content_type
+        + "; charset=utf-8\\r\\n"
+        "Cache-Control: no-store\\r\\n"
+        "Pragma: no-cache\\r\\n"
+        "Connection: close\\r\\n"
+        "\\r\\n"
+    )
+
+
+    safe_send(
+        client,
+        header
+    )
+
+
+    safe_send(
+        client,
+        content
+    )
+
+
+# ============================================================
+# WEB SERVER
+# ============================================================
+
+def web_server():
+
+    global heading
+
+
+    address = socket.getaddrinfo(
+        "0.0.0.0",
+        80
+    )[0][-1]
+
+
+    server = socket.socket()
+
+
+    try:
+
+        server.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_REUSEADDR,
+            1
+        )
+
+    except:
+        pass
+
+
+    server.bind(
+        address
+    )
+
+
+    # slightly larger backlog
+    server.listen(
+        4
+    )
+
+
+    server.setblocking(
+        False
+    )
+
+
+    print(
+        "Web server running"
+    )
+
+    print()
+
+
+    while True:
+
+
+        # ====================================================
+        # SENSOR UPDATES
+        # ====================================================
+
+        update_heading()
+
+        update_attitude()
+
+        update_distance()
+
+
+        # ====================================================
+        # HTTP
+        # ====================================================
+
+        try:
+
+            client, addr = \\
+                server.accept()
+
+
+        except OSError:
+
+            time.sleep_ms(2)
+
+            continue
+
+
+        try:
+
+            request = client.recv(
+                1024
+            )
+
+
+            if not request:
+
+                client.close()
+
+                continue
+
+
+            request = request.decode(
+                "utf-8"
+            )
+
+
+            first_line = request.split(
+                "\\r\\n"
+            )[0]
+
+
+            parts = first_line.split()
+
+
+            if len(parts) >= 2:
+
+                path = parts[1]
+
+            else:
+
+                path = "/"
+
+
+            # ================================================
+            # WEB PAGE
+            # ================================================
+
+            if path == "/":
+
+                send_response(
+                    client,
+                    HTML
+                )
+
+
+            # ================================================
+            # LIVE DATA
+            # ================================================
+
+            elif path.startswith(
+                "/data"
+            ):
+
+
+                payload = (
+                    "{"
+
+                    + '"heading":'
+                    + str(
+                        round(
+                            heading,
+                            1
+                        )
+                    )
+
+                    + ","
+
+                    + '"pitch":'
+                    + str(
+                        round(
+                            pitch,
+                            1
+                        )
+                    )
+
+                    + ","
+
+                    + '"roll":'
+                    + str(
+                        round(
+                            roll,
+                            1
+                        )
+                    )
+
+                    + ","
+
+                    + '"distance":'
+                    + str(
+                        round(
+                            distance_cm,
+                            1
+                        )
+                    )
+
+                    + "}"
+                )
+
+
+                send_response(
+                    client,
+                    payload,
+                    "application/json"
+                )
+
+
+            # ================================================
+            # ZERO
+            # ================================================
+
+            elif path.startswith(
+                "/zero"
+            ):
+
+                heading = 0.0
+
+
+                send_response(
+                    client,
+                    '{"status":"ok"}',
+                    "application/json"
+                )
+
+
+            # ================================================
+            # CALIBRATE
+            # ================================================
+
+            elif path.startswith(
+                "/calibrate"
+            ):
+
+                calibrate_mpu(
+                    5
+                )
+
+
+                send_response(
+                    client,
+                    '{"status":"ok"}',
+                    "application/json"
+                )
+
+
+            else:
+
+                send_response(
+                    client,
+                    "404",
+                    "text/plain"
+                )
+
+
+        except OSError as e:
+
+            # Browser may close connection before ESP32 finishes.
+            # Errno 104 is normal and can safely be ignored.
+
+            try:
+
+                error_number = e.args[0]
+
+            except:
+
+                error_number = None
+
+
+            if error_number != 104:
+
+                print(
+                    "Web socket error:",
+                    e
+                )
+
+
+        except Exception as e:
+
+            print(
+                "Web error:",
+                e
+            )
+
+
+        finally:
+
+            try:
+
+                client.close()
+
+            except:
+
+                pass
+
+
+        gc.collect()
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    print()
+    print("====================================")
+    print(" NAVIGATION RADAR SYSTEM")
+    print("====================================")
+    print()
+
+
+    # MPU
+
+    if not init_mpu6050():
+
+        print(
+            "Check MPU6050 connection"
+        )
+
+        return
+
+
+    # Calibration
+
+    calibrate_mpu(
+        5
+    )
+
+
+    # Ultrasonic test
+
+    print(
+        "Ultrasonic test:"
+    )
+
+
+    test_distance = \\
+        read_ultrasonic()
+
+
+    print(
+        test_distance,
+        "CM"
+    )
+
+
+    # WiFi
+
+    start_wifi()
+
+
+    # Web
+
+    web_server()
+
+
+# ============================================================
+# START
+# ============================================================
+
+if __name__ == "__main__":
+
+    main()
+`,
   },
   {
     id: 'lostbot-cooling',
@@ -6229,6 +12213,7 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-lostbot-cooling',
     thumbnail: 'lof-titan/banners/banner-lostbot-cooling',
     tagline: 'Automated Cooling and Air-Quality Protection for the Robot',
+    codeFilename: 'lost_bot_cooling_system.py',
     description:
       'Combines temperature and gas sensing with OLED monitoring, motor-driven fan control, and PWM-based speed adjustment, creating an automated cooling and protection system for the robot.',
 
@@ -6338,5 +12323,423 @@ if __name__ == '__main__':
     // CONTENT PENDING: assembly[], coding[], code, and component artwork. The
     // detail page hides any section with no data and renumbers the rest, so this
     // renders correctly as-is.
+
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — LOST BOT COOLING & AIR PURIFICATION SYSTEM
+# ==============================================================================
+# Target Hardware: ESP32-S3 (LOF TITAN Board)
+#
+# Hardware Connections:
+#   - 1.3" I2C OLED Display (SH1106 / SSD1306): SDA = GPIO 7, SCL = GPIO 8 (0x3C)
+#   - DHT22 Digital Temp & Humidity: Port S1 (GPIO 2)
+#   - MQ-135 Gas & Air Quality Sensor: Port S2 (GPIO 1)
+#   - Motor M1 (Cooling Fan / Exhaust): GPIO 15 (PWM Speed), GPIO 16 (Dir = 0)
+#   - Status LEDs: GPIO 47 (Red = Alert/Cooling Active), GPIO 48 (Green = Normal)
+#   - Onboard Buzzer: GPIO 20
+#   - Push Buttons: Button 1 (GPIO 39 = Fan Override), Button 2 (GPIO 40 = Unit Toggle °C/°F)
+#
+# Operational Logic:
+#   - Continuously monitors Ambient Temperature (°C) & Air Quality / Gas (PPM).
+#   - TRIGGER CONDITION:
+#       * If Temperature > 30.0 °C  --> COOLING TRIGGERED
+#       * If Gas / Air Quality > 300 PPM --> VENTILATION TRIGGERED
+#   - When Triggered:
+#       * Motor M1 turns ON at full power (cooling fan active).
+#       * OLED displays real-time telemetry, warning icons, and animated spinning fan blades.
+#       * Red Status LED activates; Buzzer gives confirmation alert.
+#   - When Safe (Temp <= 29.5°C AND Gas <= 280 PPM):
+#       * Motor M1 turns OFF (Standby mode).
+#       * Green Status LED glows solid; OLED shows normal status.
+# ==============================================================================
+
+import time
+import math
+import framebuf
+import dht
+from machine import Pin, PWM, ADC, SoftI2C
+
+# ================= 1. HARDWARE PIN DEFINITIONS =================
+PIN_OLED_SDA   = 7
+PIN_OLED_SCL   = 8
+PIN_DHT22      = 2   # Port S1
+PIN_MQ135      = 1   # Port S2 (ADC)
+PIN_MOTOR_PWM  = 15  # Motor M1 PWM
+PIN_MOTOR_DIR  = 16  # Motor M1 DIR
+PIN_LED_RED    = 47  # Alert / Cooling Active LED
+PIN_LED_GREEN  = 48  # Normal / Standby LED
+PIN_BUZZER     = 20  # Onboard Buzzer
+PIN_BTN_OVERRIDE = 39 # Button 1 (Manual Fan Override)
+PIN_BTN_UNIT     = 40 # Button 2 (Toggle Celsius/Fahrenheit)
+
+# ================= 2. THRESHOLD SETTINGS =================
+TEMP_THRESHOLD_C   = 30.0  # Trigger fan when Temp > 30.0 °C
+TEMP_HYSTERESIS_C  = 0.8   # Turn off fan when Temp < 29.2 °C
+GAS_ADC_THRESHOLD  = 300   # Trigger fan when MQ-135 Analog ADC > 300
+GAS_ADC_HYSTERESIS = 20    # Turn off fan when MQ-135 Analog ADC < 280
+FAN_ACTIVE_SPEED   = 100   # Fan Speed % (1-100)
+
+# ================= 3. SINGLETON PWM POOL MANAGER =================
+_pwm_pool = {}
+
+def _get_pwm(pin_num, freq=1000):
+    if pin_num not in _pwm_pool:
+        _pwm_pool[pin_num] = PWM(Pin(pin_num), freq=freq)
+    else:
+        try:
+            _pwm_pool[pin_num].freq(freq)
+        except Exception:
+            pass
+    return _pwm_pool[pin_num]
+
+def set_motor_m1_speed(speed_pct):
+    speed_pct = max(0, min(100, int(speed_pct)))
+    duty_val = int(speed_pct * 10.23)
+    if speed_pct > 0:
+        _get_pwm(PIN_MOTOR_PWM).duty(duty_val)
+        _get_pwm(PIN_MOTOR_DIR).duty(0)
+    else:
+        _get_pwm(PIN_MOTOR_PWM).duty(0)
+        _get_pwm(PIN_MOTOR_DIR).duty(0)
+
+# ================= 4. BUZZER & LED CONTROLLERS =================
+led_red = Pin(PIN_LED_RED, Pin.OUT)
+led_green = Pin(PIN_LED_GREEN, Pin.OUT)
+btn_override = Pin(PIN_BTN_OVERRIDE, Pin.IN, Pin.PULL_UP)
+btn_unit = Pin(PIN_BTN_UNIT, Pin.IN, Pin.PULL_UP)
+
+def beep(freq=2000, duration_ms=80):
+    try:
+        bz = _get_pwm(PIN_BUZZER, freq=freq)
+        bz.duty(512)
+        time.sleep_ms(duration_ms)
+        bz.duty(0)
+    except Exception:
+        pass
+
+def alert_sound():
+    beep(2400, 60)
+    time.sleep_ms(40)
+    beep(3000, 80)
+
+# ================= 5. 1.3" SH1106 / SSD1306 OLED DRIVER =================
+class TitanOLED(framebuf.FrameBuffer):
+    def __init__(self, sda_pin=7, scl_pin=8, is_sh1106=True, col_offset=2):
+        self.is_sh1106 = is_sh1106
+        self.col_offset = col_offset
+        self.width = 128
+        self.height = 64
+        self.addr = 0x3C
+        self.buf = bytearray(1024)
+        super().__init__(self.buf, self.width, self.height, framebuf.MONO_VLSB)
+        
+        try:
+            self.i2c = SoftI2C(sda=Pin(sda_pin, Pin.OUT), scl=Pin(scl_pin, Pin.OUT), freq=400000, timeout=2000)
+            devs = self.i2c.scan()
+            if 0x3C in devs:
+                self.addr = 0x3C
+            elif 0x3D in devs:
+                self.addr = 0x3D
+            elif devs:
+                self.addr = devs[0]
+        except Exception:
+            self.i2c = None
+
+        if self.i2c:
+            init_seq = (
+                0xAE, 0x20, 0x00, 0x40, 0xA1, 0xC8, 0x81, 0xCF,
+                0xA6, 0xA8, 0x3F, 0xD3, 0x00, 0xD5, 0x80, 0xD9,
+                0xF1, 0xDA, 0x12, 0xDB, 0x40, 0x8D, 0x14, 0xAF
+            )
+            for cmd in init_seq:
+                try:
+                    self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+                except Exception:
+                    pass
+        self.fill(0)
+        self.show()
+
+    def print_text(self, s, x, y, size=1, col=1):
+        s = str(s)
+        if size <= 1:
+            super().text(s, x, y, col)
+        else:
+            w = len(s) * 8
+            tmp_buf = bytearray((w * 8 + 7) // 8)
+            fb = framebuf.FrameBuffer(tmp_buf, w, 8, framebuf.MONO_VLSB)
+            fb.fill(0)
+            fb.text(s, 0, 0, 1)
+            for px in range(w):
+                for py in range(8):
+                    if fb.pixel(px, py):
+                        for dx in range(size):
+                            for dy in range(size):
+                                nx = x + px * size + dx
+                                ny = y + py * size + dy
+                                if 0 <= nx < 128 and 0 <= ny < 64:
+                                    self.pixel(nx, ny, col)
+
+    def draw_progress_bar(self, x, y, w, h, val, min_val, max_val, label=""):
+        self.rect(x, y, w, h, 1)
+        clamped = max(min_val, min(max_val, val))
+        fill_w = int(((clamped - min_val) / (max_val - min_val)) * (w - 4))
+        if fill_w > 0:
+            self.fill_rect(x + 2, y + 2, fill_w, h - 4, 1)
+
+    def show(self):
+        if not self.i2c:
+            return
+        try:
+            if self.is_sh1106:
+                for page in range(8):
+                    page_cmd = bytearray([0x80, 0xB0 + page, 0x80, self.col_offset & 0x0F, 0x80, 0x10 | ((self.col_offset >> 4) & 0x0F)])
+                    self.i2c.writeto(self.addr, page_cmd)
+                    chunk = self.buf[128 * page : 128 * (page + 1)]
+                    self.i2c.writeto(self.addr, b'\\x40' + chunk)
+            else:
+                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
+                self.i2c.writeto(self.addr, b'\\x40' + self.buf)
+        except Exception:
+            pass
+
+# ================= 6. SENSOR DRIVERS (DHT22 & MQ-135) =================
+class SensorSuite:
+    def __init__(self, dht_pin=PIN_DHT22, mq_pin=PIN_MQ135):
+        self.dht_pin = dht_pin
+        self.mq_pin = mq_pin
+        
+        # Initialize DHT22
+        try:
+            self.dht = dht.DHT22(Pin(dht_pin))
+        except Exception:
+            self.dht = None
+            
+        # Initialize MQ-135 ADC
+        try:
+            self.mq_adc = ADC(Pin(mq_pin), atten=ADC.ATTN_11DB)
+        except Exception:
+            self.mq_adc = None
+
+        self.last_temp_c = 25.0
+        self.last_humi = 50.0
+        self.last_adc = 200
+        self.last_dht_read_ms = 0
+
+    def read_dht(self):
+        now = time.ticks_ms()
+        # DHT22 hardware should only be sampled once every 1000ms
+        if time.ticks_diff(now, self.last_dht_read_ms) >= 1200 or self.last_dht_read_ms == 0:
+            if self.dht:
+                try:
+                    self.dht.measure()
+                    t = self.dht.temperature()
+                    h = self.dht.humidity()
+                    if t is not None and -40 <= t <= 80:
+                        self.last_temp_c = round(float(t), 1)
+                    if h is not None and 0 <= h <= 100:
+                        self.last_humi = round(float(h), 1)
+                    self.last_dht_read_ms = now
+                except Exception:
+                    pass
+        return self.last_temp_c, self.last_humi
+
+    def read_mq135_adc(self):
+        if not self.mq_adc:
+            return 200
+        try:
+            # 5-sample averaged ADC reading to eliminate noise
+            total = 0
+            for _ in range(5):
+                total += self.mq_adc.read()
+                time.sleep_ms(2)
+            raw = total // 5
+            self.last_adc = max(0, min(4095, raw))
+        except Exception:
+            pass
+        return self.last_adc
+
+# ================= 7. MAIN COOLING CONTROL SYSTEM =================
+def main():
+    print("==================================================")
+    print("  LOF TITAN — LOST BOT COOLING & AIR SYSTEM")
+    print("==================================================")
+    
+    oled = TitanOLED(sda_pin=PIN_OLED_SDA, scl_pin=PIN_OLED_SCL, is_sh1106=True)
+    sensors = SensorSuite(dht_pin=PIN_DHT22, mq_pin=PIN_MQ135)
+    
+    # Startup Sequence & OLED splash
+    oled.fill(0)
+    oled.rect(0, 0, 128, 64, 1)
+    oled.print_text("LOST BOT", 32, 12, size=1)
+    oled.print_text("COOLING SYSTEM", 10, 26, size=1)
+    oled.print_text("Initializing...", 14, 44, size=1)
+    oled.show()
+    
+    led_red.value(1); led_green.value(1)
+    beep(1800, 100); time.sleep_ms(80); beep(2400, 120)
+    time.sleep_ms(1000)
+    led_red.value(0); led_green.value(1)
+    
+    fan_running = False
+    manual_override = False
+    use_fahrenheit = False
+    last_beep_alert = 0
+    fan_anim_frame = 0
+    fan_icons = ["|", "/", "-", "\\\\"]
+    
+    btn_override_prev = 1
+    btn_unit_prev = 1
+    
+    print(f"[CONFIG] Temp Threshold : > {TEMP_THRESHOLD_C} °C")
+    print(f"[CONFIG] Gas ADC Limit  : > {GAS_ADC_THRESHOLD} (0-4095 12-bit ADC)")
+    print(f"[CONFIG] Fan Pinout     : M1 (GPIO {PIN_MOTOR_PWM}, {PIN_MOTOR_DIR})")
+    
+    while True:
+        now = time.ticks_ms()
+        
+        # 1. Read Button Inputs
+        btn_ovr_val = btn_override.value()
+        btn_unit_val = btn_unit.value()
+        
+        # Button 1 Press: Toggle Manual Override
+        if btn_override_prev == 1 and btn_ovr_val == 0:
+            manual_override = not manual_override
+            beep(2600 if manual_override else 1600, 80)
+            print(f"[BUTTON 1] Manual Fan Override: {'ON' if manual_override else 'AUTO'}")
+            time.sleep_ms(50)
+            
+        # Button 2 Press: Toggle Temperature Unit (°C / °F)
+        if btn_unit_prev == 1 and btn_unit_val == 0:
+            use_fahrenheit = not use_fahrenheit
+            beep(2200, 60)
+            print(f"[BUTTON 2] Temperature Unit: {'°F' if use_fahrenheit else '°C'}")
+            time.sleep_ms(50)
+            
+        btn_override_prev = btn_ovr_val
+        btn_unit_prev = btn_unit_val
+        
+        # 2. Acquire Sensor Readings (DHT22 Temp & MQ-135 Raw Analog ADC)
+        temp_c, humi = sensors.read_dht()
+        gas_adc = sensors.read_mq135_adc()
+        
+        temp_display = (temp_c * 1.8 + 32.0) if use_fahrenheit else temp_c
+        unit_str = "F" if use_fahrenheit else "C"
+        
+        # 3. Evaluate Trigger Conditions
+        temp_alert = temp_c > TEMP_THRESHOLD_C
+        gas_alert = gas_adc > GAS_ADC_THRESHOLD
+        
+        should_fan_run = False
+        if manual_override:
+            should_fan_run = True
+            trigger_reason = "MANUAL OVERRIDE"
+        elif temp_alert and gas_alert:
+            should_fan_run = True
+            trigger_reason = "HOT & HIGH GAS!"
+        elif temp_alert:
+            should_fan_run = True
+            trigger_reason = f"TEMP > {TEMP_THRESHOLD_C}C"
+        elif gas_alert:
+            should_fan_run = True
+            trigger_reason = f"GAS ADC > {GAS_ADC_THRESHOLD}"
+        elif fan_running:
+            # Hysteresis keep-alive to prevent rapid relay/motor toggling
+            if temp_c > (TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C) or gas_adc > (GAS_ADC_THRESHOLD - GAS_ADC_HYSTERESIS):
+                should_fan_run = True
+                trigger_reason = "COOLING CYCLE"
+            else:
+                should_fan_run = False
+                trigger_reason = "STANDBY"
+        else:
+            should_fan_run = False
+            trigger_reason = "NORMAL / STANDBY"
+
+        # 4. Control Fan Motor & Status LEDs
+        if should_fan_run:
+            if not fan_running:
+                print(f"\\n[ALERT] Triggered: {trigger_reason} | Temp: {temp_c:.1f}°C, Gas ADC: {gas_adc} -> FAN M1 ON")
+                alert_sound()
+                fan_running = True
+                
+            set_motor_m1_speed(FAN_ACTIVE_SPEED)
+            led_red.value(1)
+            led_green.value(0)
+            
+            # Periodic alert chirp every 4 seconds if critical
+            if (temp_c > 35.0 or gas_adc > 800) and time.ticks_diff(now, last_beep_alert) > 4000:
+                beep(2800, 50)
+                last_beep_alert = now
+        else:
+            if fan_running:
+                print(f"[STATUS] Normalized: Temp {temp_c:.1f}°C, Gas ADC {gas_adc} -> FAN M1 OFF")
+                beep(1500, 80)
+                fan_running = False
+                
+            set_motor_m1_speed(0)
+            led_red.value(0)
+            led_green.value(1)
+            
+        # 5. Render 1.3" OLED Dashboard (SH1106 128x64)
+        oled.fill(0)
+        
+        # Header Banner
+        fan_icon = fan_icons[fan_anim_frame % len(fan_icons)] if fan_running else "o"
+        fan_anim_frame += 1
+        
+        oled.fill_rect(0, 0, 128, 12, 1)
+        oled.print_text("LOST BOT COOLING", 4, 2, size=1, col=0)
+        oled.print_text(f"[{fan_icon}]", 108, 2, size=1, col=0)
+        
+        # Line 1: Temperature Readout & Tag
+        temp_tag = "HOT!" if temp_alert else "OK "
+        oled.print_text(f"T:{temp_display:4.1f}{unit_str}", 2, 16, size=1)
+        if temp_alert:
+            oled.fill_rect(58, 15, 68, 10, 1)
+            oled.print_text(f"[{temp_tag}] >30C", 60, 16, size=1, col=0)
+        else:
+            oled.print_text(f"[{temp_tag}] Max30", 60, 16, size=1, col=1)
+            
+        # Line 2: Humidity Readout
+        oled.print_text(f"H:{humi:4.1f}% RH", 2, 28, size=1)
+        # Small humidity bar
+        oled.rect(80, 29, 46, 7, 1)
+        fill_h = int((max(0, min(100, humi)) / 100.0) * 42)
+        if fill_h > 0:
+            oled.fill_rect(82, 31, fill_h, 3, 1)
+            
+        # Line 3: MQ-135 Analog ADC Value
+        gas_tag = "GAS!" if gas_alert else "OK "
+        oled.print_text(f"G:{gas_adc:4d} ADC", 2, 39, size=1)
+        if gas_alert:
+            oled.fill_rect(76, 38, 50, 10, 1)
+            oled.print_text(f"[{gas_tag}]>300", 78, 39, size=1, col=0)
+        else:
+            oled.print_text(f"[{gas_tag}] Max300", 76, 39, size=1, col=1)
+
+        # Line 4: Bottom Fan & System Status Bar
+        oled.rect(0, 50, 128, 14, 1)
+        if fan_running:
+            oled.fill_rect(1, 51, 126, 12, 1)
+            oled.print_text(f"FAN M1: ON (100%)", 8, 53, size=1, col=0)
+        else:
+            oled.print_text("FAN M1: STANDBY", 12, 53, size=1, col=1)
+            
+        oled.show()
+        
+        # Telemetry Serial Output
+        if fan_anim_frame % 5 == 0:
+            print(f"[TELEMETRY] Temp: {temp_c:.1f}°C | Humi: {humi:.1f}% | MQ-135 ADC: {gas_adc} (Limit >{GAS_ADC_THRESHOLD}) | Fan M1: {'ACTIVE (100%)' if fan_running else 'OFF'} | {trigger_reason}")
+            
+        time.sleep_ms(80)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\\n[STOP] Program stopped by user.")
+        set_motor_m1_speed(0)
+        led_red.value(0)
+        led_green.value(0)
+`,
   },
 ];

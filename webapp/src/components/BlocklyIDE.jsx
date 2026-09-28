@@ -468,12 +468,26 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
         const id = (typeof item.getId === 'function') ? item.getId() : (item.id_ || item.customId);
         const defName = item.toolboxItemDef_?.name;
         const defId = item.toolboxItemDef_?.customId;
+
+        // Compared case- and whitespace-insensitively: the rail and the toolbox
+        // are separate lists, and a stray capital used to mean a category simply
+        // never opened. The audio/sound pair is aliased because the two files
+        // disagreed on that name for a while - a saved workspace or an older
+        // toolbox can still carry either.
+        const n = (name || '').trim().toLowerCase();
+        const dN = (defName || '').trim().toLowerCase();
+        const targetN = (cat.name || '').trim().toLowerCase();
+        const i = (id || '').trim().toLowerCase();
+        const dI = (defId || '').trim().toLowerCase();
+        const targetI = (cat.customId || '').trim().toLowerCase();
+
         return (
-          name === cat.name ||
-          id === cat.customId ||
-          defName === cat.name ||
-          defId === cat.customId ||
-          (name && name.toLowerCase() === cat.name.toLowerCase())
+          n === targetN ||
+          dN === targetN ||
+          i === targetI ||
+          dI === targetI ||
+          (targetI === 'audio' && (i === 'sound' || dI === 'sound' || n === 'sound' || dN === 'sound')) ||
+          (targetI === 'sound' && (i === 'audio' || dI === 'audio' || n === 'audio' || dN === 'audio'))
         );
       });
 
@@ -570,7 +584,16 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
   const handleUploadToTitan = () => {
     if (onUploadCode) {
-      onUploadCode(pythonCode);
+      // Generate from the workspace first, so the board runs what is on the
+      // canvas right now. pythonCode only refreshes when the Python drawer is
+      // opened, so uploading straight from it could flash stale code.
+      if (workspaceRef.current) {
+        const freshCode = generateTitanWorkspaceCode(workspaceRef.current);
+        setPythonCode(freshCode);
+        onUploadCode(freshCode);
+      } else {
+        onUploadCode(pythonCode);
+      }
     }
   };
 

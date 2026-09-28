@@ -51,7 +51,10 @@ const PROMPT_SUGGESTIONS = [
   { label: "5-Sensor Line Follower", prompt: "Write a high-speed line following robot program using analog sensors S1 (GPIO 2), S2 (GPIO 1), and S3 (GPIO 3) with proportional differential motor steering on M1 and M2." },
   { label: "OLED Live Dashboard", prompt: "Write an OLED display dashboard program that initializes the 1.3 inch display on SDA 7 and SCL 8, showing live readings for S1-S5 and Ultrasonic distance with 2x font size." },
   { label: "Push Button Rover Driver", prompt: "Write a program using Button 1 (GPIO 39) for Forward, Button 2 (GPIO 40) for Backward, Button 3 (GPIO 41) for Left, and Button 4 (GPIO 42) for Stop, driving motors M1 and M2." },
-  { label: "Buzzer Musical Show", prompt: "Write a fun sound and light show program using the onboard Buzzer on GPIO 20 playing musical notes and alternating Red LED (GPIO 47) and Green LED (GPIO 48)." }
+  { label: "Buzzer Musical Show", prompt: "Write a fun sound and light show program using the onboard Buzzer on GPIO 20 playing musical notes and alternating Red LED (GPIO 47) and Green LED (GPIO 48)." },
+  { label: "Magnetic Encoder (AS5600)", prompt: "Write an AS5600 12-bit contactless magnetic encoder program on I2C (SDA 7, SCL 8, Addr 0x36) that reads the live rotational angle (0-360°), counts total revolutions/turns, calculates RPM, and displays angle telemetry on the OLED screen." },
+  { label: "Digital Compass (QMC5883L)", prompt: "Write a complete navigation compass program using the QMC5883L sensor on I2C (SDA 7, SCL 8, Addr 0x0D) that calculates the live azimuth heading angle (0-360°) and cardinal direction (N, NE, E, SE, S, SW, W, NW) and displays it on the OLED screen." },
+  { label: "8x8 Thermal Camera (AMG8833)", prompt: "Write a thermal imaging and human body heat detection program using the AMG8833 8x8 IR sensor on I2C (SDA 7, SCL 8, Addr 0x69) that renders an 8x8 thermal heatmap on the OLED screen and sounds the buzzer if a person (temperature > 32°C) is detected." }
 ];
 
 export function AIAssistantIDE({ isOpen, onClose, device, onUploadCode }) {
