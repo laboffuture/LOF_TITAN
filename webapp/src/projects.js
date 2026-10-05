@@ -8540,10 +8540,8 @@ if __name__ == '__main__':
     duration: '45 Mins',
     difficulty: 'Builder',
     age: '10+',
-    // NO ARTWORK YET. heroImage and thumbnail are deliberately absent: the
-    // dashboard card falls back to a stand-in rather than borrowing another
-    // kit's banner and implying it is this one. Add them as
-    // lof-titan/banners/banner-navigation-radar once the art arrives.
+    heroImage: 'lof-titan/banners/banner-navigation-radar',
+    thumbnail: 'lof-titan/banners/banner-navigation-radar',
     tagline: 'Aircraft Heading Tracking with Ultrasonic Obstacle Detection',
     codeFilename: 'navigation_radar_system.py',
     description:

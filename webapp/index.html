@@ -1,54 +1,55 @@
 <!doctype html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <!-- Leading slash so Vite rewrites it with the deploy base. Without it the
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- Leading slash so Vite rewrites it with the deploy base. Without it the
          href resolves against the current route, so a deep link like
          /LOF_TITAN/kit/rc-plane asked for /LOF_TITAN/kit/favicon.png. -->
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LOF TITAN Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOF TITAN Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
+    rel="stylesheet">
 
-    <!-- No crossorigin: our <img> tags fetch without it, and a preconnect that
+  <!-- No crossorigin: our <img> tags fetch without it, and a preconnect that
          disagrees opens a second connection instead of being reused. -->
-    <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
 
-    <!-- The first carousel slide is the LCP element, but it lives inside the JS
+  <!-- The first carousel slide is the LCP element, but it lives inside the JS
          bundle, so the browser cannot discover it until ~400KB of JS parses.
          imagesrcset/imagesizes must mirror <Img> exactly or the preload misses
          and the image is fetched twice. -->
-    <link
-      rel="preload"
-      as="image"
-      fetchpriority="high"
-      imagesizes="100vw"
-      imagesrcset="
+  <link rel="preload" as="image" fetchpriority="high" imagesizes="100vw"
+    imagesrcset="
         https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_480/lof-titan/banners/banner-axes3 480w,
         https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_960/lof-titan/banners/banner-axes3 960w,
         https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_1440/lof-titan/banners/banner-axes3 1440w">
-  </head>
-  <body class="bg-slate-900 text-white min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
-    <div id="root"></div>
-    <script>
-      // Restore a deep link that public/404.html stashed on its way through
-      // GitHub Pages' 404 handler. Must run before React mounts so the router
-      // sees the real path.
-      (function () {
-        try {
-          var target = sessionStorage.getItem('titan-spa-redirect');
-          if (target) {
-            sessionStorage.removeItem('titan-spa-redirect');
-            history.replaceState(null, '', target);
-          }
-        } catch (e) {
-          // Storage blocked - stay on the dashboard.
+</head>
+
+<body class="bg-slate-900 text-white min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+  <script>
+    // Restore a deep link that public/404.html stashed on its way through
+    // GitHub Pages' 404 handler. Must run before React mounts so the router
+    // sees the real path.
+    (function () {
+      try {
+        var target = sessionStorage.getItem('titan-spa-redirect');
+        if (target) {
+          sessionStorage.removeItem('titan-spa-redirect');
+          history.replaceState(null, '', target);
         }
-      })();
-    </script>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+      } catch (e) {
+        // Storage blocked - stay on the dashboard.
+      }
+    })();
+  </script>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
