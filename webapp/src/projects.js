@@ -16341,4 +16341,165 @@ if __name__ == '__main__':
         led_green.value(0)
 `,
   },
+  {
+    id: 'emergency-messenger',
+    name: 'Emergency Messenger System',
+    category: 'Communication & Safety',
+    badge: 'DIY Communication Kit',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    // duration was NOT supplied with the content; until it is, the card falls
+    // back to its default and this kit will not appear under that filter facet.
+    difficulty: 'Innovator',
+    age: '10+',
+    heroImage: 'lof-titan/banners/banner-emergency-messenger',
+    thumbnail: 'lof-titan/banners/banner-emergency-messenger',
+    tagline: 'Button-Selected Emergency Messages on an OLED Display',
+    description:
+      'Build an Emergency Messenger System that lets you quickly select and send important messages using push buttons while viewing the selected message on an OLED display. You will learn how simple controls and visual feedback can support fast communication during emergencies.',
+
+    specs: [
+      { label: 'INPUT', value: '4-Key Push Buttons' },
+      { label: 'DISPLAY', value: '1.3-inch OLED' },
+      { label: 'POWER', value: 'Li-ion Battery' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Electrical Precautions',
+      hardware: [
+        '⚠️ Switch off power before connecting or removing components.',
+        '⚠️ Check all connections before powering the system.',
+        '⚠️ Use only the recommended Li-ion battery and charger.',
+        '⚠️ Keep the electronics away from water and moisture.',
+      ],
+      electronicsTitle: 'Operation & Handling Precautions',
+      electronics: [
+        '⚠️ Press the buttons gently without applying excessive force.',
+        '⚠️ Secure the OLED and buttons firmly before use.',
+        '⚠️ Avoid pulling or bending connected wires sharply.',
+        '⚠️ Switch OFF the system when it is not in use.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'push-buttons',
+        shortName: '4-Key Buttons',
+        name: '4-Key Push Buttons',
+        image: 'lof-titan/emergency-messenger/push-buttons',
+        whatIsIt:
+          'A set of buttons used to navigate, select, and control emergency messages.',
+        howItWorks:
+          'Each button sends a different input to the controller based on the programmed function.',
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: '1.3-inch OLED Display',
+        image: 'lof-titan/emergency-messenger/oled-display',
+        whatIsIt: 'A compact screen used to show messages and system status.',
+        howItWorks:
+          'It displays the selected message and provides visual feedback while operating the system.',
+      },
+      {
+        id: 'li-ion-battery',
+        shortName: 'Li-ion Battery',
+        name: 'Li-ion Battery',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/emergency-messenger/li-ion-battery',
+        image: '',
+        whatIsIt: 'A rechargeable power source for the Emergency Messenger System.',
+        howItWorks:
+          'It supplies electrical power to the controller, buttons, and OLED display.',
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'LOF TITAN',
+        name: 'LOF TITAN (ESP32-S3)',
+        image: 'lof-titan/emergency-messenger/esp32-s3',
+        whatIsIt: 'The main controller of the Emergency Messenger System.',
+        howItWorks:
+          'It reads the button inputs, manages the message selection, and sends the required information to the OLED display.',
+      },
+    ],
+
+    assemblyTitle: 'Emergency Messenger Assembly & Integration',
+    assembly: [
+      {
+        step: 1,
+        title: 'Install the Push Buttons',
+        desc: 'Position and secure the four push buttons for easy access during message selection.',
+      },
+      {
+        step: 2,
+        title: 'Mount the OLED Display',
+        desc: 'Fix the OLED display in a clear viewing position and connect it to the main controller.',
+      },
+      {
+        step: 3,
+        title: 'Connect the Message Controls',
+        desc: 'Connect the four push buttons to their designated control inputs and complete the required wiring.',
+      },
+      {
+        step: 4,
+        title: 'Integrate the Power System',
+        desc: 'Connect the Li-ion battery and rocker switch to complete the system power connections.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'A button does not respond when pressed. What should I check?',
+        a: 'Check the button connection and make sure it is connected to the correct input.',
+      },
+      {
+        q: 'The wrong message appears when I press a button. Why?',
+        a: 'Check the button mapping in the program.',
+      },
+      {
+        q: 'The OLED is ON, but no message appears. What should I check?',
+        a: 'Check the OLED connection and confirm that the display is communicating with the controller.',
+      },
+      {
+        q: 'The system restarts when a button is pressed. Why?',
+        a: 'Check the battery charge and power connections.',
+      },
+      {
+        q: 'The system does not power ON. What should I check?',
+        a: 'Check the battery connection, rocker switch, and power wiring.',
+      },
+    ],
+
+    challengesTitle: 'Emergency Communication Mission Challenges',
+    challenges: [
+      {
+        id: 'create-your-own-messages',
+        level: 'Beginner',
+        title: 'Challenge 1: Create Your Own Emergency Messages',
+        goal: 'Create a new set of short emergency messages and assign them to the available controls.',
+        hint: 'Keep each message short, clear, and easy to understand quickly.',
+      },
+      {
+        id: 'priority-message-system',
+        level: 'Intermediate',
+        title: 'Challenge 2: Priority Message System',
+        goal: 'Group emergency messages into different priority levels such as Normal, Warning, and Critical and show the priority on the OLED.',
+        hint: 'Use different conditions to display the correct priority with each message.',
+      },
+      {
+        id: 'manual-message-builder',
+        level: 'Advanced',
+        title: 'Challenge 3: Manual Message Builder',
+        goal: 'Create a mode where the four buttons can be used to navigate through letters, select characters, and build a custom emergency message.',
+        hint: 'Use separate buttons for navigation, selection, and sending the completed message.',
+      },
+    ],
+
+    // CONTENT PENDING: coding[], code (firmware) and component pin mappings were
+    // not supplied. The detail page hides any section with no data and renumbers
+    // the rest, so this renders correctly as-is.
+  },
 ];

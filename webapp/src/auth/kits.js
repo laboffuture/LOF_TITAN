@@ -26,6 +26,7 @@ export const KITS = [
   { id: 'stability-scout', name: 'Stability Scout', status: 'available' },
   { id: 'navigation-radar', name: 'Navigation Radar System', status: 'available' },
   { id: 'lostbot-cooling', name: 'Automating Lost Bot\'s Cooling System', status: 'available' },
+  { id: 'emergency-messenger', name: 'Emergency Messenger System', status: 'available' },
 ];
 
 /** Ids of every kit a customer can actually buy and open. */
