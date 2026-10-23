@@ -16502,4 +16502,138 @@ if __name__ == '__main__':
     // not supplied. The detail page hides any section with no data and renumbers
     // the rest, so this renders correctly as-is.
   },
+  {
+    id: 'axes6',
+    name: 'Axes 6',
+    category: 'Robotic Arms & Motion',
+    badge: 'DIY Robotic Arm Kit',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    // duration and difficulty were NOT supplied with the content; until they
+    // are, the card falls back to its defaults and this kit will not appear
+    // under those filter facets.
+    age: '10+',
+    heroImage: 'lof-titan/banners/banner-axes6',
+    thumbnail: 'lof-titan/banners/banner-axes6',
+    tagline: 'Six-Axis Robotic Arm with Coordinated Servo Motion',
+    description:
+      'Build and program a 6-axis robotic arm capable of precise multi-joint movement. Control the base, shoulder, elbow, wrist, rotation, and gripper using servo motors to perform accurate pick-and-place operations and coordinated motion sequences.',
+
+    specs: [
+      { label: 'ACTUATION', value: '6× Servo Motors' },
+      { label: 'CONTROL', value: 'PCA9685 Servo Driver' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Mechanical Precautions',
+      hardware: [
+        '⚠️ Keep fingers away from the servo horns, joints, links, and gripper while the robotic arm is moving.',
+        '⚠️ Do not manually force any arm joint beyond its normal movement range, as this may damage the servo gears or mechanical links.',
+        '⚠️ Tighten the M3 × 8 mm screws and brass inserts securely, but avoid excessive force that may damage the 3D-printed parts.',
+        '⚠️ Ensure the arm base and all six joints are firmly assembled before testing multi-axis movement.',
+        '⚠️ Use lightweight objects during gripping and placement tests to prevent excessive load on the arm.',
+      ],
+      electronicsTitle: 'Electronics & Servo Safety',
+      electronics: [
+        '⚡ Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, servo motors, or power connections.',
+        '⚡ Check that every servo is connected to the correct PCA9685 channel before powering the arm.',
+        '⚡ Avoid commanding servos beyond their safe angle limits, as continuous stalling can cause overheating or servo damage.',
+        '⚡ Use the 12V battery and adapter only through the designated power connection and verify polarity before switching ON.',
+        '⚡ Do not connect or disconnect servo extension cables while the arm is powered or moving.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3',
+        name: 'ESP32-S3',
+        image: 'lof-titan/axes6/esp32-s3',
+        pinMapping: 'I2C | SERVO CONTROL | USB TYPE-C',
+        whatIsIt:
+          'A programmable microcontroller that acts as the main controller of the Axes 6 robotic arm.',
+        howItWorks:
+          'The ESP32-S3 sends movement commands to the PCA9685 through I2C communication. These commands determine the required position of each servo motor and coordinate the six-axis movement of the robotic arm.',
+      },
+      {
+        id: 'pca9685-servo-driver',
+        shortName: 'PCA9685',
+        name: 'PCA9685 Servo Driver',
+        image: 'lof-titan/axes6/pca9685-servo-driver',
+        pinMapping: 'I2C | MULTI-SERVO CONTROL',
+        whatIsIt:
+          'A multi-channel servo controller used to operate several servo motors from the ESP32-S3.',
+        howItWorks:
+          'The ESP32-S3 sends position values to the PCA9685. The driver generates individual control signals for each servo channel, allowing multiple joints to move independently or together.',
+      },
+      {
+        id: 'mg995-servo',
+        shortName: 'MG995 Servo',
+        name: 'MG995 Servo Motor',
+        image: 'lof-titan/axes6/mg995-servo',
+        pinMapping: 'PCA9685 SERVO CHANNEL',
+        whatIsIt:
+          'A high-torque servo motor used for the robotic arm joints that require greater force and load handling.',
+        howItWorks:
+          'The PCA9685 sends a position signal to the servo. The MG995 rotates to the commanded angle and holds the connected arm joint in the required position.',
+      },
+      {
+        id: 'mg90s-servo',
+        shortName: 'MG90S Servo',
+        name: 'MG90S Servo Motor',
+        image: 'lof-titan/axes6/mg90s-servo',
+        pinMapping: 'PCA9685 SERVO CHANNEL',
+        whatIsIt:
+          'A compact metal-geared servo used for smaller and more precise movements in the robotic arm.',
+        howItWorks:
+          'The PCA9685 controls the servo position using timed control signals. The MG90S moves to the required angle for lighter mechanisms such as wrist or gripper movement.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is one servo not moving while the other joints are working?',
+        a: 'Check that the servo is connected to the correct PCA9685 channel and that the same channel number is being used in the program. Also check the servo extension cable for a loose connection.',
+      },
+      {
+        q: 'Why does the robotic arm shake or move suddenly between positions?',
+        a: 'Check that the servo horns and arm joints are firmly fixed and avoid sending large angle changes instantly. Moving the servos gradually in smaller steps produces smoother motion.',
+      },
+      {
+        q: 'Why does one joint stop moving before reaching the commanded position?',
+        a: 'The joint may have reached its mechanical limit or may be carrying too much load. Reduce the commanded angle and make sure the arm mechanism can move freely without binding.',
+      },
+    ],
+
+    challengesTitle: 'Bonus Tasks',
+    challenges: [
+      {
+        id: 'pick-and-place',
+        level: 'Easy',
+        title: 'Pick and Place',
+        goal: 'Pick up one lightweight object, move it to a marked target area, and return the robotic arm to its home position.',
+      },
+      {
+        id: 'sort-and-place',
+        level: 'Intermediate',
+        title: 'Sort and Place',
+        goal: 'Pick up three different objects one by one and place each object in its assigned zone based on colour, shape, or size.',
+      },
+      {
+        id: 'programmed-motion-sequence',
+        level: 'Hard',
+        title: 'Programmed Motion Sequence',
+        goal: 'Create and run a complete sequence: Home → Pick → Lift → Rotate → Avoid an obstacle → Place → Return Home. The arm should repeat the sequence accurately without dropping the object.',
+      },
+    ],
+
+    // CONTENT PENDING: assembly[], coding[], code (firmware) and component
+    // artwork were not supplied - the source content jumps from section 2 to
+    // section 5, so no assembly steps exist yet. The detail page hides any
+    // section with no data and renumbers the rest, so this renders correctly.
+  },
 ];
