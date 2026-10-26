@@ -16636,4 +16636,148 @@ if __name__ == '__main__':
     // section 5, so no assembly steps exist yet. The detail page hides any
     // section with no data and renumbers the rest, so this renders correctly.
   },
+  {
+    id: 'cosmic-grip',
+    name: 'Cosmic Grip Rover',
+    category: 'Rovers & Robotic Arms',
+    badge: 'DIY Rover + Arm Kit',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    // duration and difficulty were NOT supplied with the content; until they
+    // are, the card falls back to its defaults and this kit will not appear
+    // under those filter facets.
+    age: '10+',
+    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
+    // card falls back to a stand-in rather than borrowing another kit's banner.
+    // Add as lof-titan/banners/banner-cosmic-grip when the art arrives.
+    tagline: 'Wi-Fi Rover with an Integrated Robotic Arm and Record/Playback',
+    description:
+      'Build a Wi-Fi-controlled rover with an integrated robotic arm using a single ESP32 S3. The ESP32 S3 manages the web-based rover controls and robotic-arm commands, while the PCA 9685 Servo Driver PCB controls the individual arm servos. The system also supports record and playback, allowing students to save robotic-arm positions and repeat movement sequences.',
+
+    specs: [
+      { label: 'LOCOMOTION', value: '4× 12v BO Motor Metal Gear 110 RPM' },
+      { label: 'ROBOTIC ARM', value: '6 Axes / 3 Axes Full Set' },
+      { label: 'CONTROL SYSTEM', value: 'ESP32 S3 + PCA 9685 Servo Driver PCB' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Mechanical Precautions',
+      hardware: [
+        '⚠️ Keep fingers, hair, loose wires, and other objects away from the rover wheels, robotic-arm joints, servo horns, and gripper while the system is moving.',
+        '⚠️ Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or mechanical joints.',
+        '⚠️ Tighten the M3x8 mm, M3x12 mm, and M3x25 mm screws only until the parts are firmly secured.',
+        '⚠️ Ensure the M3x4 mm Brass Inserts are seated correctly before fastening the 3D printed parts.',
+        '⚠️ Route motor and servo wiring so it cannot become caught in the wheels or stretched during robotic-arm movement.',
+        '⚠️ Use lightweight objects during gripping and transport tasks to avoid excessive load on the robotic arm.',
+      ],
+      electronicsTitle: 'Electronics & Servo Safety',
+      electronics: [
+        '⚡ Switch OFF the system before connecting or changing the ESP32 S3, PCA 9685 Servo Driver PCB, servo motors, drive motors, or power connections.',
+        '⚡ Check that each servo motor is connected to the correct PCA 9685 channel before powering the robotic arm.',
+        '⚡ Avoid commanding servo motors beyond their safe movement limits, as continuous stalling may cause overheating or damage.',
+        '⚡ Do not connect or disconnect drive motors or servo motors while the system is powered.',
+        '⚡ Check all power and motor connections before switching the rover ON.',
+        '⚡ Stop operation if a servo motor, drive motor, wire, or electronic board becomes unusually hot.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32 S3',
+        name: 'ESP32 S3',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/cosmic-grip/esp32-s3',
+        image: '',
+        pinMapping: 'Wi-Fi | GPIO | I2C | MOTOR & ARM CONTROL',
+        whatIsIt:
+          'A programmable microcontroller that acts as the main controller for the complete Cosmic Grip system.',
+        howItWorks:
+          'The ESP32 S3 hosts the web-based control interface, receives rover and robotic-arm commands, controls rover movement, and communicates with the PCA 9685 Servo Driver PCB to position the arm servos.',
+      },
+      {
+        id: 'pca9685-servo-driver',
+        shortName: 'PCA 9685',
+        name: 'PCA 9685 Servo Driver PCB',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/cosmic-grip/pca9685-servo-driver',
+        image: '',
+        pinMapping: 'I2C | MULTI-SERVO CONTROL',
+        whatIsIt:
+          'A multi-channel servo-control board used to operate the robotic-arm servo motors.',
+        howItWorks:
+          'The ESP32 S3 sends position commands to the PCA 9685 through I2C communication. The board generates individual control signals for the robotic-arm servos and gripper.',
+      },
+      {
+        id: 'bo-motor',
+        shortName: 'BO Motor 110 RPM',
+        name: '12v BO Motor Metal Gear 110 RPM',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/cosmic-grip/bo-motor',
+        image: '',
+        pinMapping: 'ROVER DRIVE MOTOR',
+        whatIsIt:
+          'A metal-geared DC motor used to drive the rover wheels. Cosmic Grip uses four of these motors.',
+        howItWorks:
+          'Electrical power rotates the motor while its gearbox reduces speed and increases torque. Coordinating the four motors allows the rover to move forward, backward, left, and right.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Hardware Troubleshooting',
+    faq: [
+      {
+        q: 'Why is the rover connected to Wi-Fi but not moving?',
+        a: 'Check whether the web dashboard is sending the required movement command to the ESP32 S3. Also inspect the connections to the 12v BO Motor Metal Gear 110 RPM motors.',
+      },
+      {
+        q: 'Why is one robotic-arm joint not moving?',
+        a: 'Check whether the servo is connected to the correct channel on the PCA 9685 Servo Driver PCB and confirm that the same channel is selected in the program.',
+      },
+      {
+        q: 'Why does the robotic arm shake during movement?',
+        a: 'Check that the mechanical joints and servo horns are firmly secured. Avoid commanding very large position changes instantly; gradual movement provides smoother operation.',
+      },
+      {
+        q: 'Why does the rover move correctly but the robotic arm does not respond?',
+        a: 'Check the communication between the ESP32 S3 and PCA 9685 Servo Driver PCB and make sure the servo-control section is receiving proper power.',
+      },
+      {
+        q: 'Why does the recorded sequence not repeat accurately?',
+        a: 'Make sure the robotic arm is stationary when each position is recorded. Check that no joint is mechanically blocked and allow enough movement time between recorded positions.',
+      },
+      {
+        q: 'Why is the robotic arm unable to hold an object?',
+        a: 'Make sure the object is lightweight and correctly positioned inside the gripper. Adjust the gripper servo position without forcing it beyond its safe closing limit.',
+      },
+    ],
+
+    challengesTitle: 'Student Tasks',
+    challenges: [
+      {
+        id: 'drive-and-grip',
+        level: 'Easy',
+        title: 'Drive and Grip',
+        goal: 'Use the web dashboard to move the rover towards a lightweight object. Position the robotic arm and operate the gripper to pick up the object successfully. Sequence: Drive → Position Arm → Open Gripper → Grip.',
+      },
+      {
+        id: 'pick-transport-place',
+        level: 'Intermediate',
+        title: 'Pick, Transport and Place',
+        goal: 'Drive the Cosmic Grip towards an object, pick it up using the robotic arm, transport it to a marked delivery area, and place it inside the target. Sequence: Drive → Pick → Lift → Transport → Position → Place.',
+      },
+      {
+        id: 'record-and-replay',
+        level: 'Hard',
+        title: 'Record and Replay Mission',
+        goal: 'Create a complete robotic-arm pick-and-place sequence and save the arm positions using the Record function. For example: Home → Open Gripper → Lower → Grip → Lift → Rotate → Lower → Release → Home. Activate Play and check whether the robotic arm can repeat the recorded sequence accurately, several times over, without dropping the object or missing the target position.',
+      },
+    ],
+
+    // CONTENT PENDING: assembly[], coding[], code (firmware) and component
+    // artwork were not supplied - the source content jumps from section 2 to
+    // section 4, so no assembly steps exist yet. The detail page hides any
+    // section with no data and renumbers the rest, so this renders correctly.
+  },
 ];
