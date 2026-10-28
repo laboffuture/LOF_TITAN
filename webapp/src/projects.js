@@ -17328,4 +17328,295 @@ if __name__ == '__main__':
     // Final CTA banner. No kit schema field exists for either; both need a new
     // section in the detail view.
   },
+  {
+    id: 'measuring-the-cosmos',
+    name: 'Measuring the Cosmos',
+    category: 'Planetary Science & Measurement',
+    badge: 'DIY Space Exploration Project',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    duration: '90 Mins',
+    difficulty: 'Intermediate',
+    age: '10+',
+    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
+    // card falls back to a stand-in rather than borrowing another kit's banner.
+    // Add as lof-titan/banners/banner-measuring-the-cosmos when the art arrives.
+    tagline: 'Joystick-Aimed Planetary Measurement Station',
+    description:
+      'Explore the scale of our solar system using an interactive planetary measurement station. Control a rotating sensor dish with a joystick, point the Time-of-Flight (ToF) sensor toward a selected target, and display the corresponding distance in astronomical units (AU) on an OLED screen. Compare planetary distances using real-time astronomical reference information from Planets Today and discover how scientists measure and represent distances across the solar system.',
+
+    specs: [
+      { label: 'MEASUREMENT', value: 'Planetary Distance in AU' },
+      { label: 'SENSING & CONTROL', value: 'ToF Sensor + Joystick-Controlled Rotation' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Mechanical Precautions',
+      hardware: [
+        '⚠️ Secure the sensor dish to a stable base so that it remains stationary during operation.',
+        '⚠️ Ensure the rotating mechanism moves smoothly without excessive force or obstruction.',
+        '⚠️ Keep fingers clear of the rotating joints and mechanical components.',
+      ],
+      electronicsTitle: 'Electronics & Sensor Safety',
+      electronics: [
+        '⚡ Verify the wiring and operating voltage of the ToF sensor, joystick module, OLED display, and motor or servo used for rotation.',
+        '⚡ Switch off the system before modifying electrical connections.',
+        '⚡ Ensure the sensor has a clear line of sight toward the selected target.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'base-and-dish',
+        shortName: 'Base & Dish',
+        name: 'Fixed Base & Rotating Sensor Dish',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/measuring-the-cosmos/base-and-dish',
+        image: '',
+        whatIsIt:
+          'A stationary planetary measurement station with a rotating dish that allows the sensor to point toward different targets.',
+        howItWorks:
+          'The base remains fixed while the joystick controls the direction of the sensor dish. Students can rotate the sensor horizontally, or horizontally and vertically if the mechanical assembly supports both axes, to align it with a selected target.',
+        // The lab renders only once experiment.testCode exists. Title and
+        // instruction are stored now so the script can be dropped in later.
+        experiment: {
+          title: 'Joystick-Controlled Target Alignment',
+          instruction:
+            'Rotate the dish toward different targets and investigate how pointing direction affects target selection.',
+        },
+      },
+      {
+        id: 'tof-sensor',
+        shortName: 'ToF Sensor',
+        name: 'Time-of-Flight Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/measuring-the-cosmos/tof-sensor',
+        image: '',
+        whatIsIt:
+          'A distance sensor that uses light to estimate the distance to a nearby physical target.',
+        howItWorks:
+          'When the dish points toward a target, the ToF sensor measures the distance to the target within its supported operating range. The ESP32-S3 receives the reading and processes it for display. The sensor provides a physical distance measurement, while the corresponding astronomical distance must be obtained through a defined scale conversion or planetary reference mapping.',
+        experiment: {
+          title: 'Target Distance Measurement',
+          instruction:
+            'Point the sensor toward different targets and observe the measured distances.',
+        },
+      },
+      {
+        id: 'joystick',
+        shortName: 'Joystick',
+        name: 'Joystick Module',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/measuring-the-cosmos/joystick',
+        image: '',
+        whatIsIt:
+          'A manual control interface that lets students rotate the sensor dish and select the desired target.',
+        howItWorks:
+          'The ESP32-S3 reads the joystick inputs and converts them into movement commands for the rotation mechanism. When the joystick is released, the dish can hold its direction if the mechanism supports position holding.',
+        experiment: {
+          title: 'Direction, Rotation & Target Selection',
+          instruction:
+            'Practice aligning the sensor with different targets and compare the results of repeated measurements.',
+        },
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3 TITAN',
+        name: 'ESP32-S3 TITAN',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/measuring-the-cosmos/esp32-s3',
+        image: '',
+        whatIsIt:
+          'The central controller that coordinates the joystick, rotation mechanism, ToF sensor, and OLED display.',
+        howItWorks:
+          'The ESP32-S3 reads joystick inputs, controls the dish rotation, acquires distance measurements, and updates the display. The firmware can associate a selected target with a predefined astronomical distance or convert a physical model distance into AU using a configured scale factor.',
+        experiment: {
+          title: 'Physical Distance to Astronomical Scale',
+          instruction:
+            'Explore how a measured distance can be converted into a scaled representation of astronomical distances.',
+        },
+      },
+      {
+        id: 'oled-display',
+        shortName: 'OLED Display',
+        name: 'OLED Display',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/measuring-the-cosmos/oled-display',
+        image: '',
+        whatIsIt:
+          'A compact display that presents the selected target and its corresponding distance in AU.',
+        howItWorks:
+          'After the sensor is aligned with a target, the firmware processes the measurement and displays the corresponding value. Depending on the implementation, the display can show the raw ToF measurement, the converted model distance in AU, or a reference planetary distance retrieved from astronomical data. These values should be labelled clearly so students understand which quantity is being displayed.',
+        experiment: {
+          title: 'Planetary Distance in AU',
+          instruction:
+            'Select a target and observe its corresponding distance in AU on the OLED screen.',
+        },
+      },
+    ],
+
+    assemblyTitle: 'Mechanical Assembly & Circuit Building',
+    assembly: [
+      {
+        step: 1,
+        title: 'Assemble the Fixed Base',
+        desc: 'Secure the measurement station to a stable platform. The base must remain stationary throughout the activity.',
+      },
+      {
+        step: 2,
+        title: 'Mount the Rotating Dish',
+        desc: 'Attach the sensor dish to the rotation mechanism. Ensure that it can turn smoothly toward different targets without moving the base.',
+      },
+      {
+        step: 3,
+        title: 'Mount the ToF Sensor',
+        desc: "Secure the sensor to the dish so that its measurement direction follows the dish's rotation.",
+      },
+      {
+        step: 4,
+        title: 'Connect the Joystick',
+        desc: 'Connect the joystick module to compatible ESP32-S3 input pins. Configure the joystick to control the direction and speed of rotation, according to the mechanical design.',
+      },
+      {
+        step: 5,
+        title: 'Connect the Rotation Mechanism',
+        desc: 'Connect the servo motor or other supported actuator to the appropriate control interface and power supply. Ensure that the actuator can position the dish safely.',
+      },
+      {
+        step: 6,
+        title: 'Connect the OLED Display',
+        desc: 'Connect the display using its supported communication interface. Configure it to show the sensor reading and the corresponding AU value.',
+      },
+      {
+        step: 7,
+        title: 'Integrate the Electronics',
+        desc: 'Connect the ToF sensor, joystick, display, and rotation mechanism to the ESP32-S3 TITAN. Verify the pin assignments and power requirements.',
+      },
+      {
+        step: 8,
+        title: 'Perform the Initial Test',
+        desc: 'Power on the system, move the joystick, and confirm that the dish rotates toward the intended direction. Point the sensor at a nearby target and verify that the distance measurement appears correctly.',
+      },
+    ],
+
+    codingTitle: 'Coding and Control',
+    coding: [
+      {
+        step: 1,
+        title: 'Initialize the System',
+        desc: 'Initialize the ToF sensor, joystick inputs, OLED display, and rotation mechanism.',
+      },
+      {
+        step: 2,
+        title: 'Implement Joystick Rotation',
+        desc: 'Read the joystick inputs and translate them into commands for rotating the dish. Apply appropriate limits to prevent the mechanism from exceeding its permitted range.',
+      },
+      {
+        step: 3,
+        title: 'Align with a Target',
+        desc: 'Allow students to rotate the dish until the ToF sensor points toward the desired target.',
+      },
+      {
+        step: 4,
+        title: 'Acquire the Distance Measurement',
+        desc: "Read the ToF sensor when the target is aligned. Check that the reading is valid and within the sensor's operating range.",
+      },
+      {
+        step: 5,
+        title: 'Determine the AU Value',
+        desc: 'Use the selected implementation method. Scaled model: convert the measured physical distance using a predefined scale factor. Planetary reference mode: associate the selected target with its astronomical distance obtained from reference data.',
+      },
+      {
+        step: 6,
+        title: 'Display the Result',
+        desc: 'Show the selected target and its corresponding distance in AU on the OLED screen. If useful, also display the raw physical distance measured by the ToF sensor.',
+      },
+      {
+        step: 7,
+        title: 'Explore Planetary Positions',
+        desc: 'Use Planets Today to investigate planetary positions and reference distances. Compare the reference values with the AU values displayed by the activity.',
+      },
+      {
+        step: 8,
+        title: 'Test the Complete System',
+        desc: 'Rotate the dish toward several targets, acquire measurements, and verify that the displayed values correspond to the correct target and conversion method.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Troubleshooting',
+    faq: [
+      {
+        q: 'The sensor dish does not rotate when the joystick is moved.',
+        a: 'Check the joystick wiring, controller input configuration, actuator power supply, and rotation control code.',
+      },
+      {
+        q: 'The ToF sensor returns inconsistent measurements.',
+        a: "Check the target alignment, sensor field of view, target reflectivity, and ambient lighting. Ensure that the target is within the sensor's operating range.",
+      },
+      {
+        q: 'The OLED displays a distance in centimetres instead of AU.',
+        a: 'Check that the firmware performs the intended conversion or retrieves the corresponding astronomical reference value before updating the AU display.',
+      },
+      {
+        q: 'Can the ToF sensor directly measure the distance to a planet?',
+        a: 'No. The sensor measures distances to nearby physical objects within its operating range. Astronomical distances must be supplied through reference data or represented using a scaled physical model.',
+      },
+      {
+        q: 'How does the displayed AU value relate to the real solar system?',
+        a: 'One astronomical unit is approximately the mean Earth-Sun distance, about 149.6 million kilometres. A displayed AU value can represent a scaled model distance or an astronomical reference value, depending on the mode used.',
+      },
+      {
+        q: 'Why do planetary distances change?',
+        a: 'Planets move along their orbits, so their distances from Earth and from the Sun vary over time. The reference distance must therefore be defined carefully and associated with the relevant date and time.',
+      },
+    ],
+
+    challengesTitle: 'Mission Challenges',
+    challenges: [
+      {
+        id: 'target-alignment',
+        level: 'Easy',
+        title: 'Challenge 1: Target Alignment',
+        goal: 'Use the joystick to point the sensor dish toward different physical targets. Measure the distance to each target and record the results. Record: Target ID / Joystick Direction / Measured Distance / Measurement Repeatability.',
+      },
+      {
+        id: 'convert-distances-to-au',
+        level: 'Intermediate',
+        title: 'Challenge 2: Convert Distances into AU',
+        goal: 'Use a predefined scale factor to convert measured physical distances into model distances expressed in AU. For example, if 10 cm represents 1 AU, a measured model distance of 30 cm represents 3 AU in that model. Record: Target ID / Measured Distance / Scale Factor / Calculated AU.',
+      },
+      {
+        id: 'explore-the-real-solar-system',
+        level: 'Advanced',
+        title: 'Challenge 3: Explore the Real Solar System',
+        goal: 'Use Planets Today to select planetary reference data. Compare the astronomical distances with the values represented by the measurement station. Investigate how planetary positions and Earth-planet distances vary over time. Record: Selected Planet / Reference Date / Astronomical Distance / Displayed AU / Difference.',
+      },
+    ],
+
+    outroCopy:
+      'Build your stationary planetary measurement station, control its rotating sensor dish with a joystick, and explore the scale of the solar system. Align the ToF sensor with a target, obtain a distance measurement, and discover how physical measurements can be connected to astronomical distances expressed in AU. Use planetary reference information to explore the changing geometry of our solar system and discover how scientists measure the vast distances between celestial objects.',
+
+    // CONTENT PENDING: code (firmware), component artwork, and the labs' test
+    // scripts - each component carries its lab title and instruction, but the
+    // Launch button only renders once experiment.testCode exists.
+    //
+    // MISSING FROM SOURCE: the component selector lists "Servo Motor or Rotation
+    // Mechanism" as a separate component, but no "what is it / how it works" text
+    // was supplied for it, so it is not listed here rather than inventing copy.
+    // Assembly step 5 and coding steps 1-2 all reference the actuator. The
+    // selector also splits Fixed Base and Rotating Sensor Dish into two entries
+    // while the write-up covers them as one, so they are a single component here.
+    //
+    // EXTERNAL DEPENDENCY: coding step 7 and challenge 3 direct students to the
+    // third-party Planets Today site for reference data. No URL was supplied and
+    // the kit does not link out, so this stays as instructional text only.
+    //
+    // NOT MODELLED: the Planetary Measurement Comparison Panel (a
+    // baseline-vs-modified worksheet table with a closing question) and the Final
+    // CTA banner. No kit schema field exists for either; both need a new section
+    // in the detail view.
+  },
 ];

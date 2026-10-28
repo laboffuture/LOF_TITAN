@@ -31,6 +31,7 @@ export const KITS = [
   { id: 'cosmic-grip', name: 'Cosmic Grip Rover', status: 'available' },
   { id: 'water-hunt-mars', name: 'Water Hunt on Mars', status: 'available' },
   { id: 'lithogram', name: 'Lithogram', status: 'available' },
+  { id: 'measuring-the-cosmos', name: 'Measuring the Cosmos', status: 'available' },
 ];
 
 /** Ids of every kit a customer can actually buy and open. */
