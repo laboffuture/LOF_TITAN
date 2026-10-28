@@ -17044,4 +17044,288 @@ if __name__ == '__main__':
     // worksheet table with a closing question) and the Final CTA banner. No kit
     // schema field exists for either; both need a new section in the detail view.
   },
+  {
+    id: 'lithogram',
+    name: 'Lithogram',
+    category: 'Planetary Science & Measurement',
+    badge: 'DIY Space Exploration Project',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    duration: '90 Mins',
+    difficulty: 'Intermediate',
+    age: '10+',
+    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
+    // card falls back to a stand-in rather than borrowing another kit's banner.
+    // Add as lof-titan/banners/banner-lithogram when the art arrives.
+    tagline: 'Asteroid Mass, Volume & Density Analysis',
+    description:
+      'Become a Junior Space Mission Engineer and investigate the mysteries of asteroids through hands-on experiments in density measurement, motion, and impact physics. Measure the mass and volume of asteroid models, compare their densities, and discover how scientists study space rocks to understand the origins of our solar system and protect Earth from potential impact hazards.',
+
+    specs: [
+      { label: 'MEASUREMENT', value: 'Mass & Density Analysis' },
+      { label: 'SENSING', value: 'Load Cell + Water Displacement' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Experimental Precautions',
+      hardware: [
+        '⚠️ Handle asteroid models carefully and avoid dropping them onto the load-cell platform.',
+        '⚠️ Place models gently on the weighing platform to prevent damage to the load cell.',
+        '⚠️ Keep the electronic components away from the water used during displacement measurements.',
+        '⚠️ Use a stable container with sufficient space to prevent water from spilling during immersion.',
+      ],
+      electronicsTitle: 'Electronics & Sensor Safety',
+      electronics: [
+        '⚡ Check the load-cell wiring and HX711 amplifier connections before powering the circuit.',
+        '⚡ Verify the sensor operating voltage and ensure that the ESP32-S3 input pins receive compatible signals.',
+        '⚡ Switch off the system before changing wiring or modifying the circuit.',
+        '⚡ Dry asteroid models before placing them on the electronic weighing platform to prevent water from entering the electronics.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'asteroid-models',
+        shortName: 'Asteroid Models',
+        name: 'Asteroid Models',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lithogram/asteroid-models',
+        image: '',
+        whatIsIt:
+          'Physical models representing different types of asteroids. The models are designed to help students investigate how objects with different masses and volumes can have different densities. For this activity, students explore three simplified asteroid categories: C-type, represented by a relatively low-density model; S-type, represented by a medium-density model; and M-type, represented by a relatively high-density model.',
+        howItWorks:
+          "Students measure each model's mass and volume, calculate its density, and compare the results. For a controlled experiment, the models can be designed with approximately equal external volumes but different internal materials. However, density alone cannot conclusively identify the actual composition or spectral class of a real asteroid.",
+        // The lab renders only once experiment.testCode exists. Title and
+        // instruction are stored now so the script can be dropped in later.
+        experiment: {
+          title: 'Asteroid Mass & Density Comparison',
+          instruction:
+            'Measure several asteroid models and compare their calculated densities.',
+        },
+      },
+      {
+        id: 'load-cell',
+        shortName: 'Load Cell',
+        name: 'Load Cell',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lithogram/load-cell',
+        image: '',
+        whatIsIt:
+          "A force-sensitive transducer used to measure the load applied to a platform. When calibrated, it provides a measurement of an object's mass under normal laboratory conditions.",
+        howItWorks:
+          'The load cell deforms slightly under an applied load, producing a small electrical signal. This signal is processed by an amplifier and analog-to-digital converter so that the controller can obtain a usable measurement. Students use the sensor to measure the mass of each asteroid model.',
+        experiment: {
+          title: 'Mass Measurement & Calibration',
+          instruction:
+            'Measure objects with known masses, calibrate the sensor, and investigate how accurately the system measures unknown samples.',
+        },
+      },
+      {
+        id: 'hx711',
+        shortName: 'HX711',
+        name: 'HX711 Load Cell Amplifier',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lithogram/hx711',
+        image: '',
+        whatIsIt:
+          'A specialized interface for reading the very small electrical signals produced by a load cell.',
+        howItWorks:
+          'The HX711 amplifies the load-cell signal and converts it into digital readings that the ESP32-S3 can process. Firmware calibration converts these readings into mass values using a known reference mass. Students investigate how calibration affects the accuracy and consistency of their measurements.',
+        experiment: {
+          title: 'Raw Readings vs Calibrated Mass',
+          instruction:
+            'Compare raw sensor readings with calibrated mass values and determine how calibration improves measurement reliability.',
+        },
+      },
+      {
+        id: 'water-displacement',
+        shortName: 'Water Displacement',
+        name: 'Water Displacement Setup',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lithogram/water-displacement',
+        image: '',
+        whatIsIt:
+          "A graduated container or measuring vessel used to estimate an asteroid model's volume by measuring the change in water level when the model is submerged.",
+        howItWorks:
+          'Students record the initial water volume, fully immerse a suitable model without trapping air, and record the final water volume. The displaced volume is calculated as Object Volume = Final Water Volume − Initial Water Volume. This method works for non-porous objects that can be safely immersed without absorbing water or trapping significant air. Students combine the measured volume with the load-cell mass reading to calculate density.',
+        experiment: {
+          title: 'Water Displacement & Volume Measurement',
+          instruction:
+            'Measure the volume of each asteroid model and compare the results with its mass.',
+        },
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3 TITAN',
+        name: 'ESP32-S3 TITAN',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/lithogram/esp32-s3',
+        image: '',
+        whatIsIt:
+          'The onboard computing unit that processes sensor readings, performs density calculations, and displays the experimental results.',
+        howItWorks:
+          'The ESP32-S3 receives digital measurements from the HX711, applies calibration, and calculates density using the measured mass and volume. The firmware can display mass, volume, density, and the corresponding experimental classification on an LCD or OLED display.',
+        experiment: {
+          title: 'Automated Asteroid Analysis',
+          instruction:
+            'Connect the mass-measurement system, enter the displaced volume, and calculate density automatically.',
+        },
+      },
+    ],
+
+    assemblyTitle: 'Mechanical Assembly & Circuit Building',
+    assembly: [
+      {
+        step: 1,
+        title: 'Prepare the Asteroid Models',
+        desc: 'Prepare three or more asteroid models representing different density ranges. For a fair comparison, use models with approximately equal external volumes but different internal materials. Ensure the models can be safely handled and, where appropriate, immersed in water without absorbing liquid.',
+      },
+      {
+        step: 2,
+        title: 'Assemble the Mass Measurement Platform',
+        desc: 'Mount the load cell beneath a stable weighing platform. Ensure the platform does not touch surrounding structures, as unintended contact can affect the measurement.',
+      },
+      {
+        step: 3,
+        title: 'Connect the HX711 Amplifier',
+        desc: "Connect the load cell to the HX711 according to the module's wiring configuration. Connect the HX711 digital interface to compatible ESP32-S3 GPIO pins.",
+      },
+      {
+        step: 4,
+        title: 'Connect the Display and Controller',
+        desc: 'Connect the LCD or OLED display if available. Configure the ESP32-S3 firmware to read the HX711 and display calibrated mass values.',
+      },
+      {
+        step: 5,
+        title: 'Prepare the Water Displacement Station',
+        desc: 'Place a graduated container on a stable surface and fill it with enough water to immerse the asteroid models safely. Keep the container physically separated from the electronic measurement platform. Record the initial water volume before each measurement.',
+      },
+      {
+        step: 6,
+        title: 'Calibrate the Load Cell',
+        desc: 'Tare the platform and measure a known reference mass. Adjust the calibration factor until the displayed mass agrees with the reference within the expected measurement tolerance.',
+      },
+      {
+        step: 7,
+        title: 'Perform the Initial System Test',
+        desc: 'Place a test object on the platform and verify that the mass reading is stable. Remove the object and confirm that the reading returns close to zero. Check the water displacement setup independently before beginning the density investigation.',
+      },
+    ],
+
+    codingTitle: 'Coding and Control',
+    coding: [
+      {
+        step: 1,
+        title: 'Load Cell Initialization',
+        desc: 'Initialize the HX711 interface and configure the load-cell calibration factor. Read multiple samples and average them to reduce short-term measurement fluctuations.',
+      },
+      {
+        step: 2,
+        title: 'Mass Measurement',
+        desc: 'Tare the weighing platform before placing an asteroid model on it. Read the sensor output and convert the calibrated measurement into mass, expressed in grams or kilograms.',
+      },
+      {
+        step: 3,
+        title: 'Water Displacement Measurement',
+        desc: "Record the initial water volume and the final water volume after safely immersing the asteroid model. Calculate the object's volume from the difference between the two measurements. The volume can be entered manually through the serial monitor or a user interface unless a separate automated volume-measurement sensor is available.",
+      },
+      {
+        step: 4,
+        title: 'Density Calculation',
+        desc: 'Calculate density using the measured mass and volume: Density = Mass ÷ Volume. For mass in grams and volume in cubic centimetres, density is expressed in g/cm³. If the water displacement measurement is unreliable, the firmware should flag the result rather than report a misleading density value.',
+      },
+      {
+        step: 5,
+        title: 'Asteroid Classification',
+        desc: "Compare the calculated density with predefined experimental thresholds for the activity's low-, medium-, and high-density models. Display the resulting category alongside the measured values. The categories represent the prepared classroom models, not a definitive identification of actual asteroid composition.",
+      },
+      {
+        step: 6,
+        title: 'Display & Data Logging',
+        desc: 'Display the measured mass, initial water volume, final water volume, calculated object volume, calculated density, and experimental density category. If data logging is supported, save each measurement for later comparison.',
+      },
+      {
+        step: 7,
+        title: 'Full System Test',
+        desc: 'Measure each asteroid model multiple times. Compare repeated measurements and investigate any unexpected variation in mass, volume, or density.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Troubleshooting',
+    faq: [
+      {
+        q: 'The load cell displays unstable mass readings.',
+        a: 'Check that the weighing platform is stable and does not touch nearby objects. Inspect the wiring and power supply, allow the sensor to settle, and average multiple readings.',
+      },
+      {
+        q: 'The displayed mass is incorrect.',
+        a: 'Verify the calibration factor using a known reference mass. Check the load-cell orientation and ensure the platform is properly mounted.',
+      },
+      {
+        q: 'The water level does not change noticeably.',
+        a: "The object may have a small volume relative to the measuring container's graduations. Use a suitably sized graduated vessel and read the meniscus consistently.",
+      },
+      {
+        q: 'The calculated density seems unrealistic.',
+        a: 'Check the units used for mass and volume. Ensure that mass is expressed in grams and volume in cubic centimetres when calculating density in g/cm³. Confirm that the object is fully immersed, that no air bubbles are trapped, and that the water volume is measured accurately.',
+      },
+      {
+        q: 'The asteroid model floats.',
+        a: "The model's average density may be lower than the water density. Do not force the model underwater while relying on ordinary displacement measurements. Use a suitable alternative volume-measurement method or a controlled immersion procedure that accounts for the additional force and displaced volume.",
+      },
+      {
+        q: 'Can density alone identify C-type, S-type, and M-type asteroids?',
+        a: "No. These categories are associated with different compositional and spectral characteristics, but their properties overlap. Density can help constrain possible compositions, but it cannot uniquely identify an asteroid's taxonomic class.",
+      },
+      {
+        q: 'How does this experiment relate to real asteroid missions?',
+        a: 'Space missions use a combination of imaging, spectroscopy, tracking, gravity measurements, and other instruments to investigate asteroid properties. The classroom experiment demonstrates mass, volume, density, and measurement principles, but it does not reproduce the full process used to determine the composition of a real asteroid.',
+      },
+    ],
+
+    challengesTitle: 'Asteroid Mission Challenges',
+    challenges: [
+      {
+        id: 'density-detective',
+        level: 'Easy',
+        title: 'Challenge 1: The Density Detective',
+        goal: 'Measure the mass and volume of three asteroid models. Calculate their densities and arrange them from lowest to highest. Record: Model ID / Mass / Initial Water Volume / Final Water Volume / Object Volume / Density.',
+        hint: 'Repeat measurements when possible. Small errors in volume can produce substantial errors in the calculated density, especially for small objects.',
+      },
+      {
+        id: 'classify-the-asteroids',
+        level: 'Intermediate',
+        title: 'Challenge 2: Classify the Asteroids',
+        goal: "Use the measured densities to classify the prepared models into low-, medium-, and high-density categories. Compare the calculated results with the models' known construction materials. Record: Measured Density / Expected Density Category / Classification Result / Measurement Uncertainty.",
+        hint: 'Establish the classification thresholds using reference models before testing unknown samples. Do not assume that a density threshold can identify every real asteroid.',
+      },
+      {
+        id: 'planetary-defense-survey',
+        level: 'Advanced',
+        title: 'Challenge 3: Design a Planetary Defense Survey',
+        goal: 'Develop a measurement protocol for investigating a collection of unknown asteroid models. Calibrate the mass sensor, estimate the volume of each model, calculate density, and rank the models according to their measured properties. Discuss how mass, density, structural integrity, and orbital information contribute to assessing the properties and potential hazards of real asteroids. Record: Calibration Error / Density Uncertainty / Model Ranking / Classification Confidence / Measurement Repeatability.',
+        hint: 'Change one measurement or analysis parameter at a time. Compare the results against known reference models to determine whether the modified procedure improves reliability.',
+      },
+    ],
+
+    outroCopy:
+      'Become a Junior Space Mission Engineer and investigate the hidden properties of asteroids. Measure mass, estimate volume through water displacement, calculate density, and compare models representing different types of space rocks. Discover how experimental measurements connect to asteroid science, sample-return missions, and planetary defense. Build your measurement system, test your models, and uncover what density can tell you about the building blocks of our solar system.',
+
+    // CONTENT PENDING: code (firmware), component artwork, and the labs' test
+    // scripts - each component carries its lab title and instruction, but the
+    // Launch button only renders once experiment.testCode exists.
+    //
+    // MISSING FROM SOURCE: the component selector lists an LCD/OLED Display as a
+    // sixth component, but no "what is it / how it works" text was supplied for
+    // it, so it is not listed here rather than inventing copy. Assembly step 4
+    // and coding step 6 both reference the display.
+    //
+    // NOT MODELLED: the Asteroid Measurement Comparison Panel (a
+    // baseline-vs-modified worksheet table with a closing question) and the
+    // Final CTA banner. No kit schema field exists for either; both need a new
+    // section in the detail view.
+  },
 ];
