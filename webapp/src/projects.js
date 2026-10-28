@@ -16780,4 +16780,268 @@ if __name__ == '__main__':
     // section 4, so no assembly steps exist yet. The detail page hides any
     // section with no data and renumbers the rest, so this renders correctly.
   },
+  {
+    id: 'water-hunt-mars',
+    name: 'Water Hunt on Mars',
+    category: 'Planetary Science & Sensing',
+    badge: 'DIY Exploration Rover',
+    // New kit, no customer feedback yet. rating stays null so the dashboard
+    // card shows "New" rather than inventing a score.
+    rating: null,
+    reviews: 0,
+    duration: '90 Mins',
+    difficulty: 'Advanced',
+    age: '10+',
+    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
+    // card falls back to a stand-in rather than borrowing another kit's banner.
+    // Add as lof-titan/banners/banner-water-hunt-mars when the art arrives.
+    tagline: 'Soil Moisture Mapping Across a Simulated Martian Landscape',
+    description:
+      'Build and program a rover that investigates moisture variations across a simulated Martian landscape. Integrate environmental sensors, collect real-time data, and map potential water-rich zones. Discover how robotic exploration, sensor technology, and scientific data analysis help researchers investigate water resources on Mars.',
+
+    specs: [
+      { label: 'DETECTION', value: 'Soil Moisture Mapping' },
+      { label: 'ENVIRONMENTAL SENSING', value: 'Capacitive Moisture Sensor + DS18B20' },
+      { label: 'MCU', value: 'ESP32-S3 TITAN' },
+    ],
+
+    safetyWarnings: {
+      hardwareTitle: 'Hardware & Mechanical Precautions',
+      hardware: [
+        "⚠️ Keep fingers clear of the rover's wheels and moving mechanical parts during operation.",
+        '⚠️ Secure all sensors firmly to prevent damage while navigating uneven terrain.',
+        '⚠️ Test the rover on a stable surface before moving to the simulated Martian terrain.',
+      ],
+      electronicsTitle: 'Electronics & Sensor Safety',
+      electronics: [
+        '⚡ Verify the sensor pin connections and operating voltage before powering the circuit.',
+        '⚡ Ensure the moisture sensor and temperature sensor are compatible with the controller and its input voltage limits.',
+        '⚡ Switch off the rover before changing sensor connections or modifying the circuit.',
+        '⚡ Keep electronic components protected from direct contact with water or wet soil.',
+      ],
+    },
+
+    components: [
+      {
+        id: 'rover-chassis',
+        shortName: 'Rover Chassis',
+        name: 'Rover Chassis',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/water-hunt-mars/rover-chassis',
+        image: '',
+        whatIsIt:
+          'The mobile platform that carries the sensors across the simulated Martian terrain. It allows students to investigate different locations and collect environmental measurements.',
+        howItWorks:
+          'The rover moves between selected sampling points while the onboard sensors collect data. By recording measurements at different positions, students can investigate spatial variations in soil moisture.',
+        // The lab renders only once experiment.testCode exists. Title and
+        // instruction are stored now so the script can be dropped in later.
+        experiment: {
+          title: 'Terrain Exploration & Sampling Test',
+          instruction:
+            'Drive the rover across different terrain zones and compare the measurements collected at each location.',
+        },
+      },
+      {
+        id: 'esp32-s3',
+        shortName: 'ESP32-S3 TITAN',
+        name: 'ESP32-S3 TITAN',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/water-hunt-mars/esp32-s3',
+        image: '',
+        whatIsIt:
+          "The rover's onboard computing unit. It reads sensor measurements, processes the collected data, and coordinates data transmission or logging.",
+        howItWorks:
+          'The ESP32-S3 reads the moisture sensor and temperature sensor at regular intervals. The firmware associates each reading with a sampling location, allowing students to build a moisture distribution map.',
+        experiment: {
+          title: 'Sensor Readings & Telemetry Test',
+          instruction:
+            'Monitor live sensor readings and investigate how measurements change as the rover moves between terrain zones.',
+        },
+      },
+      {
+        id: 'moisture-sensor',
+        shortName: 'Moisture Sensor',
+        name: 'Capacitive Soil Moisture Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/water-hunt-mars/moisture-sensor',
+        image: '',
+        whatIsIt:
+          'A sensor that estimates soil moisture by measuring changes in the electrical properties of the surrounding material. Capacitive sensors are commonly used to investigate moisture variations in soil.',
+        howItWorks:
+          'The sensor responds to changes in the dielectric properties of the material surrounding its sensing region. Its output changes with moisture content, although soil composition, salinity, temperature, and sensor calibration can also affect the readings. Students calibrate the sensor using dry and moist samples before conducting their exploration mission.',
+        experiment: {
+          title: 'Dry Soil vs Moist Soil Detection',
+          instruction:
+            'Measure sensor outputs for different soil samples and establish a threshold for identifying relatively moisture-rich zones.',
+        },
+      },
+      {
+        id: 'ds18b20',
+        shortName: 'DS18B20',
+        name: 'DS18B20 Temperature Sensor',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/water-hunt-mars/ds18b20',
+        image: '',
+        whatIsIt:
+          'A digital temperature sensor that measures the temperature near the sensor probe.',
+        howItWorks:
+          'The DS18B20 provides digital temperature readings that can be recorded alongside moisture measurements. Students can compare temperature variations across sampling locations and investigate whether environmental conditions influence their observations. Temperature measurements provide environmental context but do not independently confirm the presence of water.',
+        experiment: {
+          title: 'Temperature Variation Across Terrain',
+          instruction:
+            'Collect readings from different terrain zones and investigate how temperature varies across the simulated landscape.',
+        },
+      },
+      {
+        id: 'wheel-encoders',
+        shortName: 'Wheel Encoders',
+        name: 'Wheel Encoders (Optional)',
+        // Upload artwork, then set this to the Cloudinary public id:
+        //   image: 'lof-titan/water-hunt-mars/wheel-encoders',
+        image: '',
+        whatIsIt:
+          "Sensors that estimate wheel rotation and help track the rover's movement.",
+        howItWorks:
+          'The firmware counts encoder pulses to estimate wheel rotation and approximate the distance travelled. With a defined starting position and suitable motion estimates, students can assign approximate coordinates to their sampling points. Encoder-based tracking is subject to wheel slip and accumulated measurement error. More advanced implementations can combine encoder measurements with additional positioning methods.',
+        experiment: {
+          title: 'Sampling Coordinates & Rover Tracking',
+          instruction:
+            'Move the rover between selected locations and record the approximate coordinates associated with each sensor reading.',
+        },
+      },
+    ],
+
+    assemblyTitle: 'Mechanical Assembly & Circuit Building',
+    assembly: [
+      {
+        step: 1,
+        title: 'Prepare the Rover Chassis',
+        desc: 'Assemble the rover chassis, mount the motors and wheels, and ensure the platform moves smoothly across the test terrain.',
+      },
+      {
+        step: 2,
+        title: 'Mount the Environmental Sensors',
+        desc: 'Secure the capacitive soil moisture sensor so that it can sample the intended soil region consistently. Mount the DS18B20 temperature sensor where it can measure the local temperature without interfering with rover movement.',
+      },
+      {
+        step: 3,
+        title: 'Build the Sensor Circuit',
+        desc: 'Connect the moisture sensor output to a compatible ESP32-S3 input. Connect the DS18B20 using the appropriate digital interface and required pull-up resistor. Verify the pin assignments and electrical specifications before powering the system.',
+      },
+      {
+        step: 4,
+        title: 'Configure Data Collection',
+        desc: 'Connect the sensors to the ESP32-S3 TITAN and prepare the firmware to read moisture and temperature values at regular intervals. If wheel encoders are available, configure them to estimate rover displacement and associate readings with sampling locations.',
+      },
+      {
+        step: 5,
+        title: 'Power-On Check',
+        desc: 'Power on the rover and verify that both sensors return plausible readings. Check the serial monitor or telemetry interface to confirm that measurements are updating correctly before starting the mission.',
+      },
+    ],
+
+    codingTitle: 'Coding and Control',
+    coding: [
+      {
+        step: 1,
+        title: 'Sensor Initialization',
+        desc: 'Initialize the capacitive soil moisture sensor and DS18B20 temperature sensor. Confirm that the firmware receives valid readings from both devices.',
+      },
+      {
+        step: 2,
+        title: 'Moisture Calibration',
+        desc: 'Collect measurements from dry and moist soil samples. Use these measurements to establish a calibration relationship or relative moisture threshold. Do not assume that a particular raw sensor value represents the same moisture level in every soil type.',
+      },
+      {
+        step: 3,
+        title: 'Real-Time Data Collection',
+        desc: 'Read the sensors at regular intervals and record moisture and temperature measurements. Include a timestamp and sampling location whenever these are available.',
+      },
+      {
+        step: 4,
+        title: 'Rover Position Tracking',
+        desc: "If wheel encoders are installed, estimate the rover's movement from the encoder counts. Associate each measurement with an approximate position on the terrain grid.",
+      },
+      {
+        step: 5,
+        title: 'Moisture Zone Identification',
+        desc: 'Implement a simple classification rule that identifies locations with relatively high sensor readings after calibration. Display or log the detected zones for further investigation.',
+      },
+      {
+        step: 6,
+        title: 'Moisture Mapping',
+        desc: 'Combine the collected readings into a two-dimensional grid. Use the grid to identify spatial patterns and highlight locations that warrant additional sampling.',
+      },
+      {
+        step: 7,
+        title: 'Full System Test',
+        desc: 'Test sensor readings, rover movement, data logging, and mapping together on a controlled terrain course. Repeat measurements at selected locations to assess consistency and identify possible sources of error.',
+      },
+    ],
+
+    faqTitle: 'FAQ & Troubleshooting',
+    faq: [
+      {
+        q: 'The moisture sensor readings do not change.',
+        a: 'Check the wiring, power supply, analog input configuration, and sensor placement. Test the sensor using samples with clearly different moisture conditions.',
+      },
+      {
+        q: 'The sensor reports high moisture in dry soil.',
+        a: 'Check the calibration procedure and inspect the soil composition. Capacitive sensor readings can be influenced by material properties, sensor geometry, and electrical interference. Establish a new calibration baseline using the soil intended for the experiment.',
+      },
+      {
+        q: 'The temperature sensor returns an invalid reading.',
+        a: 'Check the DS18B20 wiring, digital communication configuration, and pull-up resistor. Confirm that the firmware correctly initializes the sensor and handles failed readings.',
+      },
+      {
+        q: 'The rover records measurements at the wrong locations.',
+        a: 'Check the sampling procedure and verify that position estimates are associated with the correct sensor readings. If wheel encoders are used, inspect for wheel slip and accumulated position error.',
+      },
+      {
+        q: 'The moisture map contains inconsistent patterns.',
+        a: 'Repeat measurements at selected locations and compare the results. Keep sensor placement, sampling depth, soil preparation, and measurement timing consistent.',
+      },
+      {
+        q: 'Can the rover directly detect underground water on Mars?',
+        a: 'No. The soil moisture sensor used in this educational activity measures the electrical response of terrestrial soil or simulated soil samples. It does not directly detect underground water on Mars. The activity demonstrates environmental sensing and spatial mapping concepts that are relevant to planetary exploration.',
+      },
+      {
+        q: 'Does a high moisture reading prove that water is present?',
+        a: 'Not by itself. Sensor readings must be calibrated and interpreted in the context of the material being tested. In real planetary science, identifying water and determining its physical state require appropriate instruments and multiple lines of evidence.',
+      },
+    ],
+
+    challengesTitle: 'Rover Mission Challenges',
+    challenges: [
+      {
+        id: 'dry-vs-moist-classification',
+        level: 'Easy',
+        title: 'Challenge 1: Dry vs Moist Soil Classification',
+        goal: 'Calibrate the moisture sensor using dry and moist soil samples. Select a threshold that distinguishes the two sample groups as reliably as possible. Record: Dry Sample Readings / Moist Sample Readings / Selected Threshold / Classification Accuracy.',
+        hint: 'Repeat each measurement and compare the spread of the readings. A threshold based on a single measurement may not work reliably across all samples.',
+      },
+      {
+        id: 'martian-moisture-mapping',
+        level: 'Intermediate',
+        title: 'Challenge 2: Martian Moisture Mapping',
+        goal: 'Navigate the rover across a prepared terrain containing multiple soil zones with different moisture levels. Collect sensor readings at defined sampling points and construct a two-dimensional moisture map. Record: Sampling Locations / Moisture Readings / Temperature Readings / Map Coverage / Identified Moisture-Rich Zones.',
+        hint: 'Keep sampling depth and sensor placement consistent. Collect additional measurements around locations that show unexpectedly high or low readings.',
+      },
+      {
+        id: 'autonomous-water-hunt',
+        level: 'Advanced',
+        title: 'Challenge 3: Autonomous Water Hunt',
+        goal: 'Develop a firmware routine that collects sensor readings, identifies relatively moisture-rich zones, and records their approximate locations. If the rover supports autonomous movement, program it to visit selected sampling points or investigate regions of interest. Compare the automated exploration results with a manually collected baseline. Record: Locations Sampled / Zones Identified / Repeated Measurement Consistency / Exploration Time / Mapping Coverage.',
+        hint: 'Change one control or classification parameter at a time. Test the system using the same terrain and sampling conditions to determine whether the modification improves performance.',
+      },
+    ],
+
+    // CONTENT PENDING: code (firmware), component artwork, and the labs' test
+    // scripts - each component carries its lab title and instruction, but the
+    // Launch button only renders once experiment.testCode exists.
+    //
+    // NOT MODELLED: the Moisture Mapping Comparison Panel (a baseline-vs-modified
+    // worksheet table with a closing question) and the Final CTA banner. No kit
+    // schema field exists for either; both need a new section in the detail view.
+  },
 ];
