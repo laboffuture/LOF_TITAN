@@ -4275,6 +4275,7 @@ if __name__ == '__main__':
     heroImage: 'v1789016585/lof-titan/banners/banner-aquanova',
     thumbnail: 'v1789016585/lof-titan/banners/banner-aquanova',
     tagline: 'Motion & Water Sensing Rover with OLED and Blynk Alerts',
+    codeFilename: 'aqua_nova.py',
     description:
       'Integrates PIR and water sensing with ESP32-based input processing, using an OLED and Blynk alerts along with motor control to help the rover respond safely to changing conditions.',
 
@@ -4381,6 +4382,1665 @@ if __name__ == '__main__':
     // guessed - the detail page hides any section with no data and
     // renumbers the rest, so this renders correctly as-is.
     // ---------------------------------------------------------------
+
+    // MicroPython Main Script
+    code: `# ==========================================================
+# LOF TITAN ALERT ROVER
+# MicroPython Version
+# ESP32-S3
+# ==========================================================
+
+from machine import Pin, PWM, I2C
+import network
+import socket
+import time
+import json
+
+try:
+    import sh1106
+except ImportError:
+    sh1106 = None
+
+
+# ==========================================================
+# WIFI ACCESS POINT
+# ==========================================================
+
+AP_SSID = "LOF_TITAN_ROVER"
+AP_PASSWORD = "12345678"
+
+AP_IP = "192.168.4.1"
+
+
+# ==========================================================
+# OLED
+# ==========================================================
+
+OLED_SDA = 7
+OLED_SCL = 8
+
+i2c = I2C(
+    0,
+    sda=Pin(OLED_SDA),
+    scl=Pin(OLED_SCL),
+    freq=400000
+)
+
+oled = None
+
+if sh1106:
+    try:
+        oled = sh1106.SH1106_I2C(
+            128,
+            64,
+            i2c
+        )
+        oled.sleep(False)
+    except Exception as e:
+        print("OLED Error:", e)
+
+
+# ==========================================================
+# SENSOR PINS
+# ==========================================================
+
+PIR_PIN = 2
+WATER_PIN = 4
+
+pir = Pin(
+    PIR_PIN,
+    Pin.IN
+)
+
+water_sensor = Pin(
+    WATER_PIN,
+    Pin.IN
+)
+
+
+# ==========================================================
+# WATER SENSOR LOGIC
+# ==========================================================
+
+# If sensor outputs HIGH when water is detected:
+WATER_ACTIVE_STATE = 1
+
+# If your sensor outputs LOW when wet, use:
+# WATER_ACTIVE_STATE = 0
+
+
+# ==========================================================
+# MOTOR PINS
+# ==========================================================
+
+# M3 LEFT MOTOR
+LEFT_MOTOR_1 = 11
+LEFT_MOTOR_2 = 12
+
+# M4 RIGHT MOTOR
+RIGHT_MOTOR_1 = 9
+RIGHT_MOTOR_2 = 10
+
+
+# ==========================================================
+# PWM SETUP
+# ==========================================================
+
+PWM_FREQ = 5000
+
+left_1 = PWM(
+    Pin(LEFT_MOTOR_1),
+    freq=PWM_FREQ
+)
+
+left_2 = PWM(
+    Pin(LEFT_MOTOR_2),
+    freq=PWM_FREQ
+)
+
+right_1 = PWM(
+    Pin(RIGHT_MOTOR_1),
+    freq=PWM_FREQ
+)
+
+right_2 = PWM(
+    Pin(RIGHT_MOTOR_2),
+    freq=PWM_FREQ
+)
+
+
+# ==========================================================
+# MOTOR SPEED
+# ==========================================================
+
+# Arduino original:
+# 0 - 255
+#
+# MicroPython duty_u16:
+# 0 - 65535
+
+MOTOR_SPEED = 200
+
+MOTOR_PWM = int(
+    MOTOR_SPEED / 255 * 65535
+)
+
+
+# ==========================================================
+# SENSOR STATES
+# ==========================================================
+
+motionDetected = False
+waterDetected = False
+
+previousMotionState = False
+previousWaterState = False
+
+
+# ==========================================================
+# MOTOR FUNCTIONS
+# ==========================================================
+
+def left_motor_forward():
+
+    left_1.duty_u16(MOTOR_PWM)
+    left_2.duty_u16(0)
+
+
+def left_motor_backward():
+
+    left_1.duty_u16(0)
+    left_2.duty_u16(MOTOR_PWM)
+
+
+def left_motor_stop():
+
+    left_1.duty_u16(0)
+    left_2.duty_u16(0)
+
+
+def right_motor_forward():
+
+    right_1.duty_u16(MOTOR_PWM)
+    right_2.duty_u16(0)
+
+
+def right_motor_backward():
+
+    right_1.duty_u16(0)
+    right_2.duty_u16(MOTOR_PWM)
+
+
+def right_motor_stop():
+
+    right_1.duty_u16(0)
+    right_2.duty_u16(0)
+
+
+# ==========================================================
+# ROVER FUNCTIONS
+# ==========================================================
+
+def motors_forward():
+
+    left_motor_forward()
+    right_motor_forward()
+
+    print("ROVER -> FORWARD")
+
+
+def motors_backward():
+
+    left_motor_backward()
+    right_motor_backward()
+
+    print("ROVER -> BACKWARD")
+
+
+def motors_left():
+
+    left_motor_backward()
+    right_motor_forward()
+
+    print("ROVER -> LEFT")
+
+
+def motors_right():
+
+    left_motor_forward()
+    right_motor_backward()
+
+    print("ROVER -> RIGHT")
+
+
+def motors_stop():
+
+    left_motor_stop()
+    right_motor_stop()
+
+    print("ROVER -> STOP")
+
+
+# ==========================================================
+# OLED FUNCTIONS
+# ==========================================================
+
+def oled_clear():
+
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+
+def oled_show():
+
+    if oled is None:
+        return
+
+    oled.show()
+
+
+def show_startup():
+
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    oled.text(
+        "LOF TITAN",
+        28,
+        8
+    )
+
+    oled.text(
+        "ALERT SYSTEM",
+        18,
+        28
+    )
+
+    oled.text(
+        "Starting...",
+        24,
+        48
+    )
+
+    oled.show()
+
+
+def show_wifi():
+
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    oled.text(
+        "ESP32 WiFi",
+        25,
+        0
+    )
+
+    oled.text(
+        "LOF_TITAN_ROVER",
+        0,
+        18
+    )
+
+    oled.text(
+        "Open browser:",
+        0,
+        36
+    )
+
+    oled.text(
+        "192.168.4.1",
+        0,
+        52
+    )
+
+    oled.show()
+
+
+def update_oled():
+
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    # Both detected
+    if motionDetected and waterDetected:
+
+        oled.text(
+            "Motion Detected!",
+            0,
+            15
+        )
+
+        oled.text(
+            "Water Detected!",
+            0,
+            40
+        )
+
+    # Motion only
+    elif motionDetected:
+
+        oled.text(
+            "ALERT!",
+            38,
+            10
+        )
+
+        oled.text(
+            "Motion Detected!",
+            0,
+            35
+        )
+
+    # Water only
+    elif waterDetected:
+
+        oled.text(
+            "ALERT!",
+            38,
+            10
+        )
+
+        oled.text(
+            "Water Detected!",
+            0,
+            35
+        )
+
+    # Safe
+    else:
+
+        oled.text(
+            "SYSTEM SAFE",
+            20,
+            18
+        )
+
+        oled.text(
+            "No Alert",
+            32,
+            40
+        )
+
+    oled.show()
+
+
+# ==========================================================
+# SENSOR CHECK
+# ==========================================================
+
+def check_sensors():
+
+    global motionDetected
+    global waterDetected
+
+    global previousMotionState
+    global previousWaterState
+
+    # PIR
+    motionDetected = (
+        pir.value() == 1
+    )
+
+    # Water sensor
+    waterDetected = (
+        water_sensor.value()
+        ==
+        WATER_ACTIVE_STATE
+    )
+
+    # Motion state changed
+    if motionDetected != previousMotionState:
+
+        if motionDetected:
+
+            print(
+                "ALERT: MOTION DETECTED"
+            )
+
+        else:
+
+            print(
+                "MOTION: CLEAR"
+            )
+
+        previousMotionState = motionDetected
+
+    # Water state changed
+    if waterDetected != previousWaterState:
+
+        if waterDetected:
+
+            print(
+                "ALERT: WATER DETECTED"
+            )
+
+        else:
+
+            print(
+                "WATER: CLEAR"
+            )
+
+        previousWaterState = waterDetected
+
+    update_oled()
+
+
+# ==========================================================
+# WEB PAGE
+# ==========================================================
+
+MAIN_PAGE = """<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>LoF Titan Alert Rover</title>
+
+<style>
+
+{
+    box-sizing: border-box;
+}
+
+body {
+
+    margin: 0;
+
+    font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+    background:
+    linear-gradient(
+        135deg,
+        #061526,
+        #0d3152
+    );
+
+    color: white;
+
+    text-align: center;
+}
+
+.header {
+
+    background: #06101d;
+
+    padding: 22px;
+
+    font-size: 27px;
+
+    font-weight: bold;
+
+    letter-spacing: 1px;
+
+    box-shadow:
+    0px 4px 15px
+    rgba(0,0,0,0.5);
+}
+
+.container {
+
+    max-width: 700px;
+
+    margin: auto;
+
+    padding: 20px;
+}
+
+.section-title {
+
+    font-size: 21px;
+
+    font-weight: bold;
+
+    margin-top: 15px;
+
+    margin-bottom: 20px;
+}
+
+.sensor-container {
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    gap: 20px;
+
+    flex-wrap: wrap;
+}
+
+.sensor-card {
+
+    width: 270px;
+
+    padding: 22px;
+
+    background: #112d48;
+
+    border-radius: 18px;
+
+    box-shadow:
+    0px 6px 20px
+    rgba(0,0,0,0.4);
+}
+
+.sensor-name {
+
+    font-size: 20px;
+
+    font-weight: bold;
+
+    margin-bottom: 15px;
+}
+
+.status {
+
+    padding: 18px;
+
+    border-radius: 12px;
+
+    font-size: 18px;
+
+    font-weight: bold;
+
+    transition: 0.3s;
+}
+
+.safe {
+
+    background: #16834a;
+
+    box-shadow:
+    0px 0px 12px
+    rgba(22,131,74,0.7);
+}
+
+.alert {
+
+    background: #d52d35;
+
+    box-shadow:
+    0px 0px 18px
+    rgba(255,0,0,0.8);
+
+    animation:
+    alertPulse
+    0.7s
+    infinite
+    alternate;
+}
+
+@keyframes alertPulse {
+
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.05);
+    }
+}
+
+.control-panel {
+
+    margin-top: 30px;
+
+    padding: 25px;
+
+    background: #112d48;
+
+    border-radius: 18px;
+
+    box-shadow:
+    0px 6px 20px
+    rgba(0,0,0,0.4);
+}
+
+.control-grid {
+
+    display: grid;
+
+    grid-template-columns:
+    100px
+    100px
+    100px;
+
+    gap: 15px;
+
+    justify-content: center;
+
+    margin-top: 20px;
+}
+
+button {
+
+    width: 100px;
+
+    height: 65px;
+
+    border: none;
+
+    border-radius: 14px;
+
+    background: #178ce5;
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    box-shadow:
+    0px 5px 12px
+    rgba(0,0,0,0.5);
+
+    touch-action: none;
+
+    user-select: none;
+}
+
+button:active {
+
+    transform: scale(0.92);
+}
+
+.stop-button {
+
+    background: #e02e38;
+}
+
+.blank {
+
+    visibility: hidden;
+}
+
+.connection {
+
+    margin-top: 25px;
+
+    padding: 10px;
+
+    font-size: 14px;
+
+    color: #a6cce8;
+}
+
+.online-dot {
+
+    display: inline-block;
+
+    width: 10px;
+
+    height: 10px;
+
+    background: #24d264;
+
+    border-radius: 50%;
+
+    margin-right: 6px;
+}
+
+@media(max-width:420px) {
+
+    .header {
+        font-size: 21px;
+    }
+
+    .control-grid {
+
+        grid-template-columns:
+        85px
+        85px
+        85px;
+    }
+
+    button {
+
+        width: 85px;
+
+        font-size: 13px;
+    }
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+LOF TITAN ALERT ROVER
+
+</div>
+
+
+<div class="container">
+
+
+<div class="section-title">
+
+LIVE SENSOR STATUS
+
+</div>
+
+
+<div class="sensor-container">
+
+
+<div class="sensor-card">
+
+<div class="sensor-name">
+
+MOTION SENSOR
+
+</div>
+
+
+<div
+id="motion"
+class="status safe">
+
+NO MOTION
+
+</div>
+
+</div>
+
+
+<div class="sensor-card">
+
+<div class="sensor-name">
+
+WATER SENSOR
+
+</div>
+
+
+<div
+id="water"
+class="status safe">
+
+NO WATER
+
+</div>
+
+</div>
+
+
+</div>
+
+
+<div class="control-panel">
+
+
+<div class="section-title">
+
+ROVER CONTROL
+
+</div>
+
+
+<div class="control-grid">
+
+
+<div class="blank"></div>
+
+
+<button
+onpointerdown="startMove('/forward')"
+onpointerup="stopMove()"
+onpointerleave="stopMove()"
+onpointercancel="stopMove()">
+
+FORWARD
+
+</button>
+
+
+<div class="blank"></div>
+
+
+<button
+onpointerdown="startMove('/left')"
+onpointerup="stopMove()"
+onpointerleave="stopMove()"
+onpointercancel="stopMove()">
+
+LEFT
+
+</button>
+
+
+<button
+class="stop-button"
+onclick="sendCommand('/stop')">
+
+STOP
+
+</button>
+
+
+<button
+onpointerdown="startMove('/right')"
+onpointerup="stopMove()"
+onpointerleave="stopMove()"
+onpointercancel="stopMove()">
+
+RIGHT
+
+</button>
+
+
+<div class="blank"></div>
+
+
+<button
+onpointerdown="startMove('/backward')"
+onpointerup="stopMove()"
+onpointerleave="stopMove()"
+onpointercancel="stopMove()">
+
+BACKWARD
+
+</button>
+
+
+<div class="blank"></div>
+
+
+</div>
+
+</div>
+
+
+<div class="connection">
+
+<span class="online-dot"></span>
+
+ESP32-S3 Direct Wi-Fi Dashboard
+
+<br><br>
+
+Connect to:
+LOF_TITAN_ROVER
+
+<br><br>
+
+Open:
+192.168.4.1
+
+</div>
+
+
+</div>
+
+
+<script>
+
+let moving = false;
+
+
+function sendCommand(command) {
+
+    fetch(
+        command,
+        {
+            cache:"no-store"
+        }
+    )
+    .catch(error => {
+
+        console.log(
+            "Command Error",
+            error
+        );
+
+    });
+}
+
+
+function startMove(command) {
+
+    moving = true;
+
+    sendCommand(command);
+}
+
+
+function stopMove() {
+
+    if(moving) {
+
+        moving = false;
+
+        sendCommand('/stop');
+    }
+}
+
+
+function updateSensors() {
+
+    fetch(
+        '/status',
+        {
+            cache:'no-store'
+        }
+    )
+
+    .then(
+        response =>
+        response.json()
+    )
+
+    .then(data => {
+
+        let motion =
+        document.getElementById(
+            "motion"
+        );
+
+        if(data.motion === true) {
+
+            motion.innerHTML =
+            "MOTION DETECTED";
+
+            motion.className =
+            "status alert";
+        }
+
+        else {
+
+            motion.innerHTML =
+            "NO MOTION";
+
+            motion.className =
+            "status safe";
+        }
+
+
+        let water =
+        document.getElementById(
+            "water"
+        );
+
+        if(data.water === true) {
+
+            water.innerHTML =
+            "WATER DETECTED";
+
+            water.className =
+            "status alert";
+        }
+
+        else {
+
+            water.innerHTML =
+            "NO WATER";
+
+            water.className =
+            "status safe";
+        }
+
+    })
+
+    .catch(error => {
+
+        console.log(
+            "Dashboard connection error"
+        );
+
+    });
+}
+
+
+setInterval(
+    updateSensors,
+    500
+);
+
+
+updateSensors();
+
+
+window.addEventListener(
+    "blur",
+    function() {
+
+        sendCommand('/stop');
+
+        moving = false;
+    }
+);
+
+
+window.addEventListener(
+    "beforeunload",
+    function() {
+
+        sendCommand('/stop');
+    }
+);
+
+</script>
+
+
+</body>
+
+</html>
+"""
+
+
+# ==========================================================
+# WIFI ACCESS POINT
+# ==========================================================
+
+def start_access_point():
+
+    print()
+    print(
+        "Starting ESP32 Wi-Fi Access Point..."
+    )
+
+    ap = network.WLAN(
+        network.AP_IF
+    )
+
+    ap.active(False)
+
+    time.sleep_ms(300)
+
+    ap.active(True)
+
+    # Configure fixed IP
+    try:
+
+        ap.ifconfig(
+            (
+                AP_IP,
+                "255.255.255.0",
+                AP_IP,
+                AP_IP
+            )
+        )
+
+    except Exception as e:
+
+        print(
+            "AP IP configuration warning:",
+            e
+        )
+
+    # Configure SSID/password
+    try:
+
+        ap.config(
+            essid=AP_SSID,
+            password=AP_PASSWORD
+        )
+
+    except Exception:
+
+        # Some MicroPython builds use security/authmode
+        ap.config(
+            essid=AP_SSID,
+            password=AP_PASSWORD
+        )
+
+    timeout = 50
+
+    while (
+        not ap.active()
+        and
+        timeout > 0
+    ):
+
+        time.sleep_ms(100)
+
+        timeout -= 1
+
+
+    if not ap.active():
+
+        print(
+            "ERROR: Access Point failed!"
+        )
+
+        if oled:
+
+            oled.fill(0)
+
+            oled.text(
+                "WiFi AP FAILED!",
+                0,
+                25
+            )
+
+            oled.show()
+
+        while True:
+            time.sleep(1)
+
+
+    print()
+    print(
+        "ESP32 ACCESS POINT READY"
+    )
+
+    print(
+        "Wi-Fi Name :",
+        AP_SSID
+    )
+
+    print(
+        "Password   :",
+        AP_PASSWORD
+    )
+
+    print(
+        "Dashboard  : http://" +
+        AP_IP
+    )
+
+    show_wifi()
+
+    time.sleep(4)
+
+    return ap
+
+
+# ==========================================================
+# SEND HTTP RESPONSE
+# ==========================================================
+
+def send_response(
+    client,
+    content,
+    content_type="text/plain",
+    status="200 OK"
+):
+
+    if isinstance(
+        content,
+        str
+    ):
+
+        content = content.encode()
+
+
+    header = (
+        "HTTP/1.1 {}\\r\\n"
+        "Content-Type: {}\\r\\n"
+        "Content-Length: {}\\r\\n"
+        "Connection: close\\r\\n"
+        "Cache-Control: no-store\\r\\n"
+        "\\r\\n"
+    ).format(
+        status,
+        content_type,
+        len(content)
+    )
+
+    client.sendall(
+        header.encode()
+    )
+
+    client.sendall(
+        content
+    )
+
+
+# ==========================================================
+# PROCESS WEB REQUEST
+# ==========================================================
+
+def process_request(client):
+
+    try:
+
+        request = client.recv(
+            1024
+        )
+
+        if not request:
+            return
+
+        request = request.decode(
+            "utf-8",
+            "ignore"
+        )
+
+        first_line = request.split(
+            "\\r\\n"
+        )[0]
+
+        parts = first_line.split()
+
+        if len(parts) < 2:
+            return
+
+        path = parts[1]
+
+
+        # ==============================================
+        # MAIN PAGE
+        # ==============================================
+
+        if path == "/":
+
+            send_response(
+                client,
+                MAIN_PAGE,
+                "text/html"
+            )
+
+
+        # ==============================================
+        # SENSOR STATUS
+        # ==============================================
+
+        elif path.startswith(
+            "/status"
+        ):
+
+            status = {
+                "motion":
+                motionDetected,
+
+                "water":
+                waterDetected
+            }
+
+            send_response(
+                client,
+                json.dumps(status),
+                "application/json"
+            )
+
+
+        # ==============================================
+        # FORWARD
+        # ==============================================
+
+        elif path.startswith(
+            "/forward"
+        ):
+
+            motors_forward()
+
+            send_response(
+                client,
+                "FORWARD"
+            )
+
+
+        # ==============================================
+        # BACKWARD
+        # ==============================================
+
+        elif path.startswith(
+            "/backward"
+        ):
+
+            motors_backward()
+
+            send_response(
+                client,
+                "BACKWARD"
+            )
+
+
+        # ==============================================
+        # LEFT
+        # ==============================================
+
+        elif path.startswith(
+            "/left"
+        ):
+
+            motors_left()
+
+            send_response(
+                client,
+                "LEFT"
+            )
+
+
+        # ==============================================
+        # RIGHT
+        # ==============================================
+
+        elif path.startswith(
+            "/right"
+        ):
+
+            motors_right()
+
+            send_response(
+                client,
+                "RIGHT"
+            )
+
+
+        # ==============================================
+        # STOP
+        # ==============================================
+
+        elif path.startswith(
+            "/stop"
+        ):
+
+            motors_stop()
+
+            send_response(
+                client,
+                "STOP"
+            )
+
+
+        # ==============================================
+        # FAVICON
+        # ==============================================
+
+        elif path.startswith(
+            "/favicon.ico"
+        ):
+
+            send_response(
+                client,
+                "",
+                "text/plain"
+            )
+
+
+        # ==============================================
+        # NOT FOUND
+        # ==============================================
+
+        else:
+
+            send_response(
+                client,
+                "404 Not Found",
+                "text/plain",
+                "404 Not Found"
+            )
+
+
+    except Exception as e:
+
+        print(
+            "Web error:",
+            e
+        )
+
+
+# ==========================================================
+# WEB SERVER
+# ==========================================================
+
+def start_web_server():
+
+    address = socket.getaddrinfo(
+        "0.0.0.0",
+        80
+    )[0][-1]
+
+    server = socket.socket()
+
+    try:
+
+        server.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_REUSEADDR,
+            1
+        )
+
+    except:
+        pass
+
+    server.bind(
+        address
+    )
+
+    server.listen(
+        3
+    )
+
+    server.settimeout(
+        0.05
+    )
+
+    print(
+        "Web Server Started!"
+    )
+
+    return server
+
+
+# ==========================================================
+# MAIN
+# ==========================================================
+
+def main():
+
+    print()
+
+    print(
+        "=================================="
+    )
+
+    print(
+        "      LOF TITAN ALERT ROVER"
+    )
+
+    print(
+        "      DIRECT ESP32 WI-FI MODE"
+    )
+
+    print(
+        "=================================="
+    )
+
+
+    # Safety stop
+    motors_stop()
+
+
+    # OLED startup
+    show_startup()
+
+    time.sleep(
+        1.5
+    )
+
+
+    # Start WiFi
+    ap = start_access_point()
+
+
+    # Start web server
+    server = start_web_server()
+
+
+    # Initial sensor check
+    check_sensors()
+
+
+    print()
+
+    print(
+        "=================================="
+    )
+
+    print(
+        "SYSTEM READY"
+    )
+
+    print(
+        "CONNECT TO WIFI :",
+        AP_SSID
+    )
+
+    print(
+        "PASSWORD        :",
+        AP_PASSWORD
+    )
+
+    print(
+        "OPEN BROWSER    : http://" +
+        AP_IP
+    )
+
+    print(
+        "M3 LEFT MOTOR   : GPIO 11 / GPIO 12"
+    )
+
+    print(
+        "M4 RIGHT MOTOR  : GPIO 9 / GPIO 10"
+    )
+
+    print(
+        "PIR             : GPIO 2"
+    )
+
+    print(
+        "WATER SENSOR    : GPIO 4"
+    )
+
+    print(
+        "OLED SDA/SCL    : GPIO 7 / GPIO 8"
+    )
+
+    print(
+        "=================================="
+    )
+
+
+    previous_sensor_time = (
+        time.ticks_ms()
+    )
+
+
+    while True:
+
+        # ==============================================
+        # WEB SERVER
+        # ==============================================
+
+        try:
+
+            client, address = (
+                server.accept()
+            )
+
+            try:
+
+                client.settimeout(
+                    1
+                )
+
+                process_request(
+                    client
+                )
+
+            finally:
+
+                try:
+                    client.close()
+                except:
+                    pass
+
+
+        except OSError:
+            # Normal socket timeout
+            pass
+
+        except Exception as e:
+
+            print(
+                "Server error:",
+                e
+            )
+
+
+        # ==============================================
+        # SENSOR UPDATE EVERY 300 ms
+        # ==============================================
+
+        current_time = (
+            time.ticks_ms()
+        )
+
+        if (
+            time.ticks_diff(
+                current_time,
+                previous_sensor_time
+            )
+            >=
+            300
+        ):
+
+            previous_sensor_time = (
+                current_time
+            )
+
+            check_sensors()
+
+
+        time.sleep_ms(
+            5
+        )
+
+
+# ==========================================================
+# START PROGRAM
+# ==========================================================
+
+try:
+
+    main()
+
+except KeyboardInterrupt:
+
+    motors_stop()
+
+    print(
+        "Program stopped"
+    )
+
+except Exception as e:
+
+    motors_stop()
+
+    print(
+        "Fatal Error:",
+        e
+    )
+`,
   },
   {
     id: 'axes3',
@@ -4626,8 +6286,10 @@ if __name__ == '__main__':
     // MicroPython Main Script
     code: `# ==============================================================================
 # LOF TITAN — Intelligent Continuous-PID Magnetic Security Rover
-# Speed Range: 0% to 30% Full Dynamic Envelope
-# Real-Time Trajectory Control: Continuous Heading Lock (+/-2° Tolerance) Throughout 20s
+# Speed Range: 0% to 40% Full Dynamic Envelope
+# Real-Time Trajectory Control: Continuous Heading Lock (+/-2.5° Tolerance) Throughout Patrol Legs
+# Intelligent Adaptive Pivot: Dynamic PWM & Frequency Auto-Tuning via Compass Feedback
+# Heat Intrusion Alarm: 27°C Threshold (AMG8833 8x8 IR Thermal Matrix)
 # Hardware: ESP32-S3 | Motors: M1 (15,16) & M2 (13,14) | I2C: SDA 7, SCL 8
 # Sensors: AMG8833 (0x69) 8x8 IR Thermal & QMC5883L (0x0D) Digital Compass
 # Web Server: WiFi Hotspot (192.168.4.1) Live Heatmap & Dual-Heading Telemetry
@@ -4642,33 +6304,70 @@ import select
 import ujson
 from machine import Pin, PWM, SoftI2C
 
-# ================= 1. SINGLETON PWM MOTOR INTERFACE (0% - 30% RANGE) =================
+# ================= GLOBAL CONFIGURATION =================
+MAX_SPEED_PCT = 40.0          # Maximum motor speed envelope (40%)
+ALARM_TEMP_THRESHOLD = 27.0   # Heat intrusion alarm threshold (°C)
+PATROL_DURATION_SEC = 8.0     # Active patrol leg duration per direction (seconds)
+
+# ================= 1. SINGLETON PWM MOTOR INTERFACE (0% - 40% RANGE) =================
 _pwm_pool = {}
-def _get_pwm(pin, freq=1000):
+_current_motor_freq = 1000
+
+def _get_pwm(pin, freq=None):
+    global _current_motor_freq
+    f = freq if freq is not None else _current_motor_freq
     if pin not in _pwm_pool:
-        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
+        _pwm_pool[pin] = PWM(Pin(pin), freq=f)
     else:
-        try: _pwm_pool[pin].freq(freq)
-        except Exception: pass
+        if freq is not None:
+            try: _pwm_pool[pin].freq(freq)
+            except Exception: pass
     return _pwm_pool[pin]
 
-def _raw_m1(duty_pct, fwd=True):
-    # Absolute dynamic range: 0% to 30%
-    capped_pct = max(0.0, min(30.0, duty_pct))
+def set_motor_freq(freq):
+    global _current_motor_freq
+    f = int(max(60, min(3000, freq)))
+    if f != _current_motor_freq:
+        _current_motor_freq = f
+        for pin in (13, 14, 15, 16):
+            if pin in _pwm_pool:
+                try: _pwm_pool[pin].freq(f)
+                except Exception: pass
+
+def _raw_m1(duty_pct, fwd=True, freq=None):
+    if freq is not None:
+        set_motor_freq(freq)
+    capped_pct = max(0.0, min(MAX_SPEED_PCT, duty_pct))
     duty = int(capped_pct * 1023 / 100) if capped_pct > 0 else 0
     p15 = _get_pwm(15); p16 = _get_pwm(16)
     if duty == 0: p15.duty(0); p16.duty(0)
     elif fwd: p15.duty(duty); p16.duty(0)
     else: p15.duty(0); p16.duty(duty)
 
-def _raw_m2(duty_pct, fwd=True):
-    # Absolute dynamic range: 0% to 30%
-    capped_pct = max(0.0, min(30.0, duty_pct))
+def _raw_m2(duty_pct, fwd=True, freq=None):
+    if freq is not None:
+        set_motor_freq(freq)
+    capped_pct = max(0.0, min(MAX_SPEED_PCT, duty_pct))
     duty = int(capped_pct * 1023 / 100) if capped_pct > 0 else 0
     p13 = _get_pwm(13); p14 = _get_pwm(14)
     if duty == 0: p13.duty(0); p14.duty(0)
     elif fwd: p13.duty(duty); p14.duty(0)
     else: p13.duty(0); p14.duty(duty)
+
+def brake_motors():
+    global _current_m1, _current_m2
+    _raw_m1(0)
+    _raw_m2(0)
+    _current_m1 = 0.0; _current_m2 = 0.0
+
+def active_brake_pulse(reverse_m1_fwd, reverse_m2_fwd, ms=20, duty=25.0):
+    """
+    Applies brief reverse counter-torque to immediately arrest rotational momentum.
+    """
+    _raw_m1(duty, fwd=reverse_m1_fwd)
+    _raw_m2(duty, fwd=reverse_m2_fwd)
+    time.sleep_ms(ms)
+    brake_motors()
 
 def _raw_m3(duty_pct, fwd=True):
     # M3 Motor/LED Channel (GPIO 11, 12)
@@ -4694,15 +6393,17 @@ def set_buzzer(active):
 _current_m1 = 0.0
 _current_m2 = 0.0
 
-def smooth_motors(target_m1, target_m2, max_step=1.8):
+def smooth_motors(target_m1, target_m2, max_step=2.0, freq=None):
     """
-    Slew-rate limiter from 0% to 30%:
+    Slew-rate limiter from 0% to 40%:
     Smoothly ramps motor speed without sudden jolts or loss of wheel traction.
     """
     global _current_m1, _current_m2
+    if freq is not None:
+        set_motor_freq(freq)
     
-    target_m1 = max(-30.0, min(30.0, target_m1))
-    target_m2 = max(-30.0, min(30.0, target_m2))
+    target_m1 = max(-MAX_SPEED_PCT, min(MAX_SPEED_PCT, target_m1))
+    target_m2 = max(-MAX_SPEED_PCT, min(MAX_SPEED_PCT, target_m2))
     
     # Smooth ramp M1
     if _current_m1 < target_m1:
@@ -4721,11 +6422,10 @@ def smooth_motors(target_m1, target_m2, max_step=1.8):
 
 def stop_smooth():
     global _current_m1, _current_m2
-    for _ in range(12):
-        smooth_motors(0, 0, max_step=4.0)
+    for _ in range(8):
+        smooth_motors(0, 0, max_step=5.0)
         time.sleep_ms(15)
-    _raw_m1(0); _raw_m2(0)
-    _current_m1 = 0.0; _current_m2 = 0.0
+    brake_motors()
 
 
 # ================= 3. I2C SENSORS (COMPASS & THERMAL CAMERA) =================
@@ -4754,6 +6454,15 @@ class _TitanQMC5883L:
         time.sleep_ms(20)
         self._w(0x0B, 0x01)
         self._w(0x09, 0x1D)
+        time.sleep_ms(25)
+        # Pre-seed buffer with initial measurement to eliminate startup step
+        data = self._r(0x00, 6)
+        if len(data) == 6:
+            rx, ry, _ = struct.unpack('<hhh', data)
+            deg = math.degrees(math.atan2(ry, rx))
+            if deg < 0: deg += 360.0
+            self._h_buf = [deg, deg, deg]
+            self.heading = round(deg, 1)
 
     def update(self):
         data = self._r(0x00, 6)
@@ -4764,11 +6473,19 @@ class _TitanQMC5883L:
             deg = math.degrees(rad)
             if deg < 0: deg += 360.0
             
-            # 3-sample median filter
+            # 3-sample circular median filter with 0/360 boundary unwrap
             self._h_buf.pop(0)
             self._h_buf.append(deg)
-            sorted_h = sorted(self._h_buf)
-            self.heading = round(sorted_h[1], 1)
+            h0, h1, h2 = self._h_buf
+            if max(h0, h1, h2) - min(h0, h1, h2) > 180.0:
+                u0 = h0 + 360.0 if h0 < 180.0 else h0
+                u1 = h1 + 360.0 if h1 < 180.0 else h1
+                u2 = h2 + 360.0 if h2 < 180.0 else h2
+                med = sorted([u0, u1, u2])[1] % 360.0
+            else:
+                med = sorted([h0, h1, h2])[1]
+                
+            self.heading = round(med, 1)
             
             dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
             idx = int((self.heading + 22.5) / 45.0) % 8
@@ -4912,14 +6629,14 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <div class="stats-bar">
       <div>Max Temp<div class="stat-num" id="maxTemp">-- °C</div></div>
-      <div>Time Left<div class="stat-num" id="timer">20.0s</div></div>
-      <div>Speed Range<div class="stat-num">0% - 30%</div></div>
+      <div>Time Left<div class="stat-num" id="timer">8.0s</div></div>
+      <div>Speed Range<div class="stat-num">0% - 40%</div></div>
     </div>
   </div>
 
   <script>
     function tempToColor(t) {
-      const norm = Math.max(0, Math.min(1, (t - 22) / (35 - 22)));
+      const norm = Math.max(0, Math.min(1, (t - 20) / (32 - 20)));
       const hue = (1 - norm) * 240;
       return \`hsl(\${hue}, 95%, 48%)\`;
     }
@@ -4947,7 +6664,7 @@ HTML_PAGE = """<!DOCTYPE html>
         const st = document.getElementById('status');
         if (d.alarm) {
           st.className = 'status-badge badge-alarm';
-          st.innerText = '🚨 HEAT INTRUSION DETECTED (>30°C)';
+          st.innerText = '🚨 HEAT INTRUSION DETECTED (>27°C)';
         } else {
           st.className = 'status-badge badge-ok';
           st.innerText = '✅ ADVANCING TOWARDS ' + d.tgt_dir + ' (' + d.tgt_angle.toFixed(0) + '°)';
@@ -4967,9 +6684,20 @@ def start_wifi_ap():
     print("[WIFI AP READY] SSID: TITAN_SECURITY_ROVER | IP:", ap.ifconfig()[0])
     return ap
 
-def process_web_requests(s_sock, mission_state):
-    thermal.update()
+_last_thermal_update = 0
+
+def update_sensors(force_thermal=False):
+    global _last_thermal_update
+    now = time.ticks_ms()
     compass.update()
+    # Thermal sensor reads 128 bytes over I2C; throttle to 4Hz (every 250ms) to keep compass loop ultra-responsive
+    if force_thermal or time.ticks_diff(now, _last_thermal_update) >= 250:
+        thermal.update()
+        _last_thermal_update = now
+
+def process_web_requests(s_sock, mission_state, refresh_sensors=True):
+    if refresh_sensors:
+        update_sensors()
     if not s_sock: return
     try:
         r, _, _ = select.select([s_sock], [], [], 0)
@@ -4979,6 +6707,7 @@ def process_web_requests(s_sock, mission_state):
             req = client.recv(512).decode('utf-8', 'ignore')
             
             if "GET /data" in req:
+                thermal.update()  # ensure freshest thermal frame for web dashboard
                 payload = ujson.dumps({
                     "max": thermal.max_temp,
                     "min": thermal.min_temp,
@@ -4987,7 +6716,7 @@ def process_web_requests(s_sock, mission_state):
                     "cur_dir": compass.direction,
                     "tgt_angle": mission_state.get("target_angle", 0.0),
                     "tgt_dir": mission_state.get("target_dir", "NORTH"),
-                    "time_left": mission_state.get("time_left", 20.0),
+                    "time_left": mission_state.get("time_left", PATROL_DURATION_SEC),
                     "alarm": mission_state.get("alarm", False),
                     "pixels": thermal.pixels
                 })
@@ -5003,70 +6732,166 @@ def process_web_requests(s_sock, mission_state):
 
 # ================= 6. CONTINUOUS-ALIGNMENT PATROL MISSION =================
 
-def intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=None, mission_state=None):
+def intelligent_align_to_heading(target_heading, tolerance=2.5, server_socket=None, mission_state=None, timeout_sec=8.0):
     """
-    Smoothly pivots the rover to the target heading using intelligent PID
-    with smooth acceleration and deceleration between 0% and 30%.
+    Intelligently pivots rover to target heading using compass sensor feedback.
+    Self-adapts PWM duty and PWM frequency to overcome motor deadband/stiction
+    without high-speed overshoot or endless left/right oscillation.
+    Max speed dynamic envelope up to 40.0%.
     """
     target_dir_name = "NORTH" if (target_heading < 90 or target_heading > 270) else "SOUTH"
-    mission_state["target_angle"] = target_heading
-    mission_state["target_dir"] = target_dir_name
+    if mission_state is not None:
+        mission_state["target_angle"] = target_heading
+        mission_state["target_dir"] = target_dir_name
 
-    print(f"\\n[PID PIVOT] Aligning to {target_dir_name} ({target_heading}°) | Tolerance: +/-{tolerance}°...")
+    print(f"\\n[INTELLIGENT PIVOT] Aligning to {target_dir_name} ({target_heading:.1f}°) | Max Speed: {MAX_SPEED_PCT}% | Tol: +/-{tolerance}°...")
+    
+    start_time = time.ticks_ms()
+    max_duration_ms = int(timeout_sec * 1000)
+    
     align_pid.reset()
+    brake_motors()
+    time.sleep_ms(30)
+    
+    # Adaptive state parameters
+    adaptive_duty = 20.0       # Starting fine-alignment PWM %
+    adaptive_freq = 120        # Low PWM frequency (Hz) for strong inductive kick to break stiction
+    last_heading = compass.update()
     stable_count = 0
+    prev_error = (target_heading - last_heading + 180.0) % 360.0 - 180.0
+    last_step_time = time.ticks_ms()
 
     while True:
+        # Check overall timeout safety
+        now = time.ticks_ms()
+        if time.ticks_diff(now, start_time) > max_duration_ms:
+            print(f"[PIVOT TIMEOUT] Heading: {compass.heading:.1f}° | Reached limit of {timeout_sec}s, locking in.")
+            brake_motors()
+            break
+
+        # Process server requests & update compass (lightweight non-blocking)
         process_web_requests(server_socket, mission_state)
         curr = compass.heading
-        error, pid_cmd = align_pid.compute(target_heading, curr)
+        error = (target_heading - curr + 180.0) % 360.0 - 180.0
+        abs_err = abs(error)
 
-        # Within tolerance check
-        if abs(error) <= tolerance:
-            smooth_motors(0, 0, max_step=3.0)
+        # 1. TOLERANCE CHECK
+        if abs_err <= tolerance:
+            brake_motors()
             stable_count += 1
-            if stable_count >= 5: # Steady for ~100ms
-                stop_smooth()
-                print(f"[PID LOCKED] Steady at {curr:.1f}° ({compass.direction}) | Error: {error:+.1f}° ✅")
+            if stable_count >= 3:  # Steady confirmation for ~80ms
+                print(f"[ALIGNED & LOCKED] Steady at {curr:.1f}° ({compass.direction}) | Error: {error:+.1f}° ✅")
+                set_motor_freq(1000) # Reset to default frequency
                 break
-        else:
-            stable_count = 0
+            time.sleep_ms(25)
+            continue
+
+        stable_count = 0
+        dt = max(0.01, time.ticks_diff(now, last_step_time) / 1000.0)
+        d_err = (error - prev_error) / dt  # Angular velocity (°/sec)
+        prev_error = error
+        last_step_time = now
+
+        # 2. ADAPTIVE REGIMES BASED ON ERROR DISTANCE & COMPASS VELOCITY
+        if abs_err > 35.0:
+            # --- REGIME A: FAST SLEW (Large Angle: 35° - 180°) ---
+            # Use high frequency (800-1000Hz) and scale speed up to MAX_SPEED_PCT (40%)
+            set_motor_freq(800)
             
-            # Smoothly map PID output into 0% - 30% range
-            abs_err = abs(error)
-            if abs_err > 45.0:
-                speed = 28.0
-            elif abs_err > 15.0:
-                speed = 24.0
-            else:
-                speed = max(18.0, min(23.0, 16.0 + abs_err * 0.4))
+            # Map error proportionally into 26% - 40% range
+            slew_speed = min(MAX_SPEED_PCT, 26.0 + (abs_err - 35.0) * (MAX_SPEED_PCT - 26.0) / (180.0 - 35.0))
             
-            # Direct negative feedback turn towards target
+            # Anticipatory easing if already rotating rapidly
+            if abs(d_err) > 80.0:
+                slew_speed = max(24.0, slew_speed - 6.0)
+
             if error > 0:
-                smooth_motors(target_m1=-speed, target_m2=speed, max_step=1.8)
+                smooth_motors(target_m1=-slew_speed, target_m2=slew_speed, max_step=3.5)
             else:
-                smooth_motors(target_m1=speed, target_m2=-speed, max_step=1.8)
+                smooth_motors(target_m1=slew_speed, target_m2=-slew_speed, max_step=3.5)
+            
+            time.sleep_ms(20)
 
-        time.sleep_ms(20)
+        elif abs_err > 10.0:
+            # --- REGIME B: APPROACH & DECELERATION (10° - 35°) ---
+            # Self-adapt frequency downwards (from 600Hz down to 200Hz)
+            # and smoothly decelerate speed (from 26% down to 20%)
+            ratio = (abs_err - 10.0) / (35.0 - 10.0)
+            mid_freq = int(200 + ratio * 400)
+            mid_speed = 20.0 + ratio * 6.0
+            
+            # Anticipatory braking if rotational momentum is high:
+            if (error * d_err < 0) and (abs(d_err) * 0.18 > abs_err):
+                # Apply brief counter-torque active brake to quench overshoot before it happens
+                active_brake_pulse(reverse_m1_fwd=(error < 0), reverse_m2_fwd=(error > 0), ms=20, duty=22.0)
+                smooth_motors(0, 0, max_step=8.0)
+            else:
+                if error > 0:
+                    smooth_motors(target_m1=-mid_speed, target_m2=mid_speed, max_step=2.5, freq=mid_freq)
+                else:
+                    smooth_motors(target_m1=mid_speed, target_m2=-mid_speed, max_step=2.5, freq=mid_freq)
+            
+            time.sleep_ms(20)
+
+        else:
+            # --- REGIME C: PRECISION MICRO-STEP ALIGNMENT (tolerance to 10°) ---
+            # Solves: "lower pwm wheel wont rotate and high speed overshoots"
+            # 1. Kill any existing rotation momentum from previous phase
+            if abs(_current_m1) > 0 or abs(_current_m2) > 0:
+                brake_motors()
+                time.sleep_ms(20)
+
+            # 2. Compass-Feedback Stall Detection:
+            # Check if heading moved since last step
+            heading_delta = abs(curr - last_heading)
+            if heading_delta < 0.25:
+                # Compass confirms rover did NOT move: wheels are stalled by static friction!
+                # Intelligently adapt: increase breakaway duty and lower frequency for higher pulse torque
+                adaptive_duty = min(32.0, adaptive_duty + 1.2)
+                adaptive_freq = max(80, adaptive_freq - 10)
+            else:
+                # Compass confirms motion: gently settle duty towards minimum viable threshold
+                adaptive_duty = max(18.0, adaptive_duty - 0.4)
+                last_heading = curr
+
+            # 3. Micro-Pulse Dosing (Kick and Settle):
+            pulse_ms = int(max(30, min(50, 25 + abs_err * 2.5)))
+            
+            # Deliver single calibrated pulse at adaptive frequency and duty
+            if error > 0:
+                _raw_m1(adaptive_duty, fwd=False, freq=adaptive_freq)
+                _raw_m2(adaptive_duty, fwd=True, freq=adaptive_freq)
+            else:
+                _raw_m1(adaptive_duty, fwd=True, freq=adaptive_freq)
+                _raw_m2(adaptive_duty, fwd=False, freq=adaptive_freq)
+                
+            time.sleep_ms(pulse_ms)
+            
+            # Dynamic motor brake immediately after pulse to prevent coasting
+            brake_motors()
+            
+            # Settling pause to allow mechanical vibration to dampen before next compass read
+            time.sleep_ms(40)
 
 
-def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, mission_state=None):
+def run_patrol_leg(target_heading, target_name, duration_sec=PATROL_DURATION_SEC, s_sock=None, mission_state=None):
     """
-    Advances towards target_heading for 20 active seconds while CONTINUOUSLY
-    adjusting steering via PID so heading remains strictly within +/-2° throughout.
+    Advances towards target_heading for duration_sec active seconds while CONTINUOUSLY
+    adjusting steering via PID so heading remains strictly within +/-2.5° throughout.
     """
     mission_state["target_angle"] = target_heading
     mission_state["target_dir"] = target_name
     elapsed_active_time = 0.0
     last_tick = time.ticks_ms()
 
-    # 1. Initial pivot alignment to target heading
-    intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+    # 1. Initial pivot alignment to target heading with adaptive PWM & frequency
+    intelligent_align_to_heading(target_heading, tolerance=2.5, server_socket=s_sock, mission_state=mission_state)
 
     cruise_pid.reset()
-    base_forward_speed = 25.0 # Center speed (0% to 30% envelope)
+    base_forward_speed = 32.0 # Cruise speed within 0% to 40% envelope
+    set_motor_freq(1000)
 
-    print(f"\\n[PATROL START] Advancing towards {target_name} ({target_heading}°) for {duration_sec}s with continuous PID lock...")
+    print(f"\\n[PATROL START] Advancing towards {target_name} ({target_heading}°) for {duration_sec:.1f}s with continuous PID lock (0-40%)...")
 
     while elapsed_active_time < duration_sec:
         now = time.ticks_ms()
@@ -5077,19 +6902,19 @@ def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, 
         max_t = thermal.max_temp
         curr_h = compass.heading
 
-        # Heat Intrusion Alarm (> 30°C)
-        if max_t > 30.0:
+        # Heat Intrusion Alarm (> 27.0°C)
+        if max_t > ALARM_TEMP_THRESHOLD:
             mission_state["alarm"] = True
             stop_smooth()
             set_buzzer(True)
-            print(f"🚨 [HEAT ALARM] {max_t:.1f}°C detected (>30°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
+            print(f"🚨 [HEAT ALARM] {max_t:.1f}°C detected (>{ALARM_TEMP_THRESHOLD:.0f}°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
             
             led_state = True
             set_m3_led(True, speed=20)
             last_blink = time.ticks_ms()
 
             while True:
-                process_web_requests(s_sock, mission_state)
+                process_web_requests(s_sock, mission_state, refresh_sensors=True)
 
                 # Blink M3 LED every 0.2s (200ms) with forward speed 20
                 now_blink = time.ticks_ms()
@@ -5098,7 +6923,7 @@ def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, 
                     set_m3_led(led_state, speed=20)
                     last_blink = now_blink
 
-                if thermal.max_temp <= 30.0:
+                if thermal.max_temp <= ALARM_TEMP_THRESHOLD:
                     break
                 time.sleep_ms(20)
 
@@ -5106,8 +6931,9 @@ def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, 
             set_buzzer(False)
             mission_state["alarm"] = False
             print(f"✅ [HEAT CLEARED] Temp: {thermal.max_temp:.1f}°C. Re-aligning & Resuming...")
-            intelligent_align_to_heading(target_heading, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+            intelligent_align_to_heading(target_heading, tolerance=2.5, server_socket=s_sock, mission_state=mission_state)
             cruise_pid.reset()
+            set_motor_freq(1000)
             last_tick = time.ticks_ms()
             continue
 
@@ -5122,34 +6948,37 @@ def run_patrol_leg(target_heading, target_name, duration_sec=20.0, s_sock=None, 
         # CONTINUOUS PID ALIGNMENT THROUGHOUT THE 20 SECONDS:
         error, corr = cruise_pid.compute(target_heading, curr_h)
 
-        if abs(error) <= 2.0:
-            # Perfectly aligned within +/-2° limit: cruise smoothly straight
-            smooth_motors(target_m1=base_forward_speed, target_m2=base_forward_speed, max_step=1.5)
+        if abs(error) <= 2.5:
+            # Perfectly aligned within +/-2.5° limit: cruise smoothly straight
+            smooth_motors(target_m1=base_forward_speed, target_m2=base_forward_speed, max_step=2.0)
         elif abs(error) <= 12.0:
-            # Small drift (> 2°): continuous differential steering correction within 0-30%
-            corr_clamped = max(-6.0, min(6.0, corr))
-            m1_cmd = max(0.0, min(30.0, base_forward_speed - corr_clamped))
-            m2_cmd = max(0.0, min(30.0, base_forward_speed + corr_clamped))
-            smooth_motors(target_m1=m1_cmd, target_m2=m2_cmd, max_step=1.5)
+            # Small drift (> 2.5°): continuous differential steering correction within 0-40%
+            corr_clamped = max(-8.0, min(8.0, corr))
+            m1_cmd = max(0.0, min(MAX_SPEED_PCT, base_forward_speed - corr_clamped))
+            m2_cmd = max(0.0, min(MAX_SPEED_PCT, base_forward_speed + corr_clamped))
+            smooth_motors(target_m1=m1_cmd, target_m2=m2_cmd, max_step=2.0)
         else:
             # Significant drift (> 12°): actively steer in place to bring back to target angle
-            turn_speed = 22.0
+            turn_speed = 28.0
             if error > 0:
-                smooth_motors(target_m1=-turn_speed, target_m2=turn_speed, max_step=2.0)
+                smooth_motors(target_m1=-turn_speed, target_m2=turn_speed, max_step=2.5)
             else:
-                smooth_motors(target_m1=turn_speed, target_m2=-turn_speed, max_step=2.0)
+                smooth_motors(target_m1=turn_speed, target_m2=-turn_speed, max_step=2.5)
 
         time.sleep_ms(20)
 
     stop_smooth()
-    print(f"[PATROL LEG COMPLETE] Finished 20 seconds advancing {target_name}!")
+    print(f"[PATROL LEG COMPLETE] Finished {duration_sec:.1f} seconds advancing {target_name}!")
 
 
 # ================= 7. MAIN MISSION ENTRY =================
 def main():
     print("==================================================")
     print("🚀 LOF TITAN Continuous-PID Security Rover Ready")
-    print("⚡ Speed Range: 0% to 30% | Heading Lock: +/-2.0°")
+    print(f"⚡ Speed Range: 0% to {MAX_SPEED_PCT:.0f}% | Heading Lock: +/-2.5°")
+    print(f"🚨 Heat Intrusion Alarm: >{ALARM_TEMP_THRESHOLD:.0f}°C (AMG8833 Thermal)")
+    print(f"⏱️ Patrol Leg Time: {PATROL_DURATION_SEC:.1f}s per direction")
+    print("🧭 Adaptive Pivot: Compass Feedback Stall & Freq Tuning")
     print("==================================================")
 
     start_wifi_ap()
@@ -5162,7 +6991,7 @@ def main():
     mission_state = {
         "target_angle": 0.0,
         "target_dir": "NORTH",
-        "time_left": 20.0,
+        "time_left": PATROL_DURATION_SEC,
         "alarm": False
     }
 
@@ -5171,17 +7000,17 @@ def main():
 
     try:
         while True:
-            # 1. Patrol NORTH (0°) for 20 active seconds with continuous alignment
-            run_patrol_leg(target_heading=0.0, target_name="NORTH", duration_sec=20.0, s_sock=s_sock, mission_state=mission_state)
+            # 1. Patrol NORTH (0°) for configured active seconds with continuous alignment
+            run_patrol_leg(target_heading=0.0, target_name="NORTH", duration_sec=PATROL_DURATION_SEC, s_sock=s_sock, mission_state=mission_state)
             
-            # 2. Pivot 180° to SOUTH (180°)
-            intelligent_align_to_heading(target_heading=180.0, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+            # 2. Pivot 180° to SOUTH (180°) with adaptive PWM & frequency
+            intelligent_align_to_heading(target_heading=180.0, tolerance=2.5, server_socket=s_sock, mission_state=mission_state)
 
-            # 3. Patrol SOUTH (180°) for 20 active seconds with continuous alignment
-            run_patrol_leg(target_heading=180.0, target_name="SOUTH", duration_sec=20.0, s_sock=s_sock, mission_state=mission_state)
+            # 3. Patrol SOUTH (180°) for configured active seconds with continuous alignment
+            run_patrol_leg(target_heading=180.0, target_name="SOUTH", duration_sec=PATROL_DURATION_SEC, s_sock=s_sock, mission_state=mission_state)
 
-            # 4. Pivot 180° back to NORTH (0°)
-            intelligent_align_to_heading(target_heading=0.0, tolerance=2.0, server_socket=s_sock, mission_state=mission_state)
+            # 4. Pivot 180° back to NORTH (0°) with adaptive PWM & frequency
+            intelligent_align_to_heading(target_heading=0.0, tolerance=2.5, server_socket=s_sock, mission_state=mission_state)
 
             time.sleep_ms(5)
     except KeyboardInterrupt:
@@ -9469,822 +11298,2368 @@ if __name__ == '__main__':
       {
         label: 'Transmitter - Lost Beacon',
         filename: 'cosmic_pulse_tracker_transmitter.py',
-        code: `# ==============================================================================
-# LOF TITAN — Cosmic Pulse Tracker (Transmitter / Lost Beacon)
-# MicroPython conversion of cosmic_pulsetracker_transmittercode.ino
-# ------------------------------------------------------------------------------
-# Hardware:
-#   - MCU: ESP32-S3 (LOF TITAN Board)
-#   - Wireless: ESP-NOW 2.4GHz Fast Pulses (Channel 1, Broadcast FF:FF:FF:FF:FF:FF)
-#   - Display: 1.3" / 0.96" I2C OLED Display (128x64, Addr: 0x3C, SDA: 7, SCL: 8)
-#   - Buzzer: GPIO 20 (Continuous long BEEEEEP tone only when HERE)
-#   - Status LEDs: GPIO 47 (Red), GPIO 48 (Green)
-#
-# OLED Visual Modes (AKNO-Style Expressive Eyes, No Text):
-#   - ZONE_SEARCHING (0) -> Moving Eyes (wandering pupils)
-#   - ZONE_FAR       (1) -> Crying Eyes with animated dropping tears
-#   - ZONE_NEAR      (2) -> Rapid Scanning / Tracking Eyes
-#   - ZONE_HERE      (3) -> Happy Blinking Eyes + Wide Arc Smile
-# ==============================================================================
-
-import time
-import math
-import struct
-from machine import Pin, PWM, SoftI2C, I2C
+        code: `from machine import Pin, I2C, PWM
 import network
+import espnow
 import framebuf
+import struct
+import time
 
-# ESP-NOW Protocol
-try:
-    import espnow
-    HAS_ESPNOW = True
-except ImportError:
-    HAS_ESPNOW = False
 
-# ---------- CONSTANTS & ZONES ----------
+# =========================================================
+# ESP32-S3 TRANSMITTER
+#
+# OLED:
+# SEARCHING -> Moving eyes
+# FAR       -> Crying eyes
+# NEAR      -> Fast scanning eyes
+# HERE      -> Happy blinking eyes + smile
+#
+# NO TEXT ON OLED
+#
+# BUZZER:
+# ON ONLY WHEN HERE
+#
+# PINOUT:
+# OLED SDA -> GPIO 7
+# OLED SCL -> GPIO 8
+# BUZZER   -> GPIO 20
+# =========================================================
+
+
+# =========================================================
+# PINS
+# =========================================================
+
+OLED_SDA = 7
+OLED_SCL = 8
+BUZZER_PIN = 20
+
+
+# =========================================================
+# ZONES
+# =========================================================
+
 ZONE_SEARCHING = 0
-ZONE_FAR       = 1
-ZONE_NEAR      = 2
-ZONE_HERE      = 3
+ZONE_FAR = 1
+ZONE_NEAR = 2
+ZONE_HERE = 3
 
-SEND_INTERVAL_MS    = 200
+
+# =========================================================
+# TIMING
+# =========================================================
+
+SEND_INTERVAL_MS = 200
+
 FEEDBACK_TIMEOUT_MS = 1800
+
 DISPLAY_INTERVAL_MS = 55
 
-# ---------- HARDWARE PINS & PWM ----------
-_pwm_pool = {}
-def _get_pwm(pin, freq=1000):
-    """Singleton PWM manager for ESP32-S3."""
-    if pin not in _pwm_pool:
-        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
-    else:
-        try:
-            _pwm_pool[pin].freq(freq)
-        except Exception:
-            pass
-    return _pwm_pool[pin]
 
-led_red = Pin(47, Pin.OUT)
-led_grn = Pin(48, Pin.OUT)
-led_red.value(0)
-led_grn.value(0)
+# =========================================================
+# BROADCAST ADDRESS
+# =========================================================
 
-def set_buzzer_tone(freq=0):
-    """Controls buzzer tone (freq in Hz, 0 = OFF)."""
-    try:
-        buz = _get_pwm(20, freq=max(100, freq))
-        if freq > 0:
-            buz.duty_u16(32768)
-        else:
-            buz.duty_u16(0)
-    except Exception:
-        pass
+BROADCAST = b'\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF'
 
 
-# ---------- 1.3" / 0.96" OLED DRIVER WITH U8G2-STYLE PRIMITIVES ----------
-class TitanOLED:
-    """I2C OLED Driver compatible with 1.3" SH1106 and 0.96" SSD1306."""
-    def __init__(self, i2c, width=128, height=64, addr=0x3C):
-        self.i2c = i2c
+# =========================================================
+# SH1106 INTERNAL DRIVER
+# NO EXTERNAL sh1106.py NEEDED
+# =========================================================
+
+class SH1106(framebuf.FrameBuffer):
+
+    def __init__(self, width, height, i2c, addr=0x3C):
+
         self.width = width
         self.height = height
+        self.i2c = i2c
         self.addr = addr
-        self.buffer = bytearray((height // 8) * width)
-        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
-        self.draw_color = 1
-        self.is_sh1106 = True
+
+        self.pages = height // 8
+
+        self.buffer = bytearray(
+            width * self.pages
+        )
+
+        super().__init__(
+            self.buffer,
+            width,
+            height,
+            framebuf.MONO_VLSB
+        )
+
         self.init_display()
 
-    def _cmd(self, cmd):
-        try:
-            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
-        except Exception:
-            pass
+
+    def write_cmd(self, cmd):
+
+        self.i2c.writeto(
+            self.addr,
+            bytes((0x80, cmd))
+        )
+
 
     def init_display(self):
-        cmds = [
-            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
-            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
-            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+
+        commands = [
+
+            0xAE,
+
+            0xD5,
+            0x80,
+
+            0xA8,
+            0x3F,
+
+            0xD3,
+            0x00,
+
+            0x40,
+
+            0xAD,
+            0x8B,
+
+            0xA1,
+
+            0xC8,
+
+            0xDA,
+            0x12,
+
+            0x81,
+            0x7F,
+
+            0xD9,
+            0x22,
+
+            0xDB,
+            0x35,
+
+            0xA4,
+
+            0xA6,
+
+            0xAF
         ]
-        for c in cmds: self._cmd(c)
+
+        for command in commands:
+            self.write_cmd(command)
+
         self.fill(0)
         self.show()
 
-    def fill(self, color=0):
-        self.fb.fill(color)
-
-    def set_draw_color(self, color):
-        self.draw_color = color
-
-    def pixel(self, x, y, col=None):
-        if col is None: col = self.draw_color
-        if 0 <= x < self.width and 0 <= y < self.height:
-            self.fb.pixel(x, y, col)
-
-    def line(self, x1, y1, x2, y2, col=None):
-        if col is None: col = self.draw_color
-        self.fb.line(x1, y1, x2, y2, col)
-
-    def rect(self, x, y, w, h, col=None):
-        if col is None: col = self.draw_color
-        self.fb.rect(x, y, w, h, col)
-
-    def fill_rect(self, x, y, w, h, col=None):
-        if col is None: col = self.draw_color
-        self.fb.fill_rect(x, y, w, h, col)
-
-    def draw_r_box(self, x, y, w, h, r, col=None):
-        """Draw filled rounded box (u8g2 drawRBox)."""
-        if col is None: col = self.draw_color
-        r = min(r, w // 2, h // 2)
-        # Center rectangles
-        self.fill_rect(x + r, y, w - 2 * r, h, col)
-        self.fill_rect(x, y + r, w, h - 2 * r, col)
-        # 4 corner discs
-        self.draw_disc(x + r, y + r, r, col)
-        self.draw_disc(x + w - r - 1, y + r, r, col)
-        self.draw_disc(x + r, y + h - r - 1, r, col)
-        self.draw_disc(x + w - r - 1, y + h - r - 1, r, col)
-
-    def draw_disc(self, cx, cy, r, col=None):
-        """Draw filled circle / disc."""
-        if col is None: col = self.draw_color
-        if r <= 0:
-            self.pixel(cx, cy, col)
-            return
-        for dy in range(-r, r + 1):
-            dx = int(math.sqrt(r * r - dy * dy))
-            self.line(cx - dx, cy + dy, cx + dx, cy + dy, col)
-
-    def draw_triangle(self, x0, y0, x1, y1, x2, y2, col=None):
-        """Draw filled triangle."""
-        if col is None: col = self.draw_color
-        # Sort by Y coordinates
-        pts = sorted([(x0, y0), (x1, y1), (x2, y2)], key=lambda p: p[1])
-        (x0, y0), (x1, y1), (x2, y2) = pts
-        
-        def interpolate_x(ya, yb, xa, xb, y):
-            if ya == yb: return xa
-            return xa + (xb - xa) * (y - ya) // (yb - ya)
-
-        for y in range(y0, y2 + 1):
-            if y < y1:
-                xa = interpolate_x(y0, y2, x0, x2, y)
-                xb = interpolate_x(y0, y1, x0, x1, y)
-            else:
-                xa = interpolate_x(y0, y2, x0, x2, y)
-                xb = interpolate_x(y1, y2, x1, x2, y)
-            if xa > xb: xa, xb = xb, xa
-            self.line(xa, y, xb, y, col)
 
     def show(self):
-        if not self.i2c: return
-        try:
-            if self.is_sh1106:
-                for page in range(8):
-                    self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + page, 0x80, 0x02, 0x80, 0x10]))
-                    self.i2c.writeto(self.addr, b'\\x40' + self.buffer[128 * page : 128 * (page + 1)])
+
+        for page in range(self.pages):
+
+            self.write_cmd(
+                0xB0 + page
+            )
+
+            # SH1106 column offset
+            self.write_cmd(0x02)
+            self.write_cmd(0x10)
+
+            start = page * self.width
+            end = start + self.width
+
+            data = bytearray(
+                self.width + 1
+            )
+
+            data[0] = 0x40
+
+            data[1:] = self.buffer[
+                start:end
+            ]
+
+            self.i2c.writeto(
+                self.addr,
+                data
+            )
+
+
+# =========================================================
+# I2C
+# =========================================================
+
+i2c = I2C(
+    0,
+    sda=Pin(OLED_SDA),
+    scl=Pin(OLED_SCL),
+    freq=100000
+)
+
+
+print()
+print("==============================")
+print("I2C SCAN")
+print("==============================")
+
+devices = i2c.scan()
+
+print(devices)
+
+
+if 0x3C in devices:
+
+    print("OLED FOUND AT 0x3C")
+
+else:
+
+    print("WARNING: OLED NOT FOUND")
+
+
+# =========================================================
+# OLED
+# =========================================================
+
+display = SH1106(
+    128,
+    64,
+    i2c,
+    0x3C
+)
+
+
+# =========================================================
+# BUZZER
+# =========================================================
+
+buzzer = PWM(
+    Pin(BUZZER_PIN),
+    freq=2200,
+    duty_u16=0
+)
+
+
+# =========================================================
+# GLOBAL VARIABLES
+# =========================================================
+
+beacon_counter = 0
+
+last_send_time = 0
+
+last_feedback_time = 0
+
+last_display_time = 0
+
+current_zone = ZONE_SEARCHING
+
+buzzer_active = False
+
+
+# =========================================================
+# AKNO EYE DIMENSIONS
+# =========================================================
+
+LEFT_EYE_X = 2
+
+RIGHT_EYE_X = 66
+
+EYE_Y = 5
+
+
+EYE_W = 60
+
+EYE_H = 54
+
+EYE_RADIUS = 16
+
+
+LEFT_EYE_CX = LEFT_EYE_X + EYE_W // 2
+
+RIGHT_EYE_CX = RIGHT_EYE_X + EYE_W // 2
+
+EYE_CY = EYE_Y + EYE_H // 2
+
+
+# =========================================================
+# SAFE HORIZONTAL LINE
+# =========================================================
+
+def safe_hline(x, y, width, colour):
+
+    if y < 0 or y >= 64:
+        return
+
+    if width <= 0:
+        return
+
+    if x < 0:
+
+        width += x
+        x = 0
+
+    if x >= 128:
+        return
+
+    if x + width > 128:
+
+        width = 128 - x
+
+    if width > 0:
+
+        display.hline(
+            x,
+            y,
+            width,
+            colour
+        )
+
+
+# =========================================================
+# FILLED CIRCLE
+# =========================================================
+
+def draw_disc(cx, cy, radius, colour=1):
+
+    x = 0
+    y = radius
+
+    d = 1 - radius
+
+
+    while x <= y:
+
+        safe_hline(
+            cx - x,
+            cy + y,
+            2 * x + 1,
+            colour
+        )
+
+        safe_hline(
+            cx - x,
+            cy - y,
+            2 * x + 1,
+            colour
+        )
+
+
+        safe_hline(
+            cx - y,
+            cy + x,
+            2 * y + 1,
+            colour
+        )
+
+        safe_hline(
+            cx - y,
+            cy - x,
+            2 * y + 1,
+            colour
+        )
+
+
+        x += 1
+
+
+        if d < 0:
+
+            d += (
+                2 * x + 1
+            )
+
+        else:
+
+            y -= 1
+
+            d += (
+                2 * (x - y) + 1
+            )
+
+
+# =========================================================
+# FILLED ROUNDED RECTANGLE
+# =========================================================
+
+def draw_rbox(x, y, width, height, radius, colour=1):
+
+    if radius <= 0:
+
+        display.fill_rect(
+            x,
+            y,
+            width,
+            height,
+            colour
+        )
+
+        return
+
+
+    # Centre
+    display.fill_rect(
+        x + radius,
+        y,
+        width - (radius * 2),
+        height,
+        colour
+    )
+
+
+    # Middle
+    display.fill_rect(
+        x,
+        y + radius,
+        width,
+        height - (radius * 2),
+        colour
+    )
+
+
+    # Rounded corners
+
+    draw_disc(
+        x + radius,
+        y + radius,
+        radius,
+        colour
+    )
+
+    draw_disc(
+        x + width - radius - 1,
+        y + radius,
+        radius,
+        colour
+    )
+
+    draw_disc(
+        x + radius,
+        y + height - radius - 1,
+        radius,
+        colour
+    )
+
+    draw_disc(
+        x + width - radius - 1,
+        y + height - radius - 1,
+        radius,
+        colour
+    )
+
+
+# =========================================================
+# FILLED TRIANGLE
+# =========================================================
+
+def draw_triangle(
+    x0, y0,
+    x1, y1,
+    x2, y2,
+    colour=1
+):
+
+    # Sort by Y
+
+    if y0 > y1:
+
+        x0, x1 = x1, x0
+        y0, y1 = y1, y0
+
+    if y1 > y2:
+
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1
+
+    if y0 > y1:
+
+        x0, x1 = x1, x0
+        y0, y1 = y1, y0
+
+
+    if y0 == y2:
+
+        min_x = min(
+            x0,
+            x1,
+            x2
+        )
+
+        max_x = max(
+            x0,
+            x1,
+            x2
+        )
+
+        safe_hline(
+            min_x,
+            y0,
+            max_x - min_x + 1,
+            colour
+        )
+
+        return
+
+
+    for y in range(
+        max(0, y0),
+        min(63, y2) + 1
+    ):
+
+        if y2 != y0:
+
+            xa = x0 + (
+                (x2 - x0) *
+                (y - y0) //
+                (y2 - y0)
+            )
+
+        else:
+
+            xa = x0
+
+
+        if y < y1:
+
+            if y1 != y0:
+
+                xb = x0 + (
+                    (x1 - x0) *
+                    (y - y0) //
+                    (y1 - y0)
+                )
+
             else:
-                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
-                self.i2c.writeto(self.addr, b'\\x40' + self.buffer)
-        except Exception:
-            pass
 
+                xb = x1
 
-# ---------- AKNO FACE RENDERER (TRANSMITTER) ----------
-class AknoFaceRenderer:
-    """Exact AKNO-style animated eyes matching cosmic_pulsetracker_transmittercode.ino."""
-    LEFT_EYE_X   = 2
-    RIGHT_EYE_X  = 66
-    EYE_Y        = 5
-    EYE_W        = 60
-    EYE_H        = 54
-    EYE_RADIUS   = 16
-
-    LEFT_EYE_CX  = LEFT_EYE_X + EYE_W // 2   # 32
-    RIGHT_EYE_CX = RIGHT_EYE_X + EYE_W // 2  # 96
-    EYE_CY       = EYE_Y + EYE_H // 2        # 32
-
-    def __init__(self, display):
-        self.d = display
-
-    def draw_base_eyes(self):
-        self.d.draw_r_box(self.LEFT_EYE_X, self.EYE_Y, self.EYE_W, self.EYE_H, self.EYE_RADIUS, 1)
-        self.d.draw_r_box(self.RIGHT_EYE_X, self.EYE_Y, self.EYE_W, self.EYE_H, self.EYE_RADIUS, 1)
-
-    def draw_pupils(self, left_x, left_y, right_x, right_y, pupil_r):
-        self.d.set_draw_color(0)
-        self.d.draw_disc(self.LEFT_EYE_CX + left_x, self.EYE_CY + left_y, pupil_r, 0)
-        self.d.draw_disc(self.RIGHT_EYE_CX + right_x, self.EYE_CY + right_y, pupil_r, 0)
-        self.d.set_draw_color(1)
-
-    def draw_closed_eyes(self):
-        self.d.draw_r_box(self.LEFT_EYE_X, 28, self.EYE_W, 8, 4, 1)
-        self.d.draw_r_box(self.RIGHT_EYE_X, 28, self.EYE_W, 8, 4, 1)
-
-    def draw_tear(self, x, y):
-        self.d.draw_disc(x, y, 2, 1)
-        self.d.draw_disc(x, y + 4, 2, 1)
-        self.d.draw_disc(x, y + 8, 1, 1)
-        self.d.pixel(x, y + 10, 1)
-
-    def draw_smile(self):
-        """Draw wide dark smile arc."""
-        for offset in range(3):
-            self.d.line(34, 45 + offset, 40, 51 + offset, 1)
-            self.d.line(40, 51 + offset, 50, 57 + offset, 1)
-            self.d.line(50, 57 + offset, 64, 61 + offset, 1)
-            self.d.line(64, 61 + offset, 78, 57 + offset, 1)
-            self.d.line(78, 57 + offset, 88, 51 + offset, 1)
-            self.d.line(88, 51 + offset, 94, 45 + offset, 1)
-        self.d.line(32, 43, 34, 45, 1)
-        self.d.line(94, 45, 96, 43, 1)
-
-    # 1. SEARCHING: MOVING WANDERING EYES
-    def draw_searching(self, now_ms):
-        self.d.fill(0)
-        movement = [
-            (0, 0), (-12, 0), (-8, -8), (0, -10), (10, -7),
-            (12, 0), (8, 8), (0, 10), (-10, 7), (0, 0)
-        ]
-        frame = (now_ms // 110) % 10
-        ox, oy = movement[frame]
-        self.draw_base_eyes()
-        self.draw_pupils(ox, oy, ox, oy, 6)
-
-    # 2. FAR: CRYING EYES WITH DROPPING TEARS
-    def draw_far_crying(self, now_ms):
-        self.d.fill(0)
-        frame = (now_ms // 90) % 18
-        sad_drop = 8 + (frame % 5)
-
-        self.d.draw_r_box(self.LEFT_EYE_X, 11, self.EYE_W, 44, 14, 1)
-        self.d.draw_r_box(self.RIGHT_EYE_X, 11, self.EYE_W, 44, 14, 1)
-
-        # Cutout inverted sad eyebrow slants and cheek discs
-        self.d.set_draw_color(0)
-        self.d.draw_triangle(0, 2, 64, 2, 0, 24 + sad_drop, 0)
-        self.d.draw_triangle(64, 2, 128, 24 + sad_drop, 128, 2, 0)
-
-        self.d.draw_disc(self.LEFT_EYE_CX - 28, 64, 20, 0)
-        self.d.draw_disc(self.RIGHT_EYE_CX + 28, 64, 20, 0)
-
-        self.d.draw_disc(self.LEFT_EYE_CX - 4, self.EYE_CY + 11, 5, 0)
-        self.d.draw_disc(self.RIGHT_EYE_CX + 4, self.EYE_CY + 11, 5, 0)
-
-        self.d.set_draw_color(1)
-
-        tear1 = frame % 9
-        tear2 = (frame + 4) % 9
-        self.draw_tear(self.LEFT_EYE_CX - 17, 39 + tear1)
-        self.draw_tear(self.RIGHT_EYE_CX - 17, 39 + tear2)
-
-        if frame > 8:
-            self.draw_tear(self.LEFT_EYE_CX + 7, 37 + (frame - 9))
-
-    # 3. NEAR: FAST SCANNING EYES
-    def draw_near_scanning(self, now_ms):
-        self.d.fill(0)
-        movement = [
-            (-13, 0), (-8, -8), (0, -11), (10, -7), (13, 0),
-            (10, 7), (0, 11), (-10, 7), (-13, 0), (13, 0)
-        ]
-        frame = (now_ms // 60) % 10
-        ox, oy = movement[frame]
-        self.draw_base_eyes()
-        self.draw_pupils(ox, oy, ox, oy, 6)
-
-    # 4. HERE: HAPPY BLINKING EYES + WIDE SMILE
-    def draw_here_happy(self, now_ms):
-        self.d.fill(0)
-        frame = (now_ms // 100) % 24
-        blink = (frame in (7, 8, 18))
-
-        if blink:
-            self.draw_closed_eyes()
-            self.draw_smile()
         else:
-            self.d.draw_r_box(self.LEFT_EYE_X, 7, self.EYE_W, 50, 16, 1)
-            self.d.draw_r_box(self.RIGHT_EYE_X, 7, self.EYE_W, 50, 16, 1)
 
-            self.d.set_draw_color(0)
-            self.d.draw_disc(self.LEFT_EYE_CX, 68, 42, 0)
-            self.d.draw_disc(self.RIGHT_EYE_CX, 68, 42, 0)
+            if y2 != y1:
 
-            self.d.draw_disc(self.LEFT_EYE_CX, 27, 4, 0)
-            self.d.draw_disc(self.RIGHT_EYE_CX, 27, 4, 0)
+                xb = x1 + (
+                    (x2 - x1) *
+                    (y - y1) //
+                    (y2 - y1)
+                )
 
-            self.d.set_draw_color(1)
-            self.draw_smile()
+            else:
 
-    def render_zone(self, zone, now_ms):
-        if zone == ZONE_SEARCHING:
-            self.draw_searching(now_ms)
-        elif zone == ZONE_FAR:
-            self.draw_far_crying(now_ms)
-        elif zone == ZONE_NEAR:
-            self.draw_near_scanning(now_ms)
-        elif zone == ZONE_HERE:
-            self.draw_here_happy(now_ms)
-        self.d.show()
+                xb = x2
 
 
-# ---------- WIRELESS ESP-NOW BEACON SUBSYSTEM ----------
-class TransmitterWireless:
-    def __init__(self):
-        self.sta = network.WLAN(network.STA_IF)
-        self.sta.active(True)
-        self.sta.disconnect()
-        
-        self.esp = None
-        self.broadcast_peer = b'\\xff\\xff\\xff\\xff\\xff\\xff'
-        
-        if HAS_ESPNOW:
-            try:
-                self.esp = espnow.ESPNow()
-                self.esp.active(True)
-                try:
-                    self.esp.add_peer(self.broadcast_peer)
-                except Exception:
-                    pass
-                print("[ESP-NOW] Transmitter ready on STA_IF")
-            except Exception as e:
-                print(f"[WARN] ESP-NOW init failed: {e}")
-                self.esp = None
+        if xa > xb:
 
-        self.beacon_counter = 0
-
-    def send_beacon(self):
-        self.beacon_counter = (self.beacon_counter + 1) & 0xFFFFFFFF
-        if self.esp:
-            try:
-                # Pack BeaconPacket struct: uint32_t counter
-                packet = struct.pack("<I", self.beacon_counter)
-                self.esp.send(self.broadcast_peer, packet, False)
-            except Exception:
-                pass
-
-    def check_feedback(self):
-        """Reads non-blocking incoming feedback packets from receiver."""
-        if not self.esp:
-            return None
-        
-        latest_zone = None
-        try:
-            while True:
-                msg_data = self.esp.recv(0) # Non-blocking (0ms)
-                if not msg_data or msg_data[0] is None:
-                    break
-                
-                mac, data = msg_data[0], msg_data[1]
-                if data and len(data) >= 1:
-                    val = data[0]
-                    if val in (ZONE_SEARCHING, ZONE_FAR, ZONE_NEAR, ZONE_HERE):
-                        latest_zone = val
-                    elif 48 <= val <= 51: # ASCII '0'..'3'
-                        latest_zone = val - 48
-        except Exception:
-            pass
-        
-        return latest_zone
+            xa, xb = xb, xa
 
 
-# ---------- MAIN PROGRAM ----------
-def main():
-    print("==================================================")
-    print("ESP32-S3 TRANSMITTER (AKNO-STYLE EYES)")
-    print("LOF TITAN Cosmic Pulse Tracker")
-    print("==================================================")
+        safe_hline(
+            xa,
+            y,
+            xb - xa + 1,
+            colour
+        )
 
-    # 1. Initialize I2C & OLED
-    i2c = None
+
+# =========================================================
+# BASE AKNO EYES
+# =========================================================
+
+def draw_akno_base_eyes():
+
+    draw_rbox(
+        LEFT_EYE_X,
+        EYE_Y,
+        EYE_W,
+        EYE_H,
+        EYE_RADIUS,
+        1
+    )
+
+
+    draw_rbox(
+        RIGHT_EYE_X,
+        EYE_Y,
+        EYE_W,
+        EYE_H,
+        EYE_RADIUS,
+        1
+    )
+
+
+# =========================================================
+# PUPILS
+# =========================================================
+
+def draw_akno_pupils(
+    left_x,
+    left_y,
+    right_x,
+    right_y,
+    pupil_radius
+):
+
+    draw_disc(
+        LEFT_EYE_CX + left_x,
+        EYE_CY + left_y,
+        pupil_radius,
+        0
+    )
+
+
+    draw_disc(
+        RIGHT_EYE_CX + right_x,
+        EYE_CY + right_y,
+        pupil_radius,
+        0
+    )
+
+
+# =========================================================
+# CLOSED EYES
+# =========================================================
+
+def draw_akno_closed_eyes():
+
+    draw_rbox(
+        LEFT_EYE_X,
+        28,
+        EYE_W,
+        8,
+        4,
+        1
+    )
+
+
+    draw_rbox(
+        RIGHT_EYE_X,
+        28,
+        EYE_W,
+        8,
+        4,
+        1
+    )
+
+
+# =========================================================
+# TEAR
+# =========================================================
+
+def draw_tear(x, y):
+
+    draw_disc(
+        x,
+        y,
+        2,
+        1
+    )
+
+    draw_disc(
+        x,
+        y + 4,
+        2,
+        1
+    )
+
+    draw_disc(
+        x,
+        y + 8,
+        1,
+        1
+    )
+
+
+    if (
+        0 <= x < 128
+        and
+        0 <= y + 10 < 64
+    ):
+
+        display.pixel(
+            x,
+            y + 10,
+            1
+        )
+
+
+# =========================================================
+# WIDE BOLD SMILE
+# =========================================================
+
+def draw_smile():
+
+    # First smile line
+
+    display.line(
+        36, 46,
+        42, 52,
+        1
+    )
+
+    display.line(
+        42, 52,
+        50, 57,
+        1
+    )
+
+    display.line(
+        50, 57,
+        64, 60,
+        1
+    )
+
+    display.line(
+        64, 60,
+        78, 57,
+        1
+    )
+
+    display.line(
+        78, 57,
+        86, 52,
+        1
+    )
+
+    display.line(
+        86, 52,
+        92, 46,
+        1
+    )
+
+
+    # Second smile line
+
+    display.line(
+        36, 47,
+        42, 53,
+        1
+    )
+
+    display.line(
+        42, 53,
+        50, 58,
+        1
+    )
+
+    display.line(
+        50, 58,
+        64, 61,
+        1
+    )
+
+    display.line(
+        64, 61,
+        78, 58,
+        1
+    )
+
+    display.line(
+        78, 58,
+        86, 53,
+        1
+    )
+
+    display.line(
+        86, 53,
+        92, 47,
+        1
+    )
+
+
+    # Third smile line
+
+    display.line(
+        36, 48,
+        42, 54,
+        1
+    )
+
+    display.line(
+        42, 54,
+        50, 59,
+        1
+    )
+
+    display.line(
+        50, 59,
+        64, 62,
+        1
+    )
+
+    display.line(
+        64, 62,
+        78, 59,
+        1
+    )
+
+    display.line(
+        78, 59,
+        86, 54,
+        1
+    )
+
+    display.line(
+        86, 54,
+        92, 48,
+        1
+    )
+
+
+    # Smile corners
+
+    display.line(
+        34, 44,
+        36, 46,
+        1
+    )
+
+    display.line(
+        92, 46,
+        94, 44,
+        1
+    )
+
+
+# =========================================================
+# SEARCHING ANIMATION
+# =========================================================
+
+SEARCH_MOVEMENT = (
+
+    (0, 0),
+
+    (-12, 0),
+
+    (-8, -8),
+
+    (0, -10),
+
+    (10, -7),
+
+    (12, 0),
+
+    (8, 8),
+
+    (0, 10),
+
+    (-10, 7),
+
+    (0, 0)
+)
+
+
+def draw_searching_animation():
+
+    display.fill(0)
+
+
+    frame = (
+        time.ticks_ms() // 110
+    ) % 10
+
+
+    ox = SEARCH_MOVEMENT[
+        frame
+    ][0]
+
+    oy = SEARCH_MOVEMENT[
+        frame
+    ][1]
+
+
+    draw_akno_base_eyes()
+
+
+    draw_akno_pupils(
+        ox,
+        oy,
+        ox,
+        oy,
+        6
+    )
+
+
+    display.show()
+
+
+# =========================================================
+# FAR - CRYING ANIMATION
+# =========================================================
+
+def draw_far_crying_animation():
+
+    display.fill(0)
+
+
+    frame = (
+        time.ticks_ms() // 90
+    ) % 18
+
+
+    sad_drop = 8 + (
+        frame % 5
+    )
+
+
+    # Eye bases
+
+    draw_rbox(
+        LEFT_EYE_X,
+        11,
+        EYE_W,
+        44,
+        14,
+        1
+    )
+
+
+    draw_rbox(
+        RIGHT_EYE_X,
+        11,
+        EYE_W,
+        44,
+        14,
+        1
+    )
+
+
+    # Slanted crying cuts
+
+    draw_triangle(
+        0, 2,
+        64, 2,
+        0, 24 + sad_drop,
+        0
+    )
+
+
+    draw_triangle(
+        64, 2,
+        128, 24 + sad_drop,
+        128, 2,
+        0
+    )
+
+
+    # Lower eye squeeze
+
+    draw_disc(
+        LEFT_EYE_CX - 28,
+        64,
+        20,
+        0
+    )
+
+
+    draw_disc(
+        RIGHT_EYE_CX + 28,
+        64,
+        20,
+        0
+    )
+
+
+    # Sad pupils
+
+    draw_disc(
+        LEFT_EYE_CX - 4,
+        EYE_CY + 11,
+        5,
+        0
+    )
+
+
+    draw_disc(
+        RIGHT_EYE_CX + 4,
+        EYE_CY + 11,
+        5,
+        0
+    )
+
+
+    # Animated tears
+
+    tear1 = frame % 9
+
+    tear2 = (
+        frame + 4
+    ) % 9
+
+
+    draw_tear(
+        LEFT_EYE_CX - 17,
+        39 + tear1
+    )
+
+
+    draw_tear(
+        RIGHT_EYE_CX - 17,
+        39 + tear2
+    )
+
+
+    if frame > 8:
+
+        draw_tear(
+            LEFT_EYE_CX + 7,
+            37 + (frame - 9)
+        )
+
+
+    display.show()
+
+
+# =========================================================
+# NEAR - FAST SCANNING
+# =========================================================
+
+NEAR_MOVEMENT = (
+
+    (-13, 0),
+
+    (-8, -8),
+
+    (0, -11),
+
+    (10, -7),
+
+    (13, 0),
+
+    (10, 7),
+
+    (0, 11),
+
+    (-10, 7),
+
+    (-13, 0),
+
+    (13, 0)
+)
+
+
+def draw_near_animation():
+
+    display.fill(0)
+
+
+    frame = (
+        time.ticks_ms() // 60
+    ) % 10
+
+
+    ox = NEAR_MOVEMENT[
+        frame
+    ][0]
+
+    oy = NEAR_MOVEMENT[
+        frame
+    ][1]
+
+
+    draw_akno_base_eyes()
+
+
+    draw_akno_pupils(
+        ox,
+        oy,
+        ox,
+        oy,
+        6
+    )
+
+
+    display.show()
+
+
+# =========================================================
+# HERE - HAPPY ANIMATION
+# =========================================================
+
+def draw_happy_animation():
+
+    display.fill(0)
+
+
+    frame = (
+        time.ticks_ms() // 100
+    ) % 24
+
+
+    blink = (
+        frame == 7
+        or
+        frame == 8
+        or
+        frame == 18
+    )
+
+
+    if blink:
+
+        draw_akno_closed_eyes()
+
+        draw_smile()
+
+
+    else:
+
+        # Happy eye bases
+
+        draw_rbox(
+            LEFT_EYE_X,
+            7,
+            EYE_W,
+            50,
+            16,
+            1
+        )
+
+
+        draw_rbox(
+            RIGHT_EYE_X,
+            7,
+            EYE_W,
+            50,
+            16,
+            1
+        )
+
+
+        # Crescent cuts
+
+        draw_disc(
+            LEFT_EYE_CX,
+            68,
+            42,
+            0
+        )
+
+
+        draw_disc(
+            RIGHT_EYE_CX,
+            68,
+            42,
+            0
+        )
+
+
+        # Small happy pupils
+
+        draw_disc(
+            LEFT_EYE_CX,
+            27,
+            4,
+            0
+        )
+
+
+        draw_disc(
+            RIGHT_EYE_CX,
+            27,
+            4,
+            0
+        )
+
+
+        # Wide bold smile
+
+        draw_smile()
+
+
+    display.show()
+
+
+# =========================================================
+# DISPLAY UPDATE
+# =========================================================
+
+def update_display():
+
+    if current_zone == ZONE_SEARCHING:
+
+        draw_searching_animation()
+
+
+    elif current_zone == ZONE_FAR:
+
+        draw_far_crying_animation()
+
+
+    elif current_zone == ZONE_NEAR:
+
+        draw_near_animation()
+
+
+    elif current_zone == ZONE_HERE:
+
+        draw_happy_animation()
+
+
+# =========================================================
+# BUZZER
+# ONLY ON WHEN HERE
+# =========================================================
+
+def update_transmitter_buzzer():
+
+    global buzzer_active
+
+
+    if current_zone == ZONE_HERE:
+
+        if not buzzer_active:
+
+            buzzer.freq(
+                2200
+            )
+
+            buzzer.duty_u16(
+                32768
+            )
+
+            buzzer_active = True
+
+
+    else:
+
+        if buzzer_active:
+
+            buzzer.duty_u16(
+                0
+            )
+
+            buzzer_active = False
+
+
+# =========================================================
+# WIFI
+# =========================================================
+
+try:
+
+    sta = network.WLAN(
+        network.WLAN.IF_STA
+    )
+
+except:
+
+    sta = network.WLAN(
+        network.STA_IF
+    )
+
+
+sta.active(True)
+
+
+try:
+
+    sta.disconnect()
+
+except:
+
+    pass
+
+
+# Disable Wi-Fi power saving if supported
+
+try:
+
+    sta.config(
+        pm=network.WLAN.PM_NONE
+    )
+
+except:
+
     try:
-        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=50000)
-    except Exception:
-        try:
-            i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
-        except Exception:
-            print("[WARN] Could not initialize I2C bus.")
 
-    oled = TitanOLED(i2c, width=128, height=64)
-    renderer = AknoFaceRenderer(oled)
+        sta.config(
+            pm=sta.PM_NONE
+        )
 
-    # 2. Initialize Wireless
-    wireless = TransmitterWireless()
+    except:
 
-    current_zone = ZONE_SEARCHING
-    last_send_time = 0
-    last_feedback_time = 0
-    last_display_time = 0
-
-    print("Transmitter ready. Hiding mode engaged.")
-
-    while True:
-        now = time.ticks_ms()
-
-        # 1. Broadcast Beacon Packet (Every 200ms)
-        if time.ticks_diff(now, last_send_time) >= SEND_INTERVAL_MS:
-            last_send_time = now
-            wireless.send_beacon()
-
-        # 2. Receive Feedback from Receiver
-        fb_zone = wireless.check_feedback()
-        if fb_zone is not None:
-            current_zone = fb_zone
-            last_feedback_time = now
-
-        # 3. Feedback Timeout (If no packet for 1800ms -> ZONE_SEARCHING)
-        if time.ticks_diff(now, last_feedback_time) > FEEDBACK_TIMEOUT_MS:
-            current_zone = ZONE_SEARCHING
-
-        # 4. Buzzer Feedback (Continuous long BEEEEEEP tone ONLY when HERE)
-        if current_zone == ZONE_HERE:
-            set_buzzer_tone(2200) # Continuous 2.2 kHz tone
-        else:
-            set_buzzer_tone(0)    # Silent during Searching, Far, Near
-
-        # 5. Display Animation Update (Every 55ms)
-        if time.ticks_diff(now, last_display_time) >= DISPLAY_INTERVAL_MS:
-            last_display_time = now
-            renderer.render_zone(current_zone, now)
-
-        # Safety Sleep
-        time.sleep_ms(10)
+        pass
 
 
-if __name__ == '__main__':
-    main()
+# =========================================================
+# PRINT MAC
+# =========================================================
+
+mac = sta.config("mac")
+
+
+mac_text = ":".join(
+    "{:02X}".format(x)
+    for x in mac
+)
+
+
+print()
+
+print("==============================")
+print("ESP32-S3 TRANSMITTER")
+print("==============================")
+
+print(
+    "Transmitter MAC:",
+    mac_text
+)
+
+
+# =========================================================
+# ESP-NOW
+# =========================================================
+
+esp = espnow.ESPNow()
+
+esp.active(True)
+
+
+# =========================================================
+# ADD BROADCAST PEER
+# =========================================================
+
+try:
+
+    esp.add_peer(
+        BROADCAST,
+        channel=0,
+        encrypt=False
+    )
+
+
+except Exception:
+
+    # Compatibility fallback
+    try:
+
+        esp.add_peer(
+            BROADCAST
+        )
+
+    except:
+
+        pass
+
+
+print(
+    "Broadcast peer ready"
+)
+
+
+# =========================================================
+# INITIAL DISPLAY
+# =========================================================
+
+draw_searching_animation()
+
+
+print()
+print("Transmitter ready")
+print("Broadcasting GIBSON beacon...")
+print()
+
+
+# =========================================================
+# SEND BEACON
+# =========================================================
+
+def send_beacon():
+
+    global last_send_time
+    global beacon_counter
+
+
+    now = time.ticks_ms()
+
+
+    if time.ticks_diff(
+        now,
+        last_send_time
+    ) < SEND_INTERVAL_MS:
+
+        return
+
+
+    last_send_time = now
+
+
+    beacon_counter = (
+        beacon_counter + 1
+    ) & 0xFFFFFFFF
+
+
+    # Arduino:
+    #
+    # typedef struct {
+    #     uint32_t counter;
+    # } BeaconPacket;
+    #
+    # Little-endian 4 bytes
+
+    packet = struct.pack(
+        "<I",
+        beacon_counter
+    )
+
+
+    try:
+
+        esp.send(
+            BROADCAST,
+            packet,
+            False
+        )
+
+
+    except OSError as error:
+
+        print(
+            "Beacon TX error:",
+            error
+        )
+
+
+# =========================================================
+# RECEIVE FEEDBACK
+# =========================================================
+
+def receive_feedback():
+
+    global current_zone
+    global last_feedback_time
+
+
+    try:
+
+        # Read every waiting ESP-NOW packet
+
+        while esp.any():
+
+            host, message = esp.recv(0)
+
+
+            if (
+                host is not None
+                and
+                message is not None
+            ):
+
+
+                # Receiver FeedbackPacket:
+                #
+                # uint8_t zone
+                #
+                # Exactly 1 byte
+
+                if len(message) == 1:
+
+                    received_zone = message[0]
+
+
+                    if (
+                        ZONE_SEARCHING
+                        <= received_zone
+                        <= ZONE_HERE
+                    ):
+
+                        current_zone = (
+                            received_zone
+                        )
+
+                        last_feedback_time = (
+                            time.ticks_ms()
+                        )
+
+
+                        if current_zone == ZONE_SEARCHING:
+
+                            zone_name = "SEARCHING"
+
+
+                        elif current_zone == ZONE_FAR:
+
+                            zone_name = "FAR"
+
+
+                        elif current_zone == ZONE_NEAR:
+
+                            zone_name = "NEAR"
+
+
+                        else:
+
+                            zone_name = "HERE"
+
+
+                        print(
+                            "Feedback:",
+                            zone_name
+                        )
+
+
+    except Exception as error:
+
+        print(
+            "RX error:",
+            error
+        )
+
+
+# =========================================================
+# MAIN LOOP
+# =========================================================
+
+while True:
+
+    now = time.ticks_ms()
+
+
+    # -----------------------------------------------------
+    # SEND BEACON
+    # -----------------------------------------------------
+
+    send_beacon()
+
+
+    # -----------------------------------------------------
+    # RECEIVE ZONE FEEDBACK
+    # -----------------------------------------------------
+
+    receive_feedback()
+
+
+    # -----------------------------------------------------
+    # FEEDBACK TIMEOUT
+    # -----------------------------------------------------
+
+    if time.ticks_diff(
+        now,
+        last_feedback_time
+    ) > FEEDBACK_TIMEOUT_MS:
+
+        current_zone = ZONE_SEARCHING
+
+
+    # -----------------------------------------------------
+    # BUZZER
+    # -----------------------------------------------------
+
+    update_transmitter_buzzer()
+
+
+    # -----------------------------------------------------
+    # OLED ANIMATION
+    # -----------------------------------------------------
+
+    if time.ticks_diff(
+        now,
+        last_display_time
+    ) >= DISPLAY_INTERVAL_MS:
+
+        last_display_time = now
+
+        update_display()
+
+
+    # -----------------------------------------------------
+    # SMALL LOOP DELAY
+    # -----------------------------------------------------
+
+    time.sleep_ms(10)
 `,
       },
       {
         label: 'Receiver - Finder Radar',
         filename: 'cosmic_pulse_tracker_receiver.py',
-        code: `# ==============================================================================
-# LOF TITAN — Cosmic Pulse Tracker (Receiver / Finder Radar)
-# MicroPython conversion of cosmic_pulsetracker_receivercode.ino
-# ------------------------------------------------------------------------------
-# Hardware:
-#   - MCU: ESP32-S3 (LOF TITAN Board)
-#   - Wireless: ESP-NOW 2.4GHz Fast Pulses
-#   - Display: 1.3" / 0.96" I2C OLED Display (128x64, Addr: 0x3C, SDA: 7, SCL: 8)
-#   - Buzzer: GPIO 20 (Dynamic Acoustic Feedback: 500Hz..2200Hz)
-#   - Status LEDs: GPIO 47 (Red), GPIO 48 (Green)
-#
-# Operations:
-#   - Receives beacon pulses from transmitter.
-#   - Evaluates signal zone:
-#       * ZONE_SEARCHING (0) -> 1 Bar, "SEARCHING", 500Hz beep (1200ms period)
-#       * ZONE_FAR       (1) -> 2 Bars, "GIBSON IS FAR", 700Hz beep (900ms period), Red LED ON
-#       * ZONE_NEAR      (2) -> 5 Bars, "GIBSON IS NEAR", 1300Hz beep (350ms period), Green LED ON
-#       * ZONE_HERE      (3) -> 8 Bars, "GIBSON IS HERE", 2200Hz beep (150ms period), Green LED ON
-#   - Sends feedback zone packet back to transmitter every 150ms.
-# ==============================================================================
-
-import time
-import math
-import struct
-from machine import Pin, PWM, SoftI2C, I2C
+        code: `from machine import Pin, I2C, PWM
 import network
+import espnow
 import framebuf
-
-# ESP-NOW Protocol
-try:
-    import espnow
-    HAS_ESPNOW = True
-except ImportError:
-    HAS_ESPNOW = False
-
-# ---------- CONSTANTS & ZONES ----------
-ZONE_SEARCHING = 0
-ZONE_FAR       = 1
-ZONE_NEAR      = 2
-ZONE_HERE      = 3
-
-SIGNAL_TIMEOUT_MS    = 1800
-FEEDBACK_INTERVAL_MS = 150
-DISPLAY_INTERVAL_MS  = 250
-
-# ---------- HARDWARE PINS & PWM ----------
-_pwm_pool = {}
-def _get_pwm(pin, freq=1000):
-    """Singleton PWM manager for ESP32-S3."""
-    if pin not in _pwm_pool:
-        _pwm_pool[pin] = PWM(Pin(pin), freq=freq)
-    else:
-        try:
-            _pwm_pool[pin].freq(freq)
-        except Exception:
-            pass
-    return _pwm_pool[pin]
-
-led_red = Pin(47, Pin.OUT)
-led_grn = Pin(48, Pin.OUT)
-led_red.value(0)
-led_grn.value(0)
-
-def set_buzzer_tone(freq=0):
-    """Controls buzzer tone (freq in Hz, 0 = OFF)."""
-    try:
-        buz = _get_pwm(20, freq=max(100, freq))
-        if freq > 0:
-            buz.duty_u16(32768)
-        else:
-            buz.duty_u16(0)
-    except Exception:
-        pass
+import time
+import struct
 
 
-# ---------- 1.3" / 0.96" OLED DRIVER ----------
-class TitanOLED:
-    """I2C OLED Driver compatible with 1.3" SH1106 and 0.96" SSD1306."""
-    def __init__(self, i2c, width=128, height=64, addr=0x3C):
-        self.i2c = i2c
+# =========================================================
+# PINS - LOF TITAN ESP32-S3
+# =========================================================
+
+OLED_SDA = 7
+OLED_SCL = 8
+
+BUZZER_PIN = 20
+
+RED_LED_PIN = 47
+GREEN_LED_PIN = 48
+
+
+# =========================================================
+# SH1106 OLED DRIVER
+# No external sh1106.py required
+# =========================================================
+
+class SH1106(framebuf.FrameBuffer):
+
+    def __init__(self, width, height, i2c, addr=0x3C):
+
         self.width = width
         self.height = height
+        self.i2c = i2c
         self.addr = addr
-        self.buffer = bytearray((height // 8) * width)
-        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
-        self.is_sh1106 = True
+
+        self.pages = height // 8
+
+        self.buffer = bytearray(
+            self.width * self.pages
+        )
+
+        super().__init__(
+            self.buffer,
+            self.width,
+            self.height,
+            framebuf.MONO_VLSB
+        )
+
         self.init_display()
 
-    def _cmd(self, cmd):
-        try:
-            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
-        except Exception:
-            pass
+
+    def write_cmd(self, cmd):
+
+        self.i2c.writeto(
+            self.addr,
+            bytes([0x80, cmd])
+        )
+
 
     def init_display(self):
+
         cmds = [
-            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
-            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
-            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+            0xAE,       # Display OFF
+
+            0xD5, 0x80, # Clock
+            0xA8, 0x3F, # Multiplex 64
+            0xD3, 0x00, # Display offset
+            0x40,       # Start line
+
+            0xAD, 0x8B, # DC-DC ON
+
+            0xA1,       # Segment remap
+            0xC8,       # COM scan direction
+
+            0xDA, 0x12, # COM pins
+            0x81, 0x7F, # Contrast
+
+            0xD9, 0x22, # Pre-charge
+            0xDB, 0x35, # VCOM
+
+            0xA4,       # Display follows RAM
+            0xA6,       # Normal display
+
+            0xAF        # Display ON
         ]
-        for c in cmds: self._cmd(c)
+
+        for cmd in cmds:
+            self.write_cmd(cmd)
+
         self.fill(0)
         self.show()
 
-    def fill(self, color=0):
-        self.fb.fill(color)
-
-    def text(self, string, x, y, col=1):
-        self.fb.text(string, x, y, col)
-
-    def rect(self, x, y, w, h, col=1):
-        self.fb.rect(x, y, w, h, col)
-
-    def fill_rect(self, x, y, w, h, col=1):
-        self.fb.fill_rect(x, y, w, h, col)
 
     def show(self):
-        if not self.i2c: return
-        try:
-            if self.is_sh1106:
-                for page in range(8):
-                    self.i2c.writeto(self.addr, bytearray([0x80, 0xB0 + page, 0x80, 0x02, 0x80, 0x10]))
-                    self.i2c.writeto(self.addr, b'\\x40' + self.buffer[128 * page : 128 * (page + 1)])
-            else:
-                self.i2c.writeto(self.addr, bytearray([0x80, 0x21, 0x80, 0, 0x80, 127, 0x80, 0x22, 0x80, 0, 0x80, 7]))
-                self.i2c.writeto(self.addr, b'\\x40' + self.buffer)
-        except Exception:
-            pass
+
+        for page in range(self.pages):
+
+            self.write_cmd(
+                0xB0 + page
+            )
+
+            # SH1106 normally has 2-pixel RAM offset
+            self.write_cmd(0x02)
+            self.write_cmd(0x10)
+
+            start = page * self.width
+            end = start + self.width
+
+            data = bytearray(
+                self.width + 1
+            )
+
+            data[0] = 0x40
+
+            data[1:] = self.buffer[
+                start:end
+            ]
+
+            self.i2c.writeto(
+                self.addr,
+                data
+            )
 
 
-# ---------- OLED SCREEN & SIGNAL BARS RENDERER ----------
-class ReceiverScreenRenderer:
-    """Exact screen layout matching cosmic_pulsetracker_receivercode.ino."""
-    def __init__(self, display):
-        self.d = display
+# =========================================================
+# ZONES
+# =========================================================
 
-    @staticmethod
-    def zone_text(zone):
-        if zone == ZONE_HERE: return "GIBSON IS HERE"
-        if zone == ZONE_NEAR: return "GIBSON IS NEAR"
-        if zone == ZONE_FAR:  return "GIBSON IS FAR"
-        return "SEARCHING"
-
-    @staticmethod
-    def zone_bars(zone):
-        if zone == ZONE_HERE: return 8
-        if zone == ZONE_NEAR: return 5
-        if zone == ZONE_FAR:  return 2
-        return 1
-
-    def draw_signal_bars(self, bars_count):
-        start_x = 16
-        bottom_y = 48
-
-        for i in range(8):
-            h = 4 + i * 4
-            x = start_x + i * 12
-            y = bottom_y - h
-
-            if i < bars_count:
-                self.d.fill_rect(x, y, 8, h, 1) # Solid bar
-            else:
-                self.d.rect(x, y, 8, h, 1)      # Outline bar
-
-    def render(self, zone):
-        self.d.fill(0)
-        
-        # 1. Header Title
-        self.d.text("GIBSON SIGNAL", 14, 2, 1)
-
-        # 2. 8-Bar Signal Meter
-        self.draw_signal_bars(self.zone_bars(zone))
-
-        # 3. Bottom Zone Status Text
-        status = self.zone_text(zone)
-        # Center text
-        x_pos = max(0, (128 - len(status) * 8) // 2)
-        self.d.text(status, x_pos, 54, 1)
-
-        self.d.show()
+ZONE_SEARCHING = 0
+ZONE_FAR = 1
+ZONE_NEAR = 2
+ZONE_HERE = 3
 
 
-# ---------- RECEIVER AUDIO & LED CONTROLLER ----------
-class ReceiverFeedbackController:
-    """Acoustic tracking and LED states matching Arduino C code."""
-    def update_leds(self, zone):
-        if zone == ZONE_FAR:
-            led_red.value(1)
-            led_grn.value(0)
-        elif zone in (ZONE_NEAR, ZONE_HERE):
-            led_red.value(0)
-            led_grn.value(1)
-        else:
-            led_red.value(0)
-            led_grn.value(0)
+# =========================================================
+# TIMINGS
+# =========================================================
 
-    def update_buzzer(self, zone):
-        now = time.ticks_ms()
+SIGNAL_TIMEOUT_MS = 1800
 
-        if zone == ZONE_SEARCHING:
-            freq, period, on_time = 500, 1200, 120
-        elif zone == ZONE_FAR:
-            freq, period, on_time = 700, 900, 130
-        elif zone == ZONE_NEAR:
-            freq, period, on_time = 1300, 350, 140
-        elif zone == ZONE_HERE:
-            freq, period, on_time = 2200, 150, 110
-        else:
-            freq, period, on_time = 0, 1000, 0
+FEEDBACK_INTERVAL_MS = 150
 
-        if (now % period) < on_time:
-            set_buzzer_tone(freq)
-        else:
-            set_buzzer_tone(0)
+DISPLAY_INTERVAL_MS = 250
 
 
-# ---------- WIRELESS ESP-NOW RECEIVER SUBSYSTEM ----------
-class ReceiverWireless:
-    def __init__(self):
-        self.sta = network.WLAN(network.STA_IF)
-        self.sta.active(True)
-        self.sta.disconnect()
+# =========================================================
+# GLOBAL VARIABLES
+# =========================================================
 
-        self.esp = None
-        self.broadcast_peer = b'\\xff\\xff\\xff\\xff\\xff\\xff'
-        self.transmitter_mac = None
+latest_rssi = -100
 
-        if HAS_ESPNOW:
-            try:
-                self.esp = espnow.ESPNow()
-                self.esp.active(True)
-                try:
-                    self.esp.add_peer(self.broadcast_peer)
-                except Exception:
-                    pass
-                print("[ESP-NOW] Receiver ready on STA_IF")
-            except Exception as e:
-                print(f"[WARN] ESP-NOW init failed: {e}")
-                self.esp = None
+last_packet_time = 0
+last_feedback_time = 0
+last_display_time = 0
 
-        self.latest_rssi = -100
-        self.last_packet_time = 0
+transmitter_mac = None
 
-    def check_incoming_beacons(self):
-        """Non-blocking beacon packet reception."""
-        if not self.esp:
-            return False, -100
-        
-        now = time.ticks_ms()
-        received = False
+packet_received = False
 
-        try:
-            while True:
-                msg_data = self.esp.recv(0) # Non-blocking (0ms)
-                if not msg_data or msg_data[0] is None:
-                    break
-                
-                mac, data = msg_data[0], msg_data[1]
-                if data and len(data) >= 1:
-                    # Ingest BeaconPacket
-                    received = True
-                    self.transmitter_mac = mac
-                    self.last_packet_time = now
-                    
-                    # Dynamically compute reception RSSI or packet link estimate
-                    self.latest_rssi = -48 # Strong link estimate
-        except Exception:
-            pass
+current_buzzer_frequency = 0
 
-        return received, self.latest_rssi
-
-    def send_feedback_to_transmitter(self, zone):
-        """Sends FeedbackPacket (uint8_t zone) back to transmitter."""
-        if not self.esp:
-            return
-        
-        target_mac = self.transmitter_mac if self.transmitter_mac else self.broadcast_peer
-        try:
-            # Register peer if needed
-            try:
-                self.esp.add_peer(target_mac)
-            except Exception:
-                pass
-            
-            packet = struct.pack("<B", zone)
-            self.esp.send(target_mac, packet, False)
-        except Exception:
-            pass
+added_peers = set()
 
 
-# ---------- ZONE FROM RSSI ----------
+# =========================================================
+# LED SETUP
+# =========================================================
+
+red_led = Pin(
+    RED_LED_PIN,
+    Pin.OUT
+)
+
+green_led = Pin(
+    GREEN_LED_PIN,
+    Pin.OUT
+)
+
+red_led.value(0)
+green_led.value(0)
+
+
+# =========================================================
+# BUZZER SETUP
+# =========================================================
+
+buzzer = PWM(
+    Pin(BUZZER_PIN)
+)
+
+buzzer.freq(500)
+buzzer.duty_u16(0)
+
+
+# =========================================================
+# I2C SETUP
+# =========================================================
+
+i2c = I2C(
+    0,
+    sda=Pin(OLED_SDA),
+    scl=Pin(OLED_SCL),
+    freq=100000
+)
+
+
+print()
+print("==============================")
+print("I2C SCAN")
+print("==============================")
+
+devices = i2c.scan()
+
+print(devices)
+
+if 0x3C in devices:
+    print("OLED FOUND AT 0x3C")
+else:
+    print("WARNING: OLED NOT FOUND")
+
+
+# =========================================================
+# OLED
+# =========================================================
+
+display = SH1106(
+    128,
+    64,
+    i2c,
+    0x3C
+)
+
+
+# =========================================================
+# ZONE FUNCTIONS
+# =========================================================
+
+def zone_text(zone):
+
+    if zone == ZONE_HERE:
+        return "GIBSON IS HERE"
+
+    if zone == ZONE_NEAR:
+        return "GIBSON IS NEAR"
+
+    if zone == ZONE_FAR:
+        return "GIBSON IS FAR"
+
+    return "SEARCHING"
+
+
+def zone_bars(zone):
+
+    if zone == ZONE_HERE:
+        return 8
+
+    if zone == ZONE_NEAR:
+        return 5
+
+    if zone == ZONE_FAR:
+        return 2
+
+    return 1
+
+
+# =========================================================
+# RSSI -> ZONE
+# =========================================================
+
 def zone_from_rssi(rssi):
-    if rssi >= -50: return ZONE_HERE
-    if rssi >= -65: return ZONE_NEAR
-    if rssi >= -80: return ZONE_FAR
-    return ZONE_SEARCHING
+
+    if rssi >= -50:
+        return ZONE_HERE
+
+    elif rssi >= -65:
+        return ZONE_NEAR
+
+    elif rssi >= -80:
+        return ZONE_FAR
+
+    else:
+        return ZONE_SEARCHING
 
 
-# ---------- MAIN PROGRAM ----------
-def main():
-    print("==================================================")
-    print("ESP32-S3 RECEIVER (GIBSON SIGNAL RADAR)")
-    print("LOF TITAN Cosmic Pulse Tracker")
-    print("==================================================")
+# =========================================================
+# OLED CENTRE TEXT
+# =========================================================
 
-    # 1. Initialize I2C & OLED
-    i2c = None
-    try:
-        i2c = SoftI2C(sda=Pin(7, Pin.OUT), scl=Pin(8, Pin.OUT), freq=400000, timeout=50000)
-    except Exception:
-        try:
-            i2c = I2C(0, sda=Pin(7), scl=Pin(8), freq=100000)
-        except Exception:
-            print("[WARN] Could not initialize I2C bus.")
+def centre_text(text, y):
 
-    oled = TitanOLED(i2c, width=128, height=64)
-    renderer = ReceiverScreenRenderer(oled)
-    controller = ReceiverFeedbackController()
+    width = len(text) * 8
 
-    # 2. Initialize Wireless
-    wireless = ReceiverWireless()
+    x = (128 - width) // 2
 
-    current_zone = ZONE_SEARCHING
-    last_feedback_time = 0
-    last_display_time = 0
-    packet_received = False
+    if x < 0:
+        x = 0
 
-    renderer.render(ZONE_SEARCHING)
-    print("Receiver ready. Radar tracking active.")
+    display.text(
+        text,
+        x,
+        y,
+        1
+    )
 
-    while True:
-        now = time.ticks_ms()
 
-        # 1. Ingest Incoming Beacons from Transmitter
-        rx_ok, rssi_val = wireless.check_incoming_beacons()
-        if rx_ok:
-            packet_received = True
+# =========================================================
+# SIGNAL BARS
+# =========================================================
 
-        # 2. Determine Zone based on timeout and RSSI
-        if time.ticks_diff(now, wireless.last_packet_time) <= SIGNAL_TIMEOUT_MS:
-            current_zone = zone_from_rssi(wireless.latest_rssi)
+def draw_signal_bars(bars):
+
+    start_x = 16
+    bottom_y = 50
+
+    for i in range(8):
+
+        height = 4 + (i * 4)
+
+        x = start_x + (i * 12)
+
+        y = bottom_y - height
+
+        if i < bars:
+
+            display.fill_rect(
+                x,
+                y,
+                8,
+                height,
+                1
+            )
+
         else:
-            current_zone = ZONE_SEARCHING
 
-        # 3. Update LEDs & Dynamic Acoustic Feedback
-        controller.update_leds(current_zone)
-        controller.update_buzzer(current_zone)
+            display.rect(
+                x,
+                y,
+                8,
+                height,
+                1
+            )
 
-        # 4. Render OLED Screen (Every 250ms)
-        if time.ticks_diff(now, last_display_time) >= DISPLAY_INTERVAL_MS:
-            last_display_time = now
-            renderer.render(current_zone)
 
-        # 5. Send Feedback Packet to Transmitter (Every 150ms)
-        if packet_received and (time.ticks_diff(now, last_feedback_time) >= FEEDBACK_INTERVAL_MS):
+# =========================================================
+# OLED SCREEN
+# =========================================================
+
+def show_receiver_screen(zone):
+
+    display.fill(0)
+
+    centre_text(
+        "GIBSON SIGNAL",
+        0
+    )
+
+    draw_signal_bars(
+        zone_bars(zone)
+    )
+
+    centre_text(
+        zone_text(zone),
+        56
+    )
+
+    display.show()
+
+
+# =========================================================
+# LED CONTROL
+# =========================================================
+
+def update_leds(zone):
+
+    if zone == ZONE_FAR:
+
+        red_led.value(1)
+        green_led.value(0)
+
+
+    elif zone == ZONE_NEAR or zone == ZONE_HERE:
+
+        red_led.value(0)
+        green_led.value(1)
+
+
+    else:
+
+        red_led.value(0)
+        green_led.value(0)
+
+
+# =========================================================
+# BUZZER
+# =========================================================
+
+def buzzer_on(frequency):
+
+    global current_buzzer_frequency
+
+    if frequency != current_buzzer_frequency:
+
+        buzzer.freq(
+            frequency
+        )
+
+        current_buzzer_frequency = frequency
+
+    buzzer.duty_u16(
+        32768
+    )
+
+
+def buzzer_off():
+
+    buzzer.duty_u16(0)
+
+
+# =========================================================
+# BUZZER PATTERN
+# =========================================================
+
+def update_receiver_buzzer(zone):
+
+    now = time.ticks_ms()
+
+
+    if zone == ZONE_SEARCHING:
+
+        frequency = 500
+        period = 1200
+        on_time = 120
+
+
+    elif zone == ZONE_FAR:
+
+        frequency = 700
+        period = 900
+        on_time = 130
+
+
+    elif zone == ZONE_NEAR:
+
+        frequency = 1300
+        period = 350
+        on_time = 140
+
+
+    else:
+
+        frequency = 2200
+        period = 150
+        on_time = 110
+
+
+    if (now % period) < on_time:
+
+        buzzer_on(
+            frequency
+        )
+
+    else:
+
+        buzzer_off()
+
+
+# =========================================================
+# WIFI SETUP
+# =========================================================
+
+try:
+
+    sta = network.WLAN(
+        network.WLAN.IF_STA
+    )
+
+except:
+
+    sta = network.WLAN(
+        network.STA_IF
+    )
+
+
+sta.active(True)
+
+
+try:
+    sta.disconnect()
+except:
+    pass
+
+
+try:
+
+    sta.config(
+        pm=network.WLAN.PM_NONE
+    )
+
+except:
+    pass
+
+
+# =========================================================
+# PRINT MAC
+# =========================================================
+
+mac = sta.config("mac")
+
+mac_text = ":".join(
+    "{:02X}".format(x)
+    for x in mac
+)
+
+print()
+print("==============================")
+print("ESP32-S3 RECEIVER")
+print("==============================")
+
+print(
+    "Receiver MAC:",
+    mac_text
+)
+
+
+# =========================================================
+# ESP-NOW
+# =========================================================
+
+esp = espnow.ESPNow()
+
+esp.active(True)
+
+
+# =========================================================
+# ADD PEER
+# =========================================================
+
+def add_peer_if_needed(mac):
+
+    if mac is None:
+        return
+
+    mac = bytes(mac)
+
+    if mac in added_peers:
+        return
+
+    try:
+
+        esp.add_peer(
+            mac,
+            channel=0,
+            encrypt=False
+        )
+
+        added_peers.add(
+            mac
+        )
+
+        print(
+            "Peer added:",
+            ":".join(
+                "{:02X}".format(x)
+                for x in mac
+            )
+        )
+
+    except OSError as error:
+
+        # Peer may already exist.
+        added_peers.add(mac)
+
+
+# =========================================================
+# GET RSSI
+# =========================================================
+
+def get_peer_rssi(mac):
+
+    if mac is None:
+        return -100
+
+    try:
+
+        peer_info = esp.peers_table.get(
+            bytes(mac)
+        )
+
+        if peer_info is not None:
+
+            return peer_info[0]
+
+    except Exception:
+        pass
+
+    return -100
+
+
+# =========================================================
+# INITIAL SCREEN
+# =========================================================
+
+show_receiver_screen(
+    ZONE_SEARCHING
+)
+
+
+print()
+print("Receiver ready")
+print("Waiting for GIBSON beacon...")
+print()
+
+
+# =========================================================
+# MAIN LOOP
+# =========================================================
+
+while True:
+
+    now = time.ticks_ms()
+
+
+    # -----------------------------------------------------
+    # RECEIVE ESP-NOW
+    # -----------------------------------------------------
+
+    try:
+
+        host, msg = esp.recv(0)
+
+
+        if host is not None and msg is not None:
+
+            host = bytes(host)
+
+
+            # Arduino BeaconPacket:
+            #
+            # uint32_t counter
+            #
+            # Exactly 4 bytes
+
+            if len(msg) == 4:
+
+                transmitter_mac = host
+
+
+                counter = struct.unpack(
+                    "<I",
+                    msg
+                )[0]
+
+
+                latest_rssi = get_peer_rssi(
+                    transmitter_mac
+                )
+
+
+                last_packet_time = now
+
+                packet_received = True
+
+
+                print(
+                    "Beacon:",
+                    counter,
+                    "| RSSI:",
+                    latest_rssi,
+                    "dBm"
+                )
+
+
+    except Exception as error:
+
+        print(
+            "RX ERROR:",
+            error
+        )
+
+
+    # -----------------------------------------------------
+    # DETERMINE CURRENT ZONE
+    # -----------------------------------------------------
+
+    if time.ticks_diff(
+        now,
+        last_packet_time
+    ) <= SIGNAL_TIMEOUT_MS:
+
+        current_zone = zone_from_rssi(
+            latest_rssi
+        )
+
+
+    else:
+
+        current_zone = ZONE_SEARCHING
+
+
+    # -----------------------------------------------------
+    # LEDs
+    # -----------------------------------------------------
+
+    update_leds(
+        current_zone
+    )
+
+
+    # -----------------------------------------------------
+    # BUZZER
+    # -----------------------------------------------------
+
+    update_receiver_buzzer(
+        current_zone
+    )
+
+
+    # -----------------------------------------------------
+    # OLED UPDATE
+    # -----------------------------------------------------
+
+    if time.ticks_diff(
+        now,
+        last_display_time
+    ) >= DISPLAY_INTERVAL_MS:
+
+        last_display_time = now
+
+        show_receiver_screen(
+            current_zone
+        )
+
+
+    # -----------------------------------------------------
+    # SEND ZONE BACK TO TRANSMITTER
+    # -----------------------------------------------------
+
+    if packet_received:
+
+        if time.ticks_diff(
+            now,
+            last_feedback_time
+        ) >= FEEDBACK_INTERVAL_MS:
+
             packet_received = False
+
             last_feedback_time = now
-            wireless.send_feedback_to_transmitter(current_zone)
-
-        # Safety Sleep
-        time.sleep_ms(15)
 
 
-if __name__ == '__main__':
-    main()
+            if transmitter_mac is not None:
+
+                add_peer_if_needed(
+                    transmitter_mac
+                )
+
+
+                # Arduino FeedbackPacket:
+                #
+                # uint8_t zone
+                #
+                # Exactly 1 byte
+
+                feedback_packet = bytes([
+                    current_zone
+                ])
+
+
+                try:
+
+                    esp.send(
+                        transmitter_mac,
+                        feedback_packet,
+                        False
+                    )
+
+
+                    print(
+                        "Zone:",
+                        zone_text(current_zone)
+                    )
+
+
+                except Exception as error:
+
+                    print(
+                        "TX ERROR:",
+                        error
+                    )
+
+
+    time.sleep_ms(20)
 `,
       },
     ],
@@ -16498,9 +19873,1435 @@ if __name__ == '__main__':
       },
     ],
 
-    // CONTENT PENDING: coding[], code (firmware) and component pin mappings were
-    // not supplied. The detail page hides any section with no data and renumbers
-    // the rest, so this renders correctly as-is.
+    // CONTENT PENDING: coding[] and component pin mappings were not supplied.
+    // The detail page hides any section with no data and renumbers the rest, so
+    // this renders correctly as-is.
+
+    // MicroPython Main Scripts - one per paired base unit
+    codePrograms: [
+      {
+        label: 'Military Base - Rescue Coordinator',
+        filename: 'military_base_heartbeat.py',
+        code: `from machine import Pin, SoftI2C, WDT, PWM
+import network
+import espnow
+import framebuf
+import time
+import gc
+
+ROLE = "MILITARY"
+PEER_ROLE = "SURVIVOR"
+
+SW1_PIN = 39
+SW2_PIN = 40
+SW3_PIN = 41
+SW4_PIN = 42
+BUZZER_PIN = 20
+STATUS_LED_PIN = 47
+SDA_PIN = 7
+SCL_PIN = 8
+OLED_ADDR = 0x3C
+
+DEBOUNCE_MS = 60
+HEARTBEAT_INTERVAL_MS = 1000
+LINK_TIMEOUT_MS = 4000
+DISCONNECT_BEEP_INTERVAL_MS = 3000
+MESSAGE_TONE_FREQ = 2200
+MESSAGE_TONE_MS = 800
+DISCONNECT_TONE_FREQ = 650
+DISCONNECT_TONE_MS = 350
+BUZZER_DUTY = 28000
+LED_ON = 1
+LED_OFF = 0
+
+PRESETS = (
+    "ON THE WAY",
+    "HOLD POSITION",
+    "STAY SAFE",
+    "ETA 10 MIN",
+    "KEEP SIGNALING",
+    "RESCUE COMING",
+    "ACKNOWLEDGED",
+    "CAN YOU MOVE"
+)
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+
+try:
+    wdt = WDT(0, timeout=8000)
+    wdt.feed()
+    print("[WDT] READY")
+except Exception as e:
+    wdt = None
+    print("[WDT] ERROR:", e)
+
+def feed_wdt():
+    if wdt is not None:
+        try:
+            wdt.feed()
+        except:
+            pass
+
+# Status LED: ON = peer link missing, OFF = peer link healthy.
+try:
+    status_led = Pin(STATUS_LED_PIN, Pin.OUT)
+    status_led.value(LED_ON)
+    print("[STATUS LED] READY GPIO47")
+except Exception as e:
+    status_led = None
+    print("[STATUS LED] ERROR:", e)
+
+def set_disconnect_led(disconnected):
+    if status_led is None:
+        return
+    try:
+        status_led.value(LED_ON if disconnected else LED_OFF)
+    except:
+        pass
+
+# Buzzer supports a normal message tone and a lower disconnect tone.
+try:
+    buzzer = PWM(Pin(BUZZER_PIN))
+    buzzer.freq(MESSAGE_TONE_FREQ)
+    buzzer.duty_u16(0)
+    print("[BUZZER] READY GPIO20")
+except Exception as e:
+    buzzer = None
+    print("[BUZZER] ERROR:", e)
+
+buzzer_active = False
+buzzer_started = 0
+buzzer_duration = 0
+
+def start_tone(freq, duration_ms):
+    global buzzer_active, buzzer_started, buzzer_duration
+    if buzzer is None:
+        return
+    try:
+        buzzer.freq(freq)
+        buzzer.duty_u16(BUZZER_DUTY)
+        buzzer_started = time.ticks_ms()
+        buzzer_duration = duration_ms
+        buzzer_active = True
+    except Exception as e:
+        print("[BUZZER ERROR]", e)
+
+def buzzer_off():
+    global buzzer_active
+    if buzzer is not None:
+        try:
+            buzzer.duty_u16(0)
+        except:
+            pass
+    buzzer_active = False
+
+def message_tone():
+    start_tone(MESSAGE_TONE_FREQ, MESSAGE_TONE_MS)
+
+def disconnect_tone():
+    # Lower tone, clearly different from the received-message alert.
+    start_tone(DISCONNECT_TONE_FREQ, DISCONNECT_TONE_MS)
+
+def update_buzzer():
+    if not buzzer_active:
+        return
+    if time.ticks_diff(time.ticks_ms(), buzzer_started) >= buzzer_duration:
+        buzzer_off()
+
+def safe_wait(ms):
+    start = time.ticks_ms()
+    while time.ticks_diff(time.ticks_ms(), start) < ms:
+        feed_wdt()
+        update_buzzer()
+        time.sleep_ms(20)
+
+class Button:
+    def __init__(self, gpio):
+        self.pin = Pin(gpio, Pin.IN, Pin.PULL_UP)
+        value = self.pin.value()
+        self.raw_state = value
+        self.stable_state = value
+        self.last_change = time.ticks_ms()
+        self.press_event = False
+
+    def update(self):
+        now = time.ticks_ms()
+        raw = self.pin.value()
+        self.press_event = False
+        if raw != self.raw_state:
+            self.raw_state = raw
+            self.last_change = now
+        if raw != self.stable_state and time.ticks_diff(now, self.last_change) >= DEBOUNCE_MS:
+            previous = self.stable_state
+            self.stable_state = raw
+            if previous == 1 and raw == 0:
+                self.press_event = True
+
+    def pressed(self):
+        return self.press_event
+
+sw1 = Button(SW1_PIN)
+sw2 = Button(SW2_PIN)
+sw3 = Button(SW3_PIN)
+sw4 = Button(SW4_PIN)
+
+class SH1106(framebuf.FrameBuffer):
+    def __init__(self, i2c, width=128, height=64, addr=0x3C):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.pages = height // 8
+        self.buffer = bytearray(width * self.pages)
+        super().__init__(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.init_display()
+
+    def command(self, cmd):
+        feed_wdt()
+        self.i2c.writeto(self.addr, bytes((0x00, cmd)))
+
+    def init_display(self):
+        commands = (
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0xAD, 0x8B, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0x7F,
+            0xD9, 0x22, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        )
+        for cmd in commands:
+            self.command(cmd)
+        self.fill(0)
+        self.show()
+
+    def show(self):
+        for page_number in range(self.pages):
+            feed_wdt()
+            self.command(0xB0 + page_number)
+            self.command(0x02)
+            self.command(0x10)
+            start = page_number * self.width
+            end = start + self.width
+            self.i2c.writeto(self.addr, b'\\x40' + self.buffer[start:end])
+
+OLED_OK = False
+oled = None
+print()
+print("==============================")
+print("MILITARY BASE")
+print("==============================")
+try:
+    i2c = SoftI2C(scl=Pin(SCL_PIN), sda=Pin(SDA_PIN), freq=100000, timeout=5000)
+    feed_wdt()
+    i2c.writeto(OLED_ADDR, b'\\x00\\xAE')
+    oled = SH1106(i2c, 128, 64, OLED_ADDR)
+    OLED_OK = True
+    print("[OLED] READY")
+except Exception as e:
+    OLED_OK = False
+    oled = None
+    print("[OLED] ERROR:", e)
+
+PAGE_MENU = 0
+PAGE_PRESET = 1
+PAGE_MANUAL = 2
+page = PAGE_MENU
+menu_index = 0
+preset_index = 0
+selected_preset = -1
+manual_index = 0
+typed_message = ""
+peer_message = ""
+popup_active = False
+popup_title = ""
+popup_message = ""
+display_dirty = True
+
+BIG_FONT = {
+    "A":["01110","10001","10001","11111","10001","10001","10001"],
+    "B":["11110","10001","10001","11110","10001","10001","11110"],
+    "C":["01111","10000","10000","10000","10000","10000","01111"],
+    "D":["11110","10001","10001","10001","10001","10001","11110"],
+    "E":["11111","10000","10000","11110","10000","10000","11111"],
+    "F":["11111","10000","10000","11110","10000","10000","10000"],
+    "G":["01111","10000","10000","10111","10001","10001","01111"],
+    "H":["10001","10001","10001","11111","10001","10001","10001"],
+    "I":["11111","00100","00100","00100","00100","00100","11111"],
+    "J":["00111","00010","00010","00010","10010","10010","01100"],
+    "K":["10001","10010","10100","11000","10100","10010","10001"],
+    "L":["10000","10000","10000","10000","10000","10000","11111"],
+    "M":["10001","11011","10101","10101","10001","10001","10001"],
+    "N":["10001","11001","10101","10011","10001","10001","10001"],
+    "O":["01110","10001","10001","10001","10001","10001","01110"],
+    "P":["11110","10001","10001","11110","10000","10000","10000"],
+    "Q":["01110","10001","10001","10001","10101","10010","01101"],
+    "R":["11110","10001","10001","11110","10100","10010","10001"],
+    "S":["01111","10000","10000","01110","00001","00001","11110"],
+    "T":["11111","00100","00100","00100","00100","00100","00100"],
+    "U":["10001","10001","10001","10001","10001","10001","01110"],
+    "V":["10001","10001","10001","10001","10001","01010","00100"],
+    "W":["10001","10001","10001","10101","10101","11011","10001"],
+    "X":["10001","10001","01010","00100","01010","10001","10001"],
+    "Y":["10001","10001","01010","00100","00100","00100","00100"],
+    "Z":["11111","00001","00010","00100","01000","10000","11111"]
+}
+
+def center_text(text, y, colour=1):
+    if not OLED_OK:
+        return
+    x = (128 - len(text) * 8) // 2
+    if x < 0:
+        x = 0
+    oled.text(text, x, y, colour)
+
+def tail(text, count):
+    return text if len(text) <= count else text[-count:]
+
+def wrap_text(text, maximum=15):
+    if not text:
+        return []
+    words = text.split(" ")
+    lines = []
+    current = ""
+    for word in words:
+        if word == "":
+            if current:
+                current += " "
+            continue
+        while len(word) > maximum:
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(word[:maximum])
+            word = word[maximum:]
+        if not word:
+            continue
+        if current == "":
+            current = word
+        elif len(current) + 1 + len(word) <= maximum:
+            current += " " + word
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines[:3]
+
+def draw_big_char(character, x, y, scale=4):
+    pattern = BIG_FONT.get(character)
+    if pattern is None:
+        return
+    for row in range(7):
+        for column in range(5):
+            if pattern[row][column] == "1":
+                oled.fill_rect(x + column * scale, y + row * scale, scale, scale, 1)
+
+def show_startup():
+    if not OLED_OK:
+        return
+    oled.fill(0)
+    oled.rect(0, 0, 128, 64, 1)
+    center_text("MILITARY", 7)
+    center_text("BASE", 20)
+    center_text("COMMUNICATION", 36)
+    center_text("READY", 50)
+    oled.show()
+
+def draw_menu():
+    oled.fill(0)
+    center_text("SELECT MODE", 0)
+    oled.hline(0, 11, 128, 1)
+    if menu_index == 0:
+        oled.fill_rect(14, 18, 100, 17, 1)
+        center_text("PRESET", 23, 0)
+    else:
+        oled.rect(14, 18, 100, 17, 1)
+        center_text("PRESET", 23)
+    if menu_index == 1:
+        oled.fill_rect(14, 42, 100, 17, 1)
+        center_text("MANUAL", 47, 0)
+    else:
+        oled.rect(14, 42, 100, 17, 1)
+        center_text("MANUAL", 47)
+
+def draw_preset():
+    oled.fill(0)
+    center_text("PRESET MODE", 0)
+    oled.hline(0, 10, 128, 1)
+    center_text(str(preset_index + 1) + "/" + str(len(PRESETS)), 13)
+    lines = wrap_text(PRESETS[preset_index], 15)
+    if len(lines) == 1:
+        center_text(lines[0], 33)
+    elif len(lines) == 2:
+        center_text(lines[0], 27)
+        center_text(lines[1], 39)
+    elif len(lines) >= 3:
+        center_text(lines[0], 22)
+        center_text(lines[1], 34)
+        center_text(lines[2], 46)
+    center_text("SELECTED" if selected_preset == preset_index else "SW3 SELECT", 54)
+
+def draw_manual():
+    oled.fill(0)
+    center_text("MANUAL MODE", 0)
+    oled.hline(0, 10, 128, 1)
+    character = LETTERS[manual_index]
+    if character == " ":
+        center_text("SPACE", 22)
+    else:
+        draw_big_char(character, 54, 14, 4)
+    oled.hline(0, 46, 128, 1)
+    oled.text("MSG:", 0, 54, 1)
+    oled.text(tail(typed_message, 12), 32, 54, 1)
+
+def draw_popup():
+    oled.fill(0)
+    center_text(popup_title, 0)
+    oled.hline(0, 11, 128, 1)
+    text = popup_message[-45:] if len(popup_message) > 45 else popup_message
+    lines = wrap_text(text, 15)
+    if len(lines) == 0:
+        center_text("EMPTY", 30)
+    elif len(lines) == 1:
+        center_text(lines[0], 30)
+    elif len(lines) == 2:
+        center_text(lines[0], 25)
+        center_text(lines[1], 38)
+    else:
+        center_text(lines[0], 20)
+        center_text(lines[1], 32)
+        center_text(lines[2], 44)
+    center_text("PRESS ANY KEY", 55)
+
+def show_popup(title, message):
+    global popup_active, popup_title, popup_message, display_dirty
+    popup_title = title
+    popup_message = message
+    popup_active = True
+    display_dirty = True
+
+def close_popup():
+    global popup_active, display_dirty
+    popup_active = False
+    buzzer_off()
+    display_dirty = True
+
+def draw_display():
+    global display_dirty
+    if not OLED_OK:
+        display_dirty = False
+        return
+    try:
+        feed_wdt()
+        if popup_active:
+            draw_popup()
+        elif page == PAGE_MENU:
+            draw_menu()
+        elif page == PAGE_PRESET:
+            draw_preset()
+        elif page == PAGE_MANUAL:
+            draw_manual()
+        oled.show()
+    except Exception as e:
+        print("[OLED ERROR]", e)
+    display_dirty = False
+
+show_startup()
+safe_wait(2000)
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+feed_wdt()
+try:
+    mac = wlan.config("mac")
+    print("[MILITARY MAC]", ":".join("{:02X}".format(x) for x in mac))
+except Exception as e:
+    print("[MAC ERROR]", e)
+
+esp = espnow.ESPNow()
+esp.active(True)
+BROADCAST = b'\\xff\\xff\\xff\\xff\\xff\\xff'
+try:
+    esp.add_peer(BROADCAST)
+except:
+    pass
+print("[ESP-NOW] READY")
+
+# Link supervision. ESP-NOW itself is connectionless, so the two boards
+# exchange heartbeat packets and infer link loss from heartbeat timeout.
+boot_time = time.ticks_ms()
+last_heartbeat_sent = time.ticks_add(boot_time, -HEARTBEAT_INTERVAL_MS)
+last_peer_seen = boot_time
+peer_seen_once = False
+link_connected = False
+next_disconnect_beep = time.ticks_add(boot_time, LINK_TIMEOUT_MS)
+
+def send_packet(msg_type, message, quiet=False):
+    packet = msg_type + "|" + ROLE + "|" + message
+    try:
+        feed_wdt()
+        esp.send(BROADCAST, packet.encode(), False)
+        if not quiet:
+            print("TX:", packet)
+        return True
+    except Exception as e:
+        if not quiet:
+            print("[TX ERROR]", e)
+        return False
+
+def send_heartbeat(now):
+    global last_heartbeat_sent
+    if time.ticks_diff(now, last_heartbeat_sent) >= HEARTBEAT_INTERVAL_MS:
+        send_packet("H", "PING", True)
+        last_heartbeat_sent = now
+
+def mark_peer_seen(now):
+    global last_peer_seen, peer_seen_once, link_connected, next_disconnect_beep
+    last_peer_seen = now
+    peer_seen_once = True
+    if not link_connected:
+        link_connected = True
+        set_disconnect_led(False)
+        buzzer_off()
+        next_disconnect_beep = time.ticks_add(now, DISCONNECT_BEEP_INTERVAL_MS)
+        print("[LINK] CONNECTED TO", PEER_ROLE)
+
+def update_link_status(now):
+    global link_connected, next_disconnect_beep
+    healthy = peer_seen_once and time.ticks_diff(now, last_peer_seen) <= LINK_TIMEOUT_MS
+    if healthy:
+        if not link_connected:
+            link_connected = True
+            print("[LINK] CONNECTED TO", PEER_ROLE)
+        set_disconnect_led(False)
+        return
+
+    if link_connected:
+        link_connected = False
+        set_disconnect_led(True)
+        next_disconnect_beep = now
+        print("[LINK] DISCONNECTED FROM", PEER_ROLE)
+    else:
+        set_disconnect_led(True)
+
+    # During initial startup, wait LINK_TIMEOUT_MS before warning by buzzer.
+    if not peer_seen_once and time.ticks_diff(now, boot_time) < LINK_TIMEOUT_MS:
+        return
+
+    if time.ticks_diff(now, next_disconnect_beep) >= 0:
+        disconnect_tone()
+        next_disconnect_beep = time.ticks_add(now, DISCONNECT_BEEP_INTERVAL_MS)
+
+def receive_packets():
+    global peer_message
+    for _ in range(5):
+        feed_wdt()
+        try:
+            host, message = esp.irecv(0)
+        except:
+            return
+        if message is None:
+            return
+        try:
+            text = message.decode()
+        except:
+            continue
+        parts = text.split("|", 2)
+        if len(parts) != 3:
+            continue
+        msg_type, sender, data = parts
+        if sender != PEER_ROLE:
+            continue
+
+        now = time.ticks_ms()
+        mark_peer_seen(now)
+
+        if msg_type == "H":
+            continue
+
+        if msg_type == "P" or msg_type == "M":
+            peer_message = data
+            print("RX FROM", sender + ":", data)
+            message_tone()
+            show_popup("FROM SURVIVOR", data)
+
+def menu_previous():
+    global menu_index, display_dirty
+    menu_index = 1 if menu_index == 0 else 0
+    display_dirty = True
+
+def menu_next():
+    global menu_index, display_dirty
+    menu_index = 0 if menu_index == 1 else 1
+    display_dirty = True
+
+def select_mode():
+    global page, preset_index, selected_preset, manual_index, typed_message, display_dirty
+    if menu_index == 0:
+        page = PAGE_PRESET
+        preset_index = 0
+        selected_preset = -1
+    else:
+        page = PAGE_MANUAL
+        manual_index = 0
+        typed_message = ""
+    display_dirty = True
+
+def preset_previous():
+    global preset_index, selected_preset, display_dirty
+    preset_index -= 1
+    if preset_index < 0:
+        preset_index = len(PRESETS) - 1
+    selected_preset = -1
+    display_dirty = True
+
+def preset_next():
+    global preset_index, selected_preset, display_dirty
+    preset_index += 1
+    if preset_index >= len(PRESETS):
+        preset_index = 0
+    selected_preset = -1
+    display_dirty = True
+
+def select_preset():
+    global selected_preset, display_dirty
+    selected_preset = preset_index
+    print("SELECTED:", PRESETS[selected_preset])
+    display_dirty = True
+
+def send_selected_preset():
+    global page, menu_index, selected_preset, display_dirty
+    if selected_preset != preset_index:
+        show_popup("NOT SELECTED", "PRESS SW3")
+        return
+    message = PRESETS[selected_preset]
+    if send_packet("P", message):
+        page = PAGE_MENU
+        menu_index = 0
+        selected_preset = -1
+        show_popup("MESSAGE SENT", message)
+    display_dirty = True
+
+def manual_previous():
+    global manual_index, display_dirty
+    manual_index -= 1
+    if manual_index < 0:
+        manual_index = len(LETTERS) - 1
+    display_dirty = True
+
+def manual_next():
+    global manual_index, display_dirty
+    manual_index += 1
+    if manual_index >= len(LETTERS):
+        manual_index = 0
+    display_dirty = True
+
+def add_manual_letter():
+    global typed_message, display_dirty
+    typed_message += LETTERS[manual_index]
+    if len(typed_message) > 60:
+        typed_message = typed_message[-60:]
+    print("MESSAGE:", typed_message)
+    display_dirty = True
+
+def send_manual_message():
+    global typed_message, manual_index, page, menu_index, display_dirty
+    if len(typed_message) == 0:
+        show_popup("NO MESSAGE", "PRESS SW3")
+        return
+    message = typed_message
+    if send_packet("M", message):
+        typed_message = ""
+        manual_index = 0
+        page = PAGE_MENU
+        menu_index = 0
+        show_popup("MESSAGE SENT", message)
+    display_dirty = True
+
+page = PAGE_MENU
+display_dirty = True
+draw_display()
+
+print()
+print("==============================")
+print("MILITARY BASE READY")
+print("SW1 = PREVIOUS")
+print("SW2 = NEXT")
+print("SW3 = SELECT")
+print("SW4 = SEND")
+print("GPIO47 LED = DISCONNECTED")
+print("GPIO20 HIGH TONE = MESSAGE")
+print("GPIO20 LOW TONE = DISCONNECTED")
+print("==============================")
+
+last_gc = time.ticks_ms()
+
+while True:
+    feed_wdt()
+    now = time.ticks_ms()
+
+    send_heartbeat(now)
+    receive_packets()
+    update_link_status(now)
+    update_buzzer()
+
+    sw1.update()
+    sw2.update()
+    sw3.update()
+    sw4.update()
+
+    any_button = sw1.pressed() or sw2.pressed() or sw3.pressed() or sw4.pressed()
+
+    if popup_active:
+        if any_button:
+            close_popup()
+    else:
+        if page == PAGE_MENU:
+            if sw1.pressed():
+                menu_previous()
+            if sw2.pressed():
+                menu_next()
+            if sw3.pressed():
+                select_mode()
+        elif page == PAGE_PRESET:
+            if sw1.pressed():
+                preset_previous()
+            if sw2.pressed():
+                preset_next()
+            if sw3.pressed():
+                select_preset()
+            if sw4.pressed():
+                send_selected_preset()
+        elif page == PAGE_MANUAL:
+            if sw1.pressed():
+                manual_previous()
+            if sw2.pressed():
+                manual_next()
+            if sw3.pressed():
+                add_manual_letter()
+            if sw4.pressed():
+                send_manual_message()
+
+    if display_dirty:
+        draw_display()
+
+    if time.ticks_diff(now, last_gc) >= 5000:
+        gc.collect()
+        last_gc = now
+
+    feed_wdt()
+    update_buzzer()
+    time.sleep_ms(5)
+`,
+      },
+      {
+        label: 'Survivor Base - Distress Beacon',
+        filename: 'survivor_base_heartbeat.py',
+        code: `from machine import Pin, SoftI2C, WDT, PWM
+import network
+import espnow
+import framebuf
+import time
+import gc
+
+ROLE = "SURVIVOR"
+PEER_ROLE = "MILITARY"
+
+SW1_PIN = 39
+SW2_PIN = 40
+SW3_PIN = 41
+SW4_PIN = 42
+BUZZER_PIN = 20
+STATUS_LED_PIN = 47
+SDA_PIN = 7
+SCL_PIN = 8
+OLED_ADDR = 0x3C
+
+DEBOUNCE_MS = 60
+HEARTBEAT_INTERVAL_MS = 1000
+LINK_TIMEOUT_MS = 4000
+DISCONNECT_BEEP_INTERVAL_MS = 3000
+MESSAGE_TONE_FREQ = 2200
+MESSAGE_TONE_MS = 800
+DISCONNECT_TONE_FREQ = 650
+DISCONNECT_TONE_MS = 350
+BUZZER_DUTY = 28000
+LED_ON = 1
+LED_OFF = 0
+
+PRESETS = (
+    "HELP REQUIRED",
+    "I AM SAFE",
+    "NEED MEDIC",
+    "LOW FOOD",
+    "LOW WATER",
+    "SEND RESCUE",
+    "CANT MOVE",
+    "NEED EVAC"
+)
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+
+try:
+    wdt = WDT(0, timeout=8000)
+    wdt.feed()
+    print("[WDT] READY")
+except Exception as e:
+    wdt = None
+    print("[WDT] ERROR:", e)
+
+def feed_wdt():
+    if wdt is not None:
+        try:
+            wdt.feed()
+        except:
+            pass
+
+# Status LED: ON = peer link missing, OFF = peer link healthy.
+try:
+    status_led = Pin(STATUS_LED_PIN, Pin.OUT)
+    status_led.value(LED_ON)
+    print("[STATUS LED] READY GPIO47")
+except Exception as e:
+    status_led = None
+    print("[STATUS LED] ERROR:", e)
+
+def set_disconnect_led(disconnected):
+    if status_led is None:
+        return
+    try:
+        status_led.value(LED_ON if disconnected else LED_OFF)
+    except:
+        pass
+
+# Buzzer supports a normal message tone and a lower disconnect tone.
+try:
+    buzzer = PWM(Pin(BUZZER_PIN))
+    buzzer.freq(MESSAGE_TONE_FREQ)
+    buzzer.duty_u16(0)
+    print("[BUZZER] READY GPIO20")
+except Exception as e:
+    buzzer = None
+    print("[BUZZER] ERROR:", e)
+
+buzzer_active = False
+buzzer_started = 0
+buzzer_duration = 0
+
+def start_tone(freq, duration_ms):
+    global buzzer_active, buzzer_started, buzzer_duration
+    if buzzer is None:
+        return
+    try:
+        buzzer.freq(freq)
+        buzzer.duty_u16(BUZZER_DUTY)
+        buzzer_started = time.ticks_ms()
+        buzzer_duration = duration_ms
+        buzzer_active = True
+    except Exception as e:
+        print("[BUZZER ERROR]", e)
+
+def buzzer_off():
+    global buzzer_active
+    if buzzer is not None:
+        try:
+            buzzer.duty_u16(0)
+        except:
+            pass
+    buzzer_active = False
+
+def message_tone():
+    start_tone(MESSAGE_TONE_FREQ, MESSAGE_TONE_MS)
+
+def disconnect_tone():
+    # Lower tone, clearly different from the received-message alert.
+    start_tone(DISCONNECT_TONE_FREQ, DISCONNECT_TONE_MS)
+
+def update_buzzer():
+    if not buzzer_active:
+        return
+    if time.ticks_diff(time.ticks_ms(), buzzer_started) >= buzzer_duration:
+        buzzer_off()
+
+def safe_wait(ms):
+    start = time.ticks_ms()
+    while time.ticks_diff(time.ticks_ms(), start) < ms:
+        feed_wdt()
+        update_buzzer()
+        time.sleep_ms(20)
+
+class Button:
+    def __init__(self, gpio):
+        self.pin = Pin(gpio, Pin.IN, Pin.PULL_UP)
+        value = self.pin.value()
+        self.raw_state = value
+        self.stable_state = value
+        self.last_change = time.ticks_ms()
+        self.press_event = False
+
+    def update(self):
+        now = time.ticks_ms()
+        raw = self.pin.value()
+        self.press_event = False
+        if raw != self.raw_state:
+            self.raw_state = raw
+            self.last_change = now
+        if raw != self.stable_state and time.ticks_diff(now, self.last_change) >= DEBOUNCE_MS:
+            previous = self.stable_state
+            self.stable_state = raw
+            if previous == 1 and raw == 0:
+                self.press_event = True
+
+    def pressed(self):
+        return self.press_event
+
+sw1 = Button(SW1_PIN)
+sw2 = Button(SW2_PIN)
+sw3 = Button(SW3_PIN)
+sw4 = Button(SW4_PIN)
+
+class SH1106(framebuf.FrameBuffer):
+    def __init__(self, i2c, width=128, height=64, addr=0x3C):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.pages = height // 8
+        self.buffer = bytearray(width * self.pages)
+        super().__init__(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.init_display()
+
+    def command(self, cmd):
+        feed_wdt()
+        self.i2c.writeto(self.addr, bytes((0x00, cmd)))
+
+    def init_display(self):
+        commands = (
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0xAD, 0x8B, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0x7F,
+            0xD9, 0x22, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        )
+        for cmd in commands:
+            self.command(cmd)
+        self.fill(0)
+        self.show()
+
+    def show(self):
+        for page_number in range(self.pages):
+            feed_wdt()
+            self.command(0xB0 + page_number)
+            self.command(0x02)
+            self.command(0x10)
+            start = page_number * self.width
+            end = start + self.width
+            self.i2c.writeto(self.addr, b'\\x40' + self.buffer[start:end])
+
+OLED_OK = False
+oled = None
+print()
+print("==============================")
+print("SURVIVOR BASE")
+print("==============================")
+try:
+    i2c = SoftI2C(scl=Pin(SCL_PIN), sda=Pin(SDA_PIN), freq=100000, timeout=5000)
+    feed_wdt()
+    i2c.writeto(OLED_ADDR, b'\\x00\\xAE')
+    oled = SH1106(i2c, 128, 64, OLED_ADDR)
+    OLED_OK = True
+    print("[OLED] READY")
+except Exception as e:
+    OLED_OK = False
+    oled = None
+    print("[OLED] ERROR:", e)
+
+PAGE_MENU = 0
+PAGE_PRESET = 1
+PAGE_MANUAL = 2
+page = PAGE_MENU
+menu_index = 0
+preset_index = 0
+selected_preset = -1
+manual_index = 0
+typed_message = ""
+peer_message = ""
+popup_active = False
+popup_title = ""
+popup_message = ""
+display_dirty = True
+
+BIG_FONT = {
+    "A":["01110","10001","10001","11111","10001","10001","10001"],
+    "B":["11110","10001","10001","11110","10001","10001","11110"],
+    "C":["01111","10000","10000","10000","10000","10000","01111"],
+    "D":["11110","10001","10001","10001","10001","10001","11110"],
+    "E":["11111","10000","10000","11110","10000","10000","11111"],
+    "F":["11111","10000","10000","11110","10000","10000","10000"],
+    "G":["01111","10000","10000","10111","10001","10001","01111"],
+    "H":["10001","10001","10001","11111","10001","10001","10001"],
+    "I":["11111","00100","00100","00100","00100","00100","11111"],
+    "J":["00111","00010","00010","00010","10010","10010","01100"],
+    "K":["10001","10010","10100","11000","10100","10010","10001"],
+    "L":["10000","10000","10000","10000","10000","10000","11111"],
+    "M":["10001","11011","10101","10101","10001","10001","10001"],
+    "N":["10001","11001","10101","10011","10001","10001","10001"],
+    "O":["01110","10001","10001","10001","10001","10001","01110"],
+    "P":["11110","10001","10001","11110","10000","10000","10000"],
+    "Q":["01110","10001","10001","10001","10101","10010","01101"],
+    "R":["11110","10001","10001","11110","10100","10010","10001"],
+    "S":["01111","10000","10000","01110","00001","00001","11110"],
+    "T":["11111","00100","00100","00100","00100","00100","00100"],
+    "U":["10001","10001","10001","10001","10001","10001","01110"],
+    "V":["10001","10001","10001","10001","10001","01010","00100"],
+    "W":["10001","10001","10001","10101","10101","11011","10001"],
+    "X":["10001","10001","01010","00100","01010","10001","10001"],
+    "Y":["10001","10001","01010","00100","00100","00100","00100"],
+    "Z":["11111","00001","00010","00100","01000","10000","11111"]
+}
+
+def center_text(text, y, colour=1):
+    if not OLED_OK:
+        return
+    x = (128 - len(text) * 8) // 2
+    if x < 0:
+        x = 0
+    oled.text(text, x, y, colour)
+
+def tail(text, count):
+    return text if len(text) <= count else text[-count:]
+
+def wrap_text(text, maximum=15):
+    if not text:
+        return []
+    words = text.split(" ")
+    lines = []
+    current = ""
+    for word in words:
+        if word == "":
+            if current:
+                current += " "
+            continue
+        while len(word) > maximum:
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(word[:maximum])
+            word = word[maximum:]
+        if not word:
+            continue
+        if current == "":
+            current = word
+        elif len(current) + 1 + len(word) <= maximum:
+            current += " " + word
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines[:3]
+
+def draw_big_char(character, x, y, scale=4):
+    pattern = BIG_FONT.get(character)
+    if pattern is None:
+        return
+    for row in range(7):
+        for column in range(5):
+            if pattern[row][column] == "1":
+                oled.fill_rect(x + column * scale, y + row * scale, scale, scale, 1)
+
+def show_startup():
+    if not OLED_OK:
+        return
+    oled.fill(0)
+    oled.rect(0, 0, 128, 64, 1)
+    center_text("SURVIVOR", 7)
+    center_text("BASE", 20)
+    center_text("COMMUNICATION", 36)
+    center_text("READY", 50)
+    oled.show()
+
+def draw_menu():
+    oled.fill(0)
+    center_text("SELECT MODE", 0)
+    oled.hline(0, 11, 128, 1)
+    if menu_index == 0:
+        oled.fill_rect(14, 18, 100, 17, 1)
+        center_text("PRESET", 23, 0)
+    else:
+        oled.rect(14, 18, 100, 17, 1)
+        center_text("PRESET", 23)
+    if menu_index == 1:
+        oled.fill_rect(14, 42, 100, 17, 1)
+        center_text("MANUAL", 47, 0)
+    else:
+        oled.rect(14, 42, 100, 17, 1)
+        center_text("MANUAL", 47)
+
+def draw_preset():
+    oled.fill(0)
+    center_text("PRESET MODE", 0)
+    oled.hline(0, 10, 128, 1)
+    center_text(str(preset_index + 1) + "/" + str(len(PRESETS)), 13)
+    lines = wrap_text(PRESETS[preset_index], 15)
+    if len(lines) == 1:
+        center_text(lines[0], 33)
+    elif len(lines) == 2:
+        center_text(lines[0], 27)
+        center_text(lines[1], 39)
+    elif len(lines) >= 3:
+        center_text(lines[0], 22)
+        center_text(lines[1], 34)
+        center_text(lines[2], 46)
+    center_text("SELECTED" if selected_preset == preset_index else "SW3 SELECT", 54)
+
+def draw_manual():
+    oled.fill(0)
+    center_text("MANUAL MODE", 0)
+    oled.hline(0, 10, 128, 1)
+    character = LETTERS[manual_index]
+    if character == " ":
+        center_text("SPACE", 22)
+    else:
+        draw_big_char(character, 54, 14, 4)
+    oled.hline(0, 46, 128, 1)
+    oled.text("MSG:", 0, 54, 1)
+    oled.text(tail(typed_message, 12), 32, 54, 1)
+
+def draw_popup():
+    oled.fill(0)
+    center_text(popup_title, 0)
+    oled.hline(0, 11, 128, 1)
+    text = popup_message[-45:] if len(popup_message) > 45 else popup_message
+    lines = wrap_text(text, 15)
+    if len(lines) == 0:
+        center_text("EMPTY", 30)
+    elif len(lines) == 1:
+        center_text(lines[0], 30)
+    elif len(lines) == 2:
+        center_text(lines[0], 25)
+        center_text(lines[1], 38)
+    else:
+        center_text(lines[0], 20)
+        center_text(lines[1], 32)
+        center_text(lines[2], 44)
+    center_text("PRESS ANY KEY", 55)
+
+def show_popup(title, message):
+    global popup_active, popup_title, popup_message, display_dirty
+    popup_title = title
+    popup_message = message
+    popup_active = True
+    display_dirty = True
+
+def close_popup():
+    global popup_active, display_dirty
+    popup_active = False
+    buzzer_off()
+    display_dirty = True
+
+def draw_display():
+    global display_dirty
+    if not OLED_OK:
+        display_dirty = False
+        return
+    try:
+        feed_wdt()
+        if popup_active:
+            draw_popup()
+        elif page == PAGE_MENU:
+            draw_menu()
+        elif page == PAGE_PRESET:
+            draw_preset()
+        elif page == PAGE_MANUAL:
+            draw_manual()
+        oled.show()
+    except Exception as e:
+        print("[OLED ERROR]", e)
+    display_dirty = False
+
+show_startup()
+safe_wait(2000)
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+feed_wdt()
+try:
+    mac = wlan.config("mac")
+    print("[SURVIVOR MAC]", ":".join("{:02X}".format(x) for x in mac))
+except Exception as e:
+    print("[MAC ERROR]", e)
+
+esp = espnow.ESPNow()
+esp.active(True)
+BROADCAST = b'\\xff\\xff\\xff\\xff\\xff\\xff'
+try:
+    esp.add_peer(BROADCAST)
+except:
+    pass
+print("[ESP-NOW] READY")
+
+# Link supervision. ESP-NOW itself is connectionless, so the two boards
+# exchange heartbeat packets and infer link loss from heartbeat timeout.
+boot_time = time.ticks_ms()
+last_heartbeat_sent = time.ticks_add(boot_time, -HEARTBEAT_INTERVAL_MS)
+last_peer_seen = boot_time
+peer_seen_once = False
+link_connected = False
+next_disconnect_beep = time.ticks_add(boot_time, LINK_TIMEOUT_MS)
+
+def send_packet(msg_type, message, quiet=False):
+    packet = msg_type + "|" + ROLE + "|" + message
+    try:
+        feed_wdt()
+        esp.send(BROADCAST, packet.encode(), False)
+        if not quiet:
+            print("TX:", packet)
+        return True
+    except Exception as e:
+        if not quiet:
+            print("[TX ERROR]", e)
+        return False
+
+def send_heartbeat(now):
+    global last_heartbeat_sent
+    if time.ticks_diff(now, last_heartbeat_sent) >= HEARTBEAT_INTERVAL_MS:
+        send_packet("H", "PING", True)
+        last_heartbeat_sent = now
+
+def mark_peer_seen(now):
+    global last_peer_seen, peer_seen_once, link_connected, next_disconnect_beep
+    last_peer_seen = now
+    peer_seen_once = True
+    if not link_connected:
+        link_connected = True
+        set_disconnect_led(False)
+        buzzer_off()
+        next_disconnect_beep = time.ticks_add(now, DISCONNECT_BEEP_INTERVAL_MS)
+        print("[LINK] CONNECTED TO", PEER_ROLE)
+
+def update_link_status(now):
+    global link_connected, next_disconnect_beep
+    healthy = peer_seen_once and time.ticks_diff(now, last_peer_seen) <= LINK_TIMEOUT_MS
+    if healthy:
+        if not link_connected:
+            link_connected = True
+            print("[LINK] CONNECTED TO", PEER_ROLE)
+        set_disconnect_led(False)
+        return
+
+    if link_connected:
+        link_connected = False
+        set_disconnect_led(True)
+        next_disconnect_beep = now
+        print("[LINK] DISCONNECTED FROM", PEER_ROLE)
+    else:
+        set_disconnect_led(True)
+
+    # During initial startup, wait LINK_TIMEOUT_MS before warning by buzzer.
+    if not peer_seen_once and time.ticks_diff(now, boot_time) < LINK_TIMEOUT_MS:
+        return
+
+    if time.ticks_diff(now, next_disconnect_beep) >= 0:
+        disconnect_tone()
+        next_disconnect_beep = time.ticks_add(now, DISCONNECT_BEEP_INTERVAL_MS)
+
+def receive_packets():
+    global peer_message
+    for _ in range(5):
+        feed_wdt()
+        try:
+            host, message = esp.irecv(0)
+        except:
+            return
+        if message is None:
+            return
+        try:
+            text = message.decode()
+        except:
+            continue
+        parts = text.split("|", 2)
+        if len(parts) != 3:
+            continue
+        msg_type, sender, data = parts
+        if sender != PEER_ROLE:
+            continue
+
+        now = time.ticks_ms()
+        mark_peer_seen(now)
+
+        if msg_type == "H":
+            continue
+
+        if msg_type == "P" or msg_type == "M":
+            peer_message = data
+            print("RX FROM", sender + ":", data)
+            message_tone()
+            show_popup("FROM MILITARY", data)
+
+def menu_previous():
+    global menu_index, display_dirty
+    menu_index = 1 if menu_index == 0 else 0
+    display_dirty = True
+
+def menu_next():
+    global menu_index, display_dirty
+    menu_index = 0 if menu_index == 1 else 1
+    display_dirty = True
+
+def select_mode():
+    global page, preset_index, selected_preset, manual_index, typed_message, display_dirty
+    if menu_index == 0:
+        page = PAGE_PRESET
+        preset_index = 0
+        selected_preset = -1
+    else:
+        page = PAGE_MANUAL
+        manual_index = 0
+        typed_message = ""
+    display_dirty = True
+
+def preset_previous():
+    global preset_index, selected_preset, display_dirty
+    preset_index -= 1
+    if preset_index < 0:
+        preset_index = len(PRESETS) - 1
+    selected_preset = -1
+    display_dirty = True
+
+def preset_next():
+    global preset_index, selected_preset, display_dirty
+    preset_index += 1
+    if preset_index >= len(PRESETS):
+        preset_index = 0
+    selected_preset = -1
+    display_dirty = True
+
+def select_preset():
+    global selected_preset, display_dirty
+    selected_preset = preset_index
+    print("SELECTED:", PRESETS[selected_preset])
+    display_dirty = True
+
+def send_selected_preset():
+    global page, menu_index, selected_preset, display_dirty
+    if selected_preset != preset_index:
+        show_popup("NOT SELECTED", "PRESS SW3")
+        return
+    message = PRESETS[selected_preset]
+    if send_packet("P", message):
+        page = PAGE_MENU
+        menu_index = 0
+        selected_preset = -1
+        show_popup("MESSAGE SENT", message)
+    display_dirty = True
+
+def manual_previous():
+    global manual_index, display_dirty
+    manual_index -= 1
+    if manual_index < 0:
+        manual_index = len(LETTERS) - 1
+    display_dirty = True
+
+def manual_next():
+    global manual_index, display_dirty
+    manual_index += 1
+    if manual_index >= len(LETTERS):
+        manual_index = 0
+    display_dirty = True
+
+def add_manual_letter():
+    global typed_message, display_dirty
+    typed_message += LETTERS[manual_index]
+    if len(typed_message) > 60:
+        typed_message = typed_message[-60:]
+    print("MESSAGE:", typed_message)
+    display_dirty = True
+
+def send_manual_message():
+    global typed_message, manual_index, page, menu_index, display_dirty
+    if len(typed_message) == 0:
+        show_popup("NO MESSAGE", "PRESS SW3")
+        return
+    message = typed_message
+    if send_packet("M", message):
+        typed_message = ""
+        manual_index = 0
+        page = PAGE_MENU
+        menu_index = 0
+        show_popup("MESSAGE SENT", message)
+    display_dirty = True
+
+page = PAGE_MENU
+display_dirty = True
+draw_display()
+
+print()
+print("==============================")
+print("SURVIVOR BASE READY")
+print("SW1 = PREVIOUS")
+print("SW2 = NEXT")
+print("SW3 = SELECT")
+print("SW4 = SEND")
+print("GPIO47 LED = DISCONNECTED")
+print("GPIO20 HIGH TONE = MESSAGE")
+print("GPIO20 LOW TONE = DISCONNECTED")
+print("==============================")
+
+last_gc = time.ticks_ms()
+
+while True:
+    feed_wdt()
+    now = time.ticks_ms()
+
+    send_heartbeat(now)
+    receive_packets()
+    update_link_status(now)
+    update_buzzer()
+
+    sw1.update()
+    sw2.update()
+    sw3.update()
+    sw4.update()
+
+    any_button = sw1.pressed() or sw2.pressed() or sw3.pressed() or sw4.pressed()
+
+    if popup_active:
+        if any_button:
+            close_popup()
+    else:
+        if page == PAGE_MENU:
+            if sw1.pressed():
+                menu_previous()
+            if sw2.pressed():
+                menu_next()
+            if sw3.pressed():
+                select_mode()
+        elif page == PAGE_PRESET:
+            if sw1.pressed():
+                preset_previous()
+            if sw2.pressed():
+                preset_next()
+            if sw3.pressed():
+                select_preset()
+            if sw4.pressed():
+                send_selected_preset()
+        elif page == PAGE_MANUAL:
+            if sw1.pressed():
+                manual_previous()
+            if sw2.pressed():
+                manual_next()
+            if sw3.pressed():
+                add_manual_letter()
+            if sw4.pressed():
+                send_manual_message()
+
+    if display_dirty:
+        draw_display()
+
+    if time.ticks_diff(now, last_gc) >= 5000:
+        gc.collect()
+        last_gc = now
+
+    feed_wdt()
+    update_buzzer()
+    time.sleep_ms(5)
+`,
+      },
+    ],
   },
   {
     id: 'axes6',
@@ -16518,6 +21319,7 @@ if __name__ == '__main__':
     heroImage: 'lof-titan/banners/banner-axes6',
     thumbnail: 'lof-titan/banners/banner-axes6',
     tagline: 'Six-Axis Robotic Arm with Coordinated Servo Motion',
+    codeFilename: '6_axis_robotic_arm_web_controller.py',
     description:
       'Build and program a 6-axis robotic arm capable of precise multi-joint movement. Control the base, shoulder, elbow, wrist, rotation, and gripper using servo motors to perform accurate pick-and-place operations and coordinated motion sequences.',
 
@@ -16635,6 +21437,3312 @@ if __name__ == '__main__':
     // artwork were not supplied - the source content jumps from section 2 to
     // section 5, so no assembly steps exist yet. The detail page hides any
     // section with no data and renumbers the rest, so this renders correctly.
+
+    // MicroPython Main Script
+    code: `# ================================================================
+# LOF TITAN ESP32-S3
+# 6 AXIS ROBOTIC ARM WEB CONTROLLER
+# PCA9685 + MicroPython
+#
+# SERVO MAP
+# ------------------------------------------------
+# CH0 / Servo 1 = Gripper
+# CH1 / Servo 2 = Wrist
+# CH2 / Servo 3 = Elbow
+# CH3 / Servo 4 = Shoulder
+# CH4 / Servo 5 = Base Shoulder
+# CH5 / Servo 6 = Base
+#
+# WIFI
+# ------------------------------------------------
+# SSID     : ARM_6AXIS
+# Password : 12345678
+# IP       : 192.168.4.1
+#
+# I2C
+# ------------------------------------------------
+# SDA = GPIO 7
+# SCL = GPIO 8
+# ================================================================
+
+from machine import Pin, I2C, WDT
+import network
+import socket
+import select
+import time
+import gc
+
+
+# ================================================================
+# WATCHDOG
+# ================================================================
+
+wdt = WDT(timeout=8000)
+wdt.feed()
+
+
+# ================================================================
+# I2C SETTINGS
+# ================================================================
+
+SDA_PIN = 7
+SCL_PIN = 8
+
+PCA_ADDR = 0x40
+
+
+# ================================================================
+# WIFI SETTINGS
+# ================================================================
+
+SSID = "ARM_6AXIS"
+PASSWORD = "12345678"
+
+
+# ================================================================
+# SERVO SETTINGS
+# ================================================================
+
+NUM_SERVOS = 6
+
+SERVO_FREQ = 50
+
+SERVO_MIN_US = 500
+SERVO_MAX_US = 2500
+
+
+# ================================================================
+# JOINT NAMES
+# ================================================================
+
+JOINT_NAMES = [
+    "Gripper",        # Servo 1
+    "Wrist",          # Servo 2
+    "Elbow",          # Servo 3
+    "Shoulder",       # Servo 4
+    "Base Shoulder",  # Servo 5
+    "Base"            # Servo 6
+]
+
+
+# ================================================================
+# MINIMUM ANGLES
+# ================================================================
+
+MIN_ANGLES = [
+    25,    # Servo 1 - Gripper
+    40,    # Servo 2 - Wrist
+    0,     # Servo 3 - Elbow
+    0,     # Servo 4 - Shoulder
+    0,     # Servo 5 - Base Shoulder
+    0      # Servo 6 - Base
+]
+
+
+# ================================================================
+# MAXIMUM ANGLES
+# ================================================================
+
+MAX_ANGLES = [
+    180,   # Servo 1
+    170,   # Servo 2
+    180,   # Servo 3
+    125,   # Servo 4  <<< NEW LIMIT
+    180,   # Servo 5
+    180    # Servo 6
+]
+
+
+# ================================================================
+# HOME POSITIONS
+# ================================================================
+
+HOME_ANGLES = [
+    180,   # Servo 1 - Gripper
+    90,    # Servo 2 - Wrist
+    45,    # Servo 3 - Elbow
+    90,    # Servo 4 - Shoulder
+    90,    # Servo 5 - Base Shoulder
+    90     # Servo 6 - Base
+]
+
+
+current_angles = HOME_ANGLES[:]
+
+
+# ================================================================
+# PCA9685 DRIVER
+# ================================================================
+
+class PCA9685:
+
+    MODE1 = 0x00
+    PRESCALE = 0xFE
+    LED0_ON_L = 0x06
+
+
+    def __init__(self, i2c, address=0x40):
+
+        self.i2c = i2c
+        self.address = address
+
+        self.write_reg(
+            self.MODE1,
+            0x00
+        )
+
+        time.sleep_ms(10)
+
+        wdt.feed()
+
+
+    def write_reg(self, reg, value):
+
+        self.i2c.writeto_mem(
+            self.address,
+            reg,
+            bytes([value])
+        )
+
+
+    def read_reg(self, reg):
+
+        return self.i2c.readfrom_mem(
+            self.address,
+            reg,
+            1
+        )[0]
+
+
+    def set_frequency(self, freq):
+
+        prescale_value = 25000000.0
+
+        prescale_value /= 4096.0
+        prescale_value /= float(freq)
+        prescale_value -= 1.0
+
+        prescale = int(
+            prescale_value + 0.5
+        )
+
+        old_mode = self.read_reg(
+            self.MODE1
+        )
+
+        sleep_mode = (
+            old_mode & 0x7F
+        ) | 0x10
+
+
+        self.write_reg(
+            self.MODE1,
+            sleep_mode
+        )
+
+
+        self.write_reg(
+            self.PRESCALE,
+            prescale
+        )
+
+
+        self.write_reg(
+            self.MODE1,
+            old_mode
+        )
+
+
+        time.sleep_ms(5)
+
+
+        self.write_reg(
+            self.MODE1,
+            old_mode | 0xA1
+        )
+
+        wdt.feed()
+
+
+    def set_pwm(
+        self,
+        channel,
+        on_value,
+        off_value
+    ):
+
+        register = (
+            self.LED0_ON_L
+            +
+            (4 * channel)
+        )
+
+        data = bytes([
+            on_value & 0xFF,
+            (on_value >> 8) & 0xFF,
+            off_value & 0xFF,
+            (off_value >> 8) & 0xFF
+        ])
+
+        self.i2c.writeto_mem(
+            self.address,
+            register,
+            data
+        )
+
+
+# ================================================================
+# START I2C
+# ================================================================
+
+print()
+print("========================================")
+print("       6 AXIS ROBOTIC ARM")
+print("     LOF TITAN ESP32-S3")
+print("========================================")
+
+
+i2c = I2C(
+    0,
+    sda=Pin(SDA_PIN),
+    scl=Pin(SCL_PIN),
+    freq=400000
+)
+
+
+wdt.feed()
+
+
+devices = i2c.scan()
+
+
+print()
+print("I2C DEVICES:")
+
+
+for device in devices:
+
+    print(
+        "Found:",
+        hex(device)
+    )
+
+
+if PCA_ADDR not in devices:
+
+    print()
+    print("ERROR: PCA9685 NOT FOUND!")
+
+    while True:
+
+        wdt.feed()
+
+        time.sleep_ms(
+            500
+        )
+
+
+print()
+print("PCA9685 FOUND AT 0x40")
+
+
+if 0x70 in devices:
+
+    print(
+        "0x70 PCA9685 ALLCALL - NORMAL"
+    )
+
+
+# ================================================================
+# INITIALISE PCA9685
+# ================================================================
+
+pca = PCA9685(
+    i2c,
+    PCA_ADDR
+)
+
+pca.set_frequency(
+    SERVO_FREQ
+)
+
+
+# ================================================================
+# ANGLE TO PWM
+# ================================================================
+
+def angle_to_pwm(angle):
+
+    pulse_us = (
+        SERVO_MIN_US
+        +
+        (
+            (
+                SERVO_MAX_US
+                -
+                SERVO_MIN_US
+            )
+            *
+            angle
+            /
+            180
+        )
+    )
+
+
+    period_us = (
+        1000000
+        /
+        SERVO_FREQ
+    )
+
+
+    pwm_value = int(
+        pulse_us
+        *
+        4096
+        /
+        period_us
+    )
+
+
+    return pwm_value
+
+
+# ================================================================
+# SET SERVO
+# ================================================================
+
+def set_servo(
+    channel,
+    angle
+):
+
+    global current_angles
+
+
+    if channel < 0:
+        return
+
+
+    if channel >= NUM_SERVOS:
+        return
+
+
+    angle = int(angle)
+
+
+    # ------------------------------------------------
+    # Safety limits
+    # ------------------------------------------------
+
+    if angle < MIN_ANGLES[channel]:
+
+        angle = MIN_ANGLES[channel]
+
+
+    if angle > MAX_ANGLES[channel]:
+
+        angle = MAX_ANGLES[channel]
+
+
+    pwm_value = angle_to_pwm(
+        angle
+    )
+
+
+    pca.set_pwm(
+        channel,
+        0,
+        pwm_value
+    )
+
+
+    current_angles[channel] = angle
+
+
+    print(
+        "S",
+        channel + 1,
+        JOINT_NAMES[channel],
+        "=",
+        angle
+    )
+
+
+    wdt.feed()
+
+
+# ================================================================
+# SMOOTH SINGLE SERVO MOVEMENT
+# ================================================================
+
+def smooth_move(
+    channel,
+    target,
+    delay_ms=10
+):
+
+    target = int(target)
+
+
+    if target < MIN_ANGLES[channel]:
+
+        target = MIN_ANGLES[channel]
+
+
+    if target > MAX_ANGLES[channel]:
+
+        target = MAX_ANGLES[channel]
+
+
+    start = current_angles[channel]
+
+
+    if start == target:
+
+        return
+
+
+    if target > start:
+
+        direction = 1
+
+    else:
+
+        direction = -1
+
+
+    angle = start
+
+
+    while angle != target:
+
+        angle += direction
+
+
+        set_servo(
+            channel,
+            angle
+        )
+
+
+        wdt.feed()
+
+
+        time.sleep_ms(
+            delay_ms
+        )
+
+
+# ================================================================
+# MOVE ONE DEGREE
+# ================================================================
+
+def move_one_degree(
+    channel,
+    delta
+):
+
+    new_angle = (
+        current_angles[channel]
+        +
+        delta
+    )
+
+
+    if new_angle < MIN_ANGLES[channel]:
+
+        new_angle = MIN_ANGLES[channel]
+
+
+    if new_angle > MAX_ANGLES[channel]:
+
+        new_angle = MAX_ANGLES[channel]
+
+
+    set_servo(
+        channel,
+        new_angle
+    )
+
+
+    return current_angles[channel]
+
+
+# ================================================================
+# SMOOTH HOME ALL
+# All joints move together gradually
+# ================================================================
+
+def home_all():
+
+    print()
+    print("SMOOTH HOME START")
+
+
+    finished = False
+
+
+    while not finished:
+
+        finished = True
+
+
+        for channel in range(
+            NUM_SERVOS
+        ):
+
+            current = current_angles[channel]
+
+            target = HOME_ANGLES[channel]
+
+
+            if current < target:
+
+                current += 1
+
+                finished = False
+
+
+            elif current > target:
+
+                current -= 1
+
+                finished = False
+
+
+            if current != current_angles[channel]:
+
+                set_servo(
+                    channel,
+                    current
+                )
+
+
+        wdt.feed()
+
+        time.sleep_ms(
+            12
+        )
+
+
+    print("HOME COMPLETE")
+
+
+# ================================================================
+# RELEASE SERVOS
+# ================================================================
+
+def release_servos():
+
+    print()
+    print("SERVOS RELEASED")
+
+
+    for channel in range(
+        NUM_SERVOS
+    ):
+
+        pca.set_pwm(
+            channel,
+            0,
+            0
+        )
+
+        wdt.feed()
+
+
+# ================================================================
+# WEB PAGE
+# ================================================================
+
+def web_page():
+
+    html = """<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+name="viewport"
+content="width=device-width,
+initial-scale=1.0,
+maximum-scale=1.0,
+user-scalable=no,
+viewport-fit=cover"
+>
+
+<meta
+name="theme-color"
+content="#050816"
+>
+
+<title>
+LOF Robotic Arm
+</title>
+
+
+<style>
+
+:root{
+
+    --bg:#050816;
+
+    --panel:rgba(
+        15,
+        23,
+        42,
+        0.82
+    );
+
+    --border:rgba(
+        94,
+        234,
+        212,
+        0.20
+    );
+
+    --cyan:#5eead4;
+
+    --blue:#38bdf8;
+
+    --purple:#818cf8;
+
+    --red:#fb7185;
+
+    --green:#4ade80;
+
+    --text:#f8fafc;
+
+    --muted:#94a3b8;
+
+}
+
+
+*{
+
+    box-sizing:border-box;
+
+    margin:0;
+
+    padding:0;
+
+    -webkit-tap-highlight-color:
+    transparent;
+
+    touch-action:
+    manipulation;
+
+}
+
+
+html,
+body{
+
+    width:100%;
+
+    height:100%;
+
+    overflow:hidden;
+
+    overscroll-behavior:none;
+
+}
+
+
+body{
+
+    font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+    background:
+    #050816;
+
+    color:
+    var(--text);
+
+}
+
+
+/* =========================================================
+   ANIMATED BACKGROUND
+   ========================================================= */
+
+.background{
+
+    position:fixed;
+
+    inset:0;
+
+    overflow:hidden;
+
+    z-index:-5;
+
+    background:
+
+    radial-gradient(
+        circle at 15% 20%,
+        rgba(56,189,248,.18),
+        transparent 30%
+    ),
+
+    radial-gradient(
+        circle at 80% 25%,
+        rgba(129,140,248,.18),
+        transparent 32%
+    ),
+
+    radial-gradient(
+        circle at 50% 90%,
+        rgba(94,234,212,.12),
+        transparent 40%
+    ),
+
+    linear-gradient(
+        135deg,
+        #020617,
+        #071127,
+        #050816
+    );
+
+}
+
+
+.orb{
+
+    position:absolute;
+
+    border-radius:50%;
+
+    filter:blur(10px);
+
+    opacity:.28;
+
+    animation:
+    floatOrb 10s
+    ease-in-out
+    infinite;
+
+}
+
+
+.orb1{
+
+    width:230px;
+
+    height:230px;
+
+    background:#0ea5e9;
+
+    left:-80px;
+
+    top:-60px;
+
+}
+
+
+.orb2{
+
+    width:300px;
+
+    height:300px;
+
+    background:#6366f1;
+
+    right:-100px;
+
+    top:25%;
+
+    animation-delay:
+    -4s;
+
+}
+
+
+.orb3{
+
+    width:230px;
+
+    height:230px;
+
+    background:#14b8a6;
+
+    left:40%;
+
+    bottom:-130px;
+
+    animation-delay:
+    -7s;
+
+}
+
+
+@keyframes floatOrb{
+
+    0%,
+    100%{
+
+        transform:
+        translate3d(
+            0,
+            0,
+            0
+        )
+        scale(1);
+
+    }
+
+    50%{
+
+        transform:
+        translate3d(
+            30px,
+            -24px,
+            0
+        )
+        scale(1.08);
+
+    }
+
+}
+
+
+/* =========================================================
+   MAIN LAYOUT
+   ========================================================= */
+
+.app{
+
+    width:100%;
+
+    height:100dvh;
+
+    display:grid;
+
+    grid-template-rows:
+    auto
+    1fr
+    auto;
+
+    gap:7px;
+
+    padding:
+
+    max(
+        6px,
+        env(safe-area-inset-top)
+    )
+
+    max(
+        7px,
+        env(safe-area-inset-right)
+    )
+
+    max(
+        6px,
+        env(safe-area-inset-bottom)
+    )
+
+    max(
+        7px,
+        env(safe-area-inset-left)
+    );
+
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.header{
+
+    height:46px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:
+    space-between;
+
+    padding:
+    0 12px;
+
+    border:
+    1px solid
+    var(--border);
+
+    border-radius:
+    14px;
+
+    background:
+    rgba(
+        8,
+        15,
+        32,
+        .78
+    );
+
+    backdrop-filter:
+    blur(14px);
+
+    box-shadow:
+    0 8px 30px
+    rgba(
+        0,
+        0,
+        0,
+        .25
+    );
+
+}
+
+
+.brand{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    min-width:0;
+
+}
+
+
+.logo{
+
+    width:30px;
+
+    height:30px;
+
+    border-radius:9px;
+
+    display:grid;
+
+    place-items:center;
+
+    font-size:13px;
+
+    font-weight:900;
+
+    color:#020617;
+
+    background:
+    linear-gradient(
+        135deg,
+        var(--cyan),
+        var(--blue)
+    );
+
+    box-shadow:
+    0 0 18px
+    rgba(
+        94,
+        234,
+        212,
+        .35
+    );
+
+}
+
+
+.brandText{
+
+    text-align:left;
+
+    line-height:1.05;
+
+}
+
+
+.title{
+
+    font-size:
+    clamp(
+        13px,
+        2vw,
+        18px
+    );
+
+    font-weight:800;
+
+    letter-spacing:
+    .5px;
+
+}
+
+
+.subtitle{
+
+    margin-top:3px;
+
+    color:
+    var(--muted);
+
+    font-size:
+    clamp(
+        8px,
+        1vw,
+        10px
+    );
+
+}
+
+
+.headerRight{
+
+    display:flex;
+
+    gap:7px;
+
+    align-items:center;
+
+}
+
+
+.status{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:6px;
+
+    padding:
+    6px 9px;
+
+    border-radius:
+    999px;
+
+    background:
+    rgba(
+        74,
+        222,
+        128,
+        .08
+    );
+
+    border:
+    1px solid
+    rgba(
+        74,
+        222,
+        128,
+        .22
+    );
+
+    color:
+    #86efac;
+
+    font-size:
+    9px;
+
+    font-weight:700;
+
+}
+
+
+.statusDot{
+
+    width:7px;
+
+    height:7px;
+
+    border-radius:50%;
+
+    background:
+    #4ade80;
+
+    box-shadow:
+    0 0 10px
+    #4ade80;
+
+    animation:
+    pulse 1.4s infinite;
+
+}
+
+
+@keyframes pulse{
+
+    50%{
+
+        opacity:.35;
+
+    }
+
+}
+
+
+.iconButton{
+
+    height:31px;
+
+    padding:
+    0 10px;
+
+    border:none;
+
+    border-radius:
+    9px;
+
+    cursor:pointer;
+
+    background:
+    rgba(
+        56,
+        189,
+        248,
+        .12
+    );
+
+    border:
+    1px solid
+    rgba(
+        56,
+        189,
+        248,
+        .25
+    );
+
+    color:
+    #bae6fd;
+
+    font-size:
+    9px;
+
+    font-weight:800;
+
+}
+
+
+/* =========================================================
+   SERVO GRID
+   ========================================================= */
+
+.grid{
+
+    min-height:0;
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(
+        3,
+        1fr
+    );
+
+    grid-template-rows:
+    repeat(
+        2,
+        minmax(
+            0,
+            1fr
+        )
+    );
+
+    gap:7px;
+
+}
+
+
+.card{
+
+    min-width:0;
+
+    min-height:0;
+
+    display:grid;
+
+    grid-template-rows:
+    auto
+    1fr
+    auto;
+
+    padding:
+    clamp(
+        7px,
+        1.4vh,
+        12px
+    );
+
+    border:
+    1px solid
+    var(--border);
+
+    border-radius:
+    15px;
+
+    background:
+    linear-gradient(
+        145deg,
+        rgba(
+            15,
+            23,
+            42,
+            .88
+        ),
+        rgba(
+            8,
+            15,
+            32,
+            .72
+        )
+    );
+
+    backdrop-filter:
+    blur(13px);
+
+    box-shadow:
+    inset
+    0 1px 0
+    rgba(
+        255,
+        255,
+        255,
+        .04
+    ),
+    0 8px 28px
+    rgba(
+        0,
+        0,
+        0,
+        .18
+    );
+
+    overflow:hidden;
+
+    position:relative;
+
+}
+
+
+.card:before{
+
+    content:"";
+
+    position:absolute;
+
+    left:0;
+
+    top:0;
+
+    width:3px;
+
+    height:100%;
+
+    background:
+    linear-gradient(
+        to bottom,
+        var(--cyan),
+        transparent
+    );
+
+}
+
+
+.cardTop{
+
+    display:flex;
+
+    align-items:flex-start;
+
+    justify-content:
+    space-between;
+
+    gap:6px;
+
+}
+
+
+.servoID{
+
+    color:
+    var(--cyan);
+
+    font-size:
+    clamp(
+        8px,
+        .9vw,
+        10px
+    );
+
+    font-weight:800;
+
+    letter-spacing:
+    1px;
+
+}
+
+
+.jointName{
+
+    margin-top:2px;
+
+    font-size:
+    clamp(
+        11px,
+        1.45vw,
+        15px
+    );
+
+    font-weight:800;
+
+    white-space:nowrap;
+
+    overflow:hidden;
+
+    text-overflow:
+    ellipsis;
+
+}
+
+
+.angleBox{
+
+    display:flex;
+
+    align-items:
+    baseline;
+
+    gap:2px;
+
+    color:
+    var(--blue);
+
+}
+
+
+.angleValue{
+
+    font-size:
+    clamp(
+        22px,
+        4vh,
+        38px
+    );
+
+    line-height:1;
+
+    font-weight:900;
+
+    font-variant-numeric:
+    tabular-nums;
+
+    text-shadow:
+    0 0 20px
+    rgba(
+        56,
+        189,
+        248,
+        .25
+    );
+
+}
+
+
+.degree{
+
+    font-size:
+    12px;
+
+    color:
+    var(--muted);
+
+}
+
+
+/* =========================================================
+   ANGLE RANGE
+   ========================================================= */
+
+.middle{
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+}
+
+
+.rangeLine{
+
+    width:100%;
+
+    height:5px;
+
+    margin-top:7px;
+
+    border-radius:
+    999px;
+
+    background:
+    rgba(
+        148,
+        163,
+        184,
+        .12
+    );
+
+    overflow:hidden;
+
+}
+
+
+.rangeFill{
+
+    height:100%;
+
+    border-radius:
+    999px;
+
+    background:
+    linear-gradient(
+        90deg,
+        var(--cyan),
+        var(--blue),
+        var(--purple)
+    );
+
+    transition:
+    width .14s ease;
+
+}
+
+
+.rangeInfo{
+
+    display:flex;
+
+    justify-content:
+    space-between;
+
+    margin-top:5px;
+
+    color:
+    var(--muted);
+
+    font-size:
+    clamp(
+        7px,
+        .85vw,
+        9px
+    );
+
+}
+
+
+/* =========================================================
+   SERVO BUTTONS
+   ========================================================= */
+
+.controls{
+
+    display:grid;
+
+    grid-template-columns:
+    1fr
+    .7fr
+    1fr;
+
+    gap:6px;
+
+}
+
+
+.jog{
+
+    min-height:
+    clamp(
+        30px,
+        6vh,
+        44px
+    );
+
+    border:none;
+
+    border-radius:
+    10px;
+
+    cursor:pointer;
+
+    color:white;
+
+    font-size:
+    clamp(
+        15px,
+        2.2vw,
+        22px
+    );
+
+    font-weight:900;
+
+    background:
+    linear-gradient(
+        145deg,
+        rgba(
+            30,
+            41,
+            59,
+            .95
+        ),
+        rgba(
+            15,
+            23,
+            42,
+            .95
+        )
+    );
+
+    border:
+    1px solid
+    rgba(
+        148,
+        163,
+        184,
+        .18
+    );
+
+    user-select:none;
+
+    -webkit-user-select:none;
+
+}
+
+
+.jog:active{
+
+    transform:
+    scale(.96);
+
+    background:
+    rgba(
+        56,
+        189,
+        248,
+        .22
+    );
+
+}
+
+
+.minus{
+
+    color:
+    #fda4af;
+
+}
+
+
+.plus{
+
+    color:
+    #67e8f9;
+
+}
+
+
+.homeJoint{
+
+    border:none;
+
+    border-radius:
+    10px;
+
+    cursor:pointer;
+
+    color:
+    #c7d2fe;
+
+    font-size:
+    clamp(
+        7px,
+        1vw,
+        10px
+    );
+
+    font-weight:900;
+
+    background:
+    rgba(
+        99,
+        102,
+        241,
+        .13
+    );
+
+    border:
+    1px solid
+    rgba(
+        129,
+        140,
+        248,
+        .22
+    );
+
+}
+
+
+/* =========================================================
+   BOTTOM CONTROLS
+   ========================================================= */
+
+.bottomBar{
+
+    display:grid;
+
+    grid-template-columns:
+    1fr
+    1fr
+    1fr;
+
+    gap:7px;
+
+    height:42px;
+
+}
+
+
+.mainButton{
+
+    border:none;
+
+    border-radius:
+    12px;
+
+    cursor:pointer;
+
+    color:white;
+
+    font-size:
+    clamp(
+        9px,
+        1.2vw,
+        12px
+    );
+
+    font-weight:900;
+
+    letter-spacing:
+    .5px;
+
+}
+
+
+.homeAll{
+
+    background:
+    linear-gradient(
+        135deg,
+        #2563eb,
+        #4f46e5
+    );
+
+}
+
+
+.release{
+
+    background:
+    linear-gradient(
+        135deg,
+        #be123c,
+        #e11d48
+    );
+
+}
+
+
+.fullscreen{
+
+    background:
+    linear-gradient(
+        135deg,
+        #0f766e,
+        #0891b2
+    );
+
+}
+
+
+.mainButton:active{
+
+    transform:
+    scale(.98);
+
+}
+
+
+/* =========================================================
+   PORTRAIT
+   Still no scrolling
+   ========================================================= */
+
+@media(
+    orientation:portrait
+){
+
+    .grid{
+
+        grid-template-columns:
+        repeat(
+            2,
+            1fr
+        );
+
+        grid-template-rows:
+        repeat(
+            3,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    }
+
+
+    .header{
+
+        height:
+        42px;
+
+    }
+
+
+    .card{
+
+        padding:
+        6px;
+
+        border-radius:
+        11px;
+
+    }
+
+
+    .angleValue{
+
+        font-size:
+        clamp(
+            19px,
+            3.2vh,
+            28px
+        );
+
+    }
+
+
+    .status{
+
+        display:none;
+
+    }
+
+
+    .bottomBar{
+
+        height:
+        38px;
+
+    }
+
+}
+
+
+/* =========================================================
+   VERY SMALL SCREENS
+   ========================================================= */
+
+@media(
+    max-height:500px
+){
+
+    .header{
+
+        height:
+        40px;
+
+    }
+
+    .subtitle{
+
+        display:none;
+
+    }
+
+    .card{
+
+        padding:
+        6px 8px;
+
+    }
+
+    .rangeInfo{
+
+        margin-top:
+        2px;
+
+    }
+
+    .rangeLine{
+
+        margin-top:
+        3px;
+
+    }
+
+    .bottomBar{
+
+        height:
+        36px;
+
+    }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="background">
+
+<div class="orb orb1"></div>
+
+<div class="orb orb2"></div>
+
+<div class="orb orb3"></div>
+
+</div>
+
+
+<div class="app">
+
+
+<!-- =========================================================
+     HEADER
+     ========================================================= -->
+
+<div class="header">
+
+<div class="brand">
+
+<div class="logo">
+6X
+</div>
+
+<div class="brandText">
+
+<div class="title">
+ROBOTIC ARM CONTROL
+</div>
+
+<div class="subtitle">
+LOF TITAN • PCA9685 • 6 AXIS
+</div>
+
+</div>
+
+</div>
+
+
+<div class="headerRight">
+
+<div class="status">
+
+<span class="statusDot"></span>
+
+CONNECTED
+
+</div>
+
+
+<button
+class="iconButton"
+onclick="enterFullScreen()"
+>
+FULLSCREEN
+</button>
+
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     SERVO GRID
+     ========================================================= -->
+
+<div class="grid">
+"""
+
+
+    # ============================================================
+    # GENERATE 6 SERVO CARDS
+    # ============================================================
+
+    for i in range(
+        NUM_SERVOS
+    ):
+
+        minimum = MIN_ANGLES[i]
+
+        maximum = MAX_ANGLES[i]
+
+        current = current_angles[i]
+
+        home = HOME_ANGLES[i]
+
+
+        percent = int(
+            (
+                current
+                -
+                minimum
+            )
+            *
+            100
+            /
+            (
+                maximum
+                -
+                minimum
+            )
+        )
+
+
+        html += """
+
+<div class="card">
+
+<div class="cardTop">
+
+<div>
+
+<div class="servoID">
+SERVO %d • CH%d
+</div>
+
+<div class="jointName">
+%s
+</div>
+
+</div>
+
+
+<div class="angleBox">
+
+<span
+class="angleValue"
+id="angle%d"
+>
+%d
+</span>
+
+<span class="degree">
+°
+</span>
+
+</div>
+
+</div>
+
+
+<div class="middle">
+
+<div class="rangeLine">
+
+<div
+class="rangeFill"
+id="fill%d"
+style="width:%d%%"
+>
+</div>
+
+</div>
+
+
+<div class="rangeInfo">
+
+<span>
+MIN %d°
+</span>
+
+<span>
+HOME %d°
+</span>
+
+<span>
+MAX %d°
+</span>
+
+</div>
+
+</div>
+
+
+<div class="controls">
+
+
+<button
+class="jog minus"
+onpointerdown="startJog(%d,-1)"
+onpointerup="stopJog()"
+onpointercancel="stopJog()"
+onpointerleave="stopJog()"
+>
+−1
+</button>
+
+
+<button
+class="homeJoint"
+onclick="jointHome(%d,%d)"
+>
+HOME
+</button>
+
+
+<button
+class="jog plus"
+onpointerdown="startJog(%d,1)"
+onpointerup="stopJog()"
+onpointercancel="stopJog()"
+onpointerleave="stopJog()"
+>
++1
+</button>
+
+
+</div>
+
+</div>
+
+""" % (
+
+            i + 1,
+            i,
+            JOINT_NAMES[i],
+
+            i,
+            current,
+
+            i,
+            percent,
+
+            minimum,
+            home,
+            maximum,
+
+            i,
+
+            i,
+            home,
+
+            i
+        )
+
+
+    html += """
+
+</div>
+
+
+<!-- =========================================================
+     BOTTOM CONTROL BAR
+     ========================================================= -->
+
+<div class="bottomBar">
+
+
+<button
+class="mainButton homeAll"
+onclick="homeAll()"
+>
+HOME ALL
+</button>
+
+
+<button
+class="mainButton release"
+onclick="releaseAll()"
+>
+RELEASE
+</button>
+
+
+<button
+class="mainButton fullscreen"
+onclick="enterFullScreen()"
+>
+FULL SCREEN
+</button>
+
+
+</div>
+
+</div>
+
+
+<script>
+
+/* ============================================================
+   SERVO LIMITS
+   ============================================================ */
+
+const minAngles = [
+    25,
+    40,
+    0,
+    0,
+    0,
+    0
+];
+
+
+const maxAngles = [
+    180,
+    170,
+    180,
+    125,
+    180,
+    180
+];
+
+
+const homeAngles = [
+    180,
+    90,
+    45,
+    90,
+    90,
+    90
+];
+
+
+let angles = [
+    180,
+    90,
+    45,
+    90,
+    90,
+    90
+];
+
+
+let jogTimer = null;
+
+let jogBusy = false;
+
+
+/* ============================================================
+   UPDATE DISPLAY
+   ============================================================ */
+
+function updateDisplay(
+    channel,
+    angle
+){
+
+    angle =
+    parseInt(
+        angle
+    );
+
+
+    angles[channel] =
+    angle;
+
+
+    document.getElementById(
+        "angle" + channel
+    ).textContent =
+    angle;
+
+
+    let min =
+    minAngles[channel];
+
+
+    let max =
+    maxAngles[channel];
+
+
+    let percent =
+    (
+        (
+            angle
+            -
+            min
+        )
+        /
+        (
+            max
+            -
+            min
+        )
+    )
+    *
+    100;
+
+
+    if(
+        percent < 0
+    ){
+
+        percent = 0;
+
+    }
+
+
+    if(
+        percent > 100
+    ){
+
+        percent = 100;
+
+    }
+
+
+    document.getElementById(
+        "fill" + channel
+    ).style.width =
+    percent + "%";
+
+}
+
+
+/* ============================================================
+   MOVE ONE DEGREE
+   ============================================================ */
+
+async function jogOnce(
+    channel,
+    delta
+){
+
+    if(
+        jogBusy
+    ){
+
+        return;
+
+    }
+
+
+    jogBusy =
+    true;
+
+
+    try{
+
+        const response =
+        await fetch(
+            "/move?ch="
+            +
+            channel
+            +
+            "&delta="
+            +
+            delta
+        );
+
+
+        const value =
+        await response.text();
+
+
+        const angle =
+        parseInt(
+            value
+        );
+
+
+        if(
+            !isNaN(
+                angle
+            )
+        ){
+
+            updateDisplay(
+                channel,
+                angle
+            );
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+
+    jogBusy =
+    false;
+
+}
+
+
+/* ============================================================
+   PRESS + HOLD
+   First press = 1 degree
+   Continue holding = one degree steps
+   ============================================================ */
+
+function startJog(
+    channel,
+    delta
+){
+
+    stopJog();
+
+
+    jogOnce(
+        channel,
+        delta
+    );
+
+
+    jogTimer =
+    setInterval(
+        function(){
+
+            jogOnce(
+                channel,
+                delta
+            );
+
+        },
+        110
+    );
+
+}
+
+
+function stopJog(){
+
+    if(
+        jogTimer
+    ){
+
+        clearInterval(
+            jogTimer
+        );
+
+        jogTimer =
+        null;
+
+    }
+
+}
+
+
+/* ============================================================
+   INDIVIDUAL HOME
+   ============================================================ */
+
+async function jointHome(
+    channel,
+    angle
+){
+
+    stopJog();
+
+
+    try{
+
+        const response =
+        await fetch(
+            "/servo?ch="
+            +
+            channel
+            +
+            "&angle="
+            +
+            angle
+            +
+            "&smooth=1"
+        );
+
+
+        const value =
+        await response.text();
+
+
+        const newAngle =
+        parseInt(
+            value
+        );
+
+
+        if(
+            !isNaN(
+                newAngle
+            )
+        ){
+
+            updateDisplay(
+                channel,
+                newAngle
+            );
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+}
+
+
+/* ============================================================
+   HOME ALL
+   ============================================================ */
+
+async function homeAll(){
+
+    stopJog();
+
+
+    try{
+
+        await fetch(
+            "/home"
+        );
+
+
+        for(
+            let i = 0;
+            i < 6;
+            i++
+        ){
+
+            updateDisplay(
+                i,
+                homeAngles[i]
+            );
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+}
+
+
+/* ============================================================
+   RELEASE
+   ============================================================ */
+
+async function releaseAll(){
+
+    stopJog();
+
+
+    try{
+
+        await fetch(
+            "/release"
+        );
+
+    }
+
+    catch(error){
+
+    }
+
+}
+
+
+/* ============================================================
+   FULLSCREEN + LANDSCAPE LOCK + WAKE LOCK
+   ============================================================ */
+
+let wakeLock = null;
+
+
+async function enterFullScreen(){
+
+    try{
+
+        if(
+            !document.fullscreenElement
+        ){
+
+            await document.documentElement.requestFullscreen();
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+
+    try{
+
+        if(
+            screen.orientation
+            &&
+            screen.orientation.lock
+        ){
+
+            await screen.orientation.lock(
+                "landscape"
+            );
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+
+    try{
+
+        if(
+            "wakeLock"
+            in navigator
+        ){
+
+            wakeLock =
+            await navigator.wakeLock.request(
+                "screen"
+            );
+
+        }
+
+    }
+
+    catch(error){
+
+    }
+
+}
+
+
+/* ============================================================
+   PREVENT PAGE MOVEMENT / SCROLL
+   ============================================================ */
+
+document.addEventListener(
+    "touchmove",
+    function(event){
+
+        event.preventDefault();
+
+    },
+    {
+        passive:false
+    }
+);
+
+
+document.addEventListener(
+    "contextmenu",
+    function(event){
+
+        event.preventDefault();
+
+    }
+);
+
+
+/* ============================================================
+   STOP JOG IF TOUCH IS RELEASED ANYWHERE
+   ============================================================ */
+
+document.addEventListener(
+    "pointerup",
+    stopJog
+);
+
+
+document.addEventListener(
+    "pointercancel",
+    stopJog
+);
+
+
+/* ============================================================
+   INITIAL DISPLAY
+   ============================================================ */
+
+for(
+    let i = 0;
+    i < 6;
+    i++
+){
+
+    updateDisplay(
+        i,
+        angles[i]
+    );
+
+}
+
+</script>
+
+
+</body>
+
+</html>
+"""
+
+    return html
+
+
+# ================================================================
+# WIFI ACCESS POINT
+# ================================================================
+
+print()
+print("Starting WiFi AP...")
+
+
+ap = network.WLAN(
+    network.AP_IF
+)
+
+
+ap.active(
+    True
+)
+
+
+ap.config(
+    essid=SSID,
+    password=PASSWORD
+)
+
+
+while not ap.active():
+
+    wdt.feed()
+
+    time.sleep_ms(
+        100
+    )
+
+
+ip = ap.ifconfig()[0]
+
+
+print()
+print("========================================")
+print("WIFI READY")
+print("========================================")
+print("SSID     :", SSID)
+print("Password :", PASSWORD)
+print("IP       :", ip)
+print("========================================")
+
+
+# ================================================================
+# STARTUP HOME
+# ================================================================
+
+print()
+print("Setting startup positions...")
+
+
+for channel in range(
+    NUM_SERVOS
+):
+
+    set_servo(
+        channel,
+        HOME_ANGLES[channel]
+    )
+
+    wdt.feed()
+
+    time.sleep_ms(
+        80
+    )
+
+
+# ================================================================
+# SEND DATA SAFELY
+# ================================================================
+
+def send_all(
+    client,
+    data
+):
+
+    if isinstance(
+        data,
+        str
+    ):
+
+        data = data.encode()
+
+
+    total = 0
+
+    length = len(
+        data
+    )
+
+
+    while total < length:
+
+        wdt.feed()
+
+
+        sent = client.send(
+            data[total:]
+        )
+
+
+        if sent is None:
+
+            break
+
+
+        if sent <= 0:
+
+            break
+
+
+        total += sent
+
+
+# ================================================================
+# HTTP RESPONSE
+# ================================================================
+
+def send_response(
+    client,
+    content,
+    content_type="text/plain"
+):
+
+    header = (
+        "HTTP/1.1 200 OK\\r\\n"
+        "Content-Type: "
+        +
+        content_type
+        +
+        "\\r\\n"
+        "Connection: close\\r\\n"
+        "Cache-Control: no-store\\r\\n"
+        "Access-Control-Allow-Origin: *\\r\\n"
+        "\\r\\n"
+    )
+
+
+    send_all(
+        client,
+        header
+    )
+
+
+    send_all(
+        client,
+        content
+    )
+
+
+# ================================================================
+# URL PARAMETERS
+# ================================================================
+
+def get_parameters(
+    path
+):
+
+    values = {}
+
+
+    if "?" not in path:
+
+        return values
+
+
+    query = path.split(
+        "?",
+        1
+    )[1]
+
+
+    for item in query.split(
+        "&"
+    ):
+
+        if "=" in item:
+
+            key, value = item.split(
+                "=",
+                1
+            )
+
+            values[key] = value
+
+
+    return values
+
+
+# ================================================================
+# HANDLE DIRECT SERVO TARGET
+# ================================================================
+
+def handle_servo_request(
+    path
+):
+
+    try:
+
+        values = get_parameters(
+            path
+        )
+
+
+        channel = int(
+            values.get(
+                "ch",
+                "0"
+            )
+        )
+
+
+        angle = int(
+            values.get(
+                "angle",
+                "90"
+            )
+        )
+
+
+        smooth = int(
+            values.get(
+                "smooth",
+                "0"
+            )
+        )
+
+
+        if (
+            channel < 0
+            or
+            channel >= NUM_SERVOS
+        ):
+
+            return "ERROR"
+
+
+        if smooth == 1:
+
+            smooth_move(
+                channel,
+                angle,
+                9
+            )
+
+        else:
+
+            set_servo(
+                channel,
+                angle
+            )
+
+
+        return str(
+            current_angles[channel]
+        )
+
+
+    except Exception as e:
+
+        print(
+            "Servo request error:",
+            e
+        )
+
+        return "ERROR"
+
+
+# ================================================================
+# HANDLE +/- 1 DEGREE
+# ================================================================
+
+def handle_move_request(
+    path
+):
+
+    try:
+
+        values = get_parameters(
+            path
+        )
+
+
+        channel = int(
+            values.get(
+                "ch",
+                "0"
+            )
+        )
+
+
+        delta = int(
+            values.get(
+                "delta",
+                "0"
+            )
+        )
+
+
+        if (
+            channel < 0
+            or
+            channel >= NUM_SERVOS
+        ):
+
+            return "ERROR"
+
+
+        # Only allow one-degree jog commands
+        if delta > 0:
+
+            delta = 1
+
+        elif delta < 0:
+
+            delta = -1
+
+        else:
+
+            delta = 0
+
+
+        angle = move_one_degree(
+            channel,
+            delta
+        )
+
+
+        return str(
+            angle
+        )
+
+
+    except Exception as e:
+
+        print(
+            "Move error:",
+            e
+        )
+
+        return "ERROR"
+
+
+# ================================================================
+# WEB SERVER
+# ================================================================
+
+address = socket.getaddrinfo(
+    "0.0.0.0",
+    80
+)[0][-1]
+
+
+server = socket.socket()
+
+
+server.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_REUSEADDR,
+    1
+)
+
+
+server.bind(
+    address
+)
+
+
+server.listen(
+    4
+)
+
+
+# ================================================================
+# NON-BLOCKING POLL
+# ================================================================
+
+poller = select.poll()
+
+
+poller.register(
+    server,
+    select.POLLIN
+)
+
+
+print()
+print("========================================")
+print("ROBOT ARM SERVER READY")
+print("========================================")
+print("Connect :", SSID)
+print("Open    : http://" + ip)
+print()
+print("SERVO LIMITS")
+print("S1 :", MIN_ANGLES[0], "-", MAX_ANGLES[0])
+print("S2 :", MIN_ANGLES[1], "-", MAX_ANGLES[1])
+print("S3 :", MIN_ANGLES[2], "-", MAX_ANGLES[2])
+print("S4 :", MIN_ANGLES[3], "-", MAX_ANGLES[3])
+print("S5 :", MIN_ANGLES[4], "-", MAX_ANGLES[4])
+print("S6 :", MIN_ANGLES[5], "-", MAX_ANGLES[5])
+print("========================================")
+print()
+
+
+last_gc = time.ticks_ms()
+
+
+# ================================================================
+# MAIN LOOP
+# ================================================================
+
+while True:
+
+    wdt.feed()
+
+
+    events = poller.poll(
+        80
+    )
+
+
+    # ------------------------------------------------------------
+    # Garbage collection
+    # ------------------------------------------------------------
+
+    if time.ticks_diff(
+        time.ticks_ms(),
+        last_gc
+    ) > 10000:
+
+        gc.collect()
+
+        last_gc = time.ticks_ms()
+
+
+    if not events:
+
+        continue
+
+
+    client = None
+
+
+    try:
+
+        wdt.feed()
+
+
+        client, remote_address = server.accept()
+
+
+        try:
+
+            client.settimeout(
+                0.5
+            )
+
+        except:
+
+            pass
+
+
+        wdt.feed()
+
+
+        request = client.recv(
+            1024
+        )
+
+
+        wdt.feed()
+
+
+        if not request:
+
+            client.close()
+
+            client = None
+
+            continue
+
+
+        request = request.decode(
+            "utf-8",
+            "ignore"
+        )
+
+
+        first_line = request.split(
+            "\\r\\n"
+        )[0]
+
+
+        parts = first_line.split(
+            " "
+        )
+
+
+        if len(parts) >= 2:
+
+            path = parts[1]
+
+        else:
+
+            path = "/"
+
+
+        # ========================================================
+        # +/- ONE DEGREE
+        # ========================================================
+
+        if path.startswith(
+            "/move?"
+        ):
+
+            result = handle_move_request(
+                path
+            )
+
+
+            send_response(
+                client,
+                result
+            )
+
+
+        # ========================================================
+        # DIRECT / SMOOTH SERVO POSITION
+        # ========================================================
+
+        elif path.startswith(
+            "/servo?"
+        ):
+
+            result = handle_servo_request(
+                path
+            )
+
+
+            send_response(
+                client,
+                result
+            )
+
+
+        # ========================================================
+        # HOME ALL
+        # ========================================================
+
+        elif path == "/home":
+
+            home_all()
+
+
+            send_response(
+                client,
+                "HOME"
+            )
+
+
+        # ========================================================
+        # RELEASE
+        # ========================================================
+
+        elif path == "/release":
+
+            release_servos()
+
+
+            send_response(
+                client,
+                "RELEASED"
+            )
+
+
+        # ========================================================
+        # MAIN WEB PAGE
+        # ========================================================
+
+        else:
+
+            wdt.feed()
+
+
+            page = web_page()
+
+
+            wdt.feed()
+
+
+            send_response(
+                client,
+                page,
+                "text/html; charset=utf-8"
+            )
+
+
+    except OSError:
+
+        pass
+
+
+    except Exception as e:
+
+        print(
+            "Server error:",
+            e
+        )
+
+
+    finally:
+
+        if client is not None:
+
+            try:
+
+                client.close()
+
+            except:
+
+                pass
+
+
+        wdt.feed()
+`,
   },
   {
     id: 'cosmic-grip',
@@ -16796,6 +24904,7 @@ if __name__ == '__main__':
     // card falls back to a stand-in rather than borrowing another kit's banner.
     // Add as lof-titan/banners/banner-water-hunt-mars when the art arrives.
     tagline: 'Soil Moisture Mapping Across a Simulated Martian Landscape',
+    codeFilename: 'water_hunt_on_mars.py',
     description:
       'Build and program a rover that investigates moisture variations across a simulated Martian landscape. Integrate environmental sensors, collect real-time data, and map potential water-rich zones. Discover how robotic exploration, sensor technology, and scientific data analysis help researchers investigate water resources on Mars.',
 
@@ -17043,6 +25152,3441 @@ if __name__ == '__main__':
     // NOT MODELLED: the Moisture Mapping Comparison Panel (a baseline-vs-modified
     // worksheet table with a closing question) and the Final CTA banner. No kit
     // schema field exists for either; both need a new section in the detail view.
+
+    // MicroPython Main Script
+    code: `import network
+import socket
+import time
+
+from machine import Pin, PWM, ADC, WDT
+
+import onewire
+import ds18x20
+
+
+# ============================================================
+# LOF TITAN ESP32-S3
+#
+# 4 WHEEL WEB ROVER
+# DUAL JOYSTICK CONTROL
+# 2 SERVO ARM
+# CAPACITIVE SOIL MOISTURE SENSOR
+# DS18B20 WATERPROOF TEMPERATURE SENSOR
+# AUTOMATIC MEASURE SEQUENCE
+# ============================================================
+
+
+# ============================================================
+# WATCHDOG
+# ============================================================
+
+wdt = WDT(0, timeout=8000)
+wdt.feed()
+
+
+# ============================================================
+# MOTOR PINS
+# ============================================================
+
+# M1 - FRONT LEFT
+FL_PWM = PWM(Pin(15))
+FL_DIR = Pin(16, Pin.OUT)
+
+# M2 - FRONT RIGHT
+FR_PWM = PWM(Pin(13))
+FR_DIR = Pin(14, Pin.OUT)
+
+# M3 - REAR LEFT
+RL_PWM = PWM(Pin(11))
+RL_DIR = Pin(12, Pin.OUT)
+
+# M4 - REAR RIGHT
+RR_PWM = PWM(Pin(9))
+RR_DIR = Pin(10, Pin.OUT)
+
+
+# Motor PWM Frequency
+
+FL_PWM.freq(1000)
+FR_PWM.freq(1000)
+RL_PWM.freq(1000)
+RR_PWM.freq(1000)
+
+
+# ============================================================
+# MOTOR DIRECTION CORRECTION
+#
+# If any motor rotates opposite direction,
+# change False to True.
+# ============================================================
+
+FL_INVERT = False
+FR_INVERT = False
+RL_INVERT = False
+RR_INVERT = False
+
+
+# ============================================================
+# SERVO SETUP
+# ============================================================
+
+# Servo 1 = GPIO 1
+# Servo 2 = GPIO 2
+
+SERVO1_PIN = 1
+SERVO2_PIN = 2
+
+
+servo1 = PWM(
+    Pin(SERVO1_PIN)
+)
+
+servo2 = PWM(
+    Pin(SERVO2_PIN)
+)
+
+
+servo1.freq(50)
+servo2.freq(50)
+
+
+# ============================================================
+# SERVO HOME POSITIONS
+# ============================================================
+
+SERVO1_HOME = 180
+SERVO2_HOME = 0
+
+
+# Measurement Positions
+
+SERVO1_MEASURE = 0
+SERVO2_MEASURE = 90
+
+
+servo1_angle = SERVO1_HOME
+servo2_angle = SERVO2_HOME
+
+
+# ============================================================
+# SERVO WRITE
+# ============================================================
+
+def servo_write(servo, angle):
+
+    angle = max(
+        0,
+        min(
+            180,
+            int(angle)
+        )
+    )
+
+    # 500us to 2500us
+    pulse_us = (
+        500 +
+        int(
+            angle *
+            2000 /
+            180
+        )
+    )
+
+    duty = int(
+        pulse_us *
+        65535 /
+        20000
+    )
+
+    servo.duty_u16(
+        duty
+    )
+
+
+# Set initial home position
+
+servo_write(
+    servo1,
+    SERVO1_HOME
+)
+
+servo_write(
+    servo2,
+    SERVO2_HOME
+)
+
+
+# ============================================================
+# SOIL MOISTURE SENSOR
+# ============================================================
+
+SOIL_PIN = 3
+
+
+soil_adc = ADC(
+    Pin(SOIL_PIN)
+)
+
+
+try:
+
+    soil_adc.atten(
+        ADC.ATTN_11DB
+    )
+
+except:
+    pass
+
+
+# ============================================================
+# SOIL CALIBRATION
+#
+# Replace these after testing your actual sensor.
+#
+# DRY value = sensor in air/dry soil
+# WET value = sensor in very wet soil
+# ============================================================
+
+SOIL_DRY = 52000
+SOIL_WET = 22000
+
+
+soil_raw = 0
+soil_percent = 0
+
+
+# ============================================================
+# SOIL READ FUNCTION
+# ============================================================
+
+def measure_soil():
+
+    global soil_raw
+    global soil_percent
+
+
+    print(
+        "Reading soil moisture..."
+    )
+
+
+    total = 0
+
+    samples = 15
+
+
+    # Take multiple readings
+
+    for i in range(samples):
+
+        wdt.feed()
+
+        total += (
+            soil_adc.read_u16()
+        )
+
+        time.sleep_ms(30)
+
+
+    soil_raw = int(
+        total /
+        samples
+    )
+
+
+    difference = (
+        SOIL_DRY -
+        SOIL_WET
+    )
+
+
+    if difference != 0:
+
+        soil_percent = int(
+
+            (
+                SOIL_DRY -
+                soil_raw
+            )
+
+            *
+
+            100
+
+            /
+
+            difference
+
+        )
+
+    else:
+
+        soil_percent = 0
+
+
+    soil_percent = max(
+        0,
+        min(
+            100,
+            soil_percent
+        )
+    )
+
+
+    print(
+        "Soil RAW:",
+        soil_raw
+    )
+
+    print(
+        "Soil Moisture:",
+        soil_percent,
+        "%"
+    )
+
+
+# ============================================================
+# DS18B20 TEMPERATURE SENSOR
+# ============================================================
+
+DS18_PIN = 4
+
+
+one_wire = onewire.OneWire(
+    Pin(
+        DS18_PIN,
+        Pin.IN,
+        Pin.PULL_UP
+    )
+)
+
+
+ds18 = ds18x20.DS18X20(
+    one_wire
+)
+
+
+ds18_roms = ds18.scan()
+
+
+water_temperature = None
+
+
+print()
+print("==============================")
+print("DS18B20 CHECK")
+print("==============================")
+
+
+if ds18_roms:
+
+    print(
+        "DS18B20 FOUND"
+    )
+
+    print(
+        "Sensors:",
+        len(ds18_roms)
+    )
+
+else:
+
+    print(
+        "DS18B20 NOT FOUND"
+    )
+
+
+# ============================================================
+# TEMPERATURE MEASUREMENT
+# ============================================================
+
+def measure_temperature():
+
+    global water_temperature
+
+
+    print(
+        "Reading temperature..."
+    )
+
+
+    if not ds18_roms:
+
+        water_temperature = None
+
+        print(
+            "DS18B20 NOT FOUND"
+        )
+
+        return
+
+
+    try:
+
+        # Start temperature conversion
+
+        ds18.convert_temp()
+
+
+        # Wait ~800ms
+        # Feed watchdog during wait
+
+        for i in range(8):
+
+            wdt.feed()
+
+            time.sleep_ms(100)
+
+
+        water_temperature = (
+            ds18.read_temp(
+                ds18_roms[0]
+            )
+        )
+
+
+        print(
+            "Temperature:",
+            water_temperature,
+            "C"
+        )
+
+
+    except Exception as e:
+
+        water_temperature = None
+
+        print(
+            "Temperature Error:",
+            e
+        )
+
+
+# ============================================================
+# MOTOR CONTROL
+# ============================================================
+
+def motor(
+    pwm,
+    direction,
+    speed,
+    invert=False
+):
+
+    speed = int(
+        max(
+            -255,
+            min(
+                255,
+                speed
+            )
+        )
+    )
+
+
+    if invert:
+
+        speed = -speed
+
+
+    # STOP
+
+    if speed == 0:
+
+        direction.value(0)
+
+        pwm.duty_u16(0)
+
+        return
+
+
+    magnitude = abs(
+        speed
+    )
+
+
+    duty = int(
+        magnitude *
+        65535 /
+        255
+    )
+
+
+    # FORWARD
+
+    if speed > 0:
+
+        direction.value(0)
+
+        pwm.duty_u16(
+            duty
+        )
+
+
+    # REVERSE
+
+    else:
+
+        direction.value(1)
+
+        pwm.duty_u16(
+            65535 -
+            duty
+        )
+
+
+# ============================================================
+# STOP ALL MOTORS
+# ============================================================
+
+def stop():
+
+    motor(
+        FL_PWM,
+        FL_DIR,
+        0
+    )
+
+    motor(
+        FR_PWM,
+        FR_DIR,
+        0
+    )
+
+    motor(
+        RL_PWM,
+        RL_DIR,
+        0
+    )
+
+    motor(
+        RR_PWM,
+        RR_DIR,
+        0
+    )
+
+
+# ============================================================
+# ARCADE DRIVE
+#
+# y = throttle
+# x = steering
+#
+# Range = -255 to +255
+# ============================================================
+
+def drive(y, x):
+
+    y = max(
+        -255,
+        min(
+            255,
+            int(y)
+        )
+    )
+
+
+    x = max(
+        -255,
+        min(
+            255,
+            int(x)
+        )
+    )
+
+
+    left = (
+        y +
+        x
+    )
+
+    right = (
+        y -
+        x
+    )
+
+
+    maximum = max(
+        abs(left),
+        abs(right),
+        255
+    )
+
+
+    if maximum > 255:
+
+        left = int(
+            left *
+            255 /
+            maximum
+        )
+
+        right = int(
+            right *
+            255 /
+            maximum
+        )
+
+
+    # LEFT WHEELS
+
+    motor(
+        FL_PWM,
+        FL_DIR,
+        left,
+        FL_INVERT
+    )
+
+    motor(
+        RL_PWM,
+        RL_DIR,
+        left,
+        RL_INVERT
+    )
+
+
+    # RIGHT WHEELS
+
+    motor(
+        FR_PWM,
+        FR_DIR,
+        right,
+        FR_INVERT
+    )
+
+    motor(
+        RR_PWM,
+        RR_DIR,
+        right,
+        RR_INVERT
+    )
+
+
+# Start safely
+
+stop()
+
+
+# ============================================================
+# SLOW SERVO MOVEMENT
+# ============================================================
+
+def move_servos_slow(
+    target1,
+    target2
+):
+
+    global servo1_angle
+    global servo2_angle
+
+
+    start1 = servo1_angle
+    start2 = servo2_angle
+
+
+    difference1 = (
+        target1 -
+        start1
+    )
+
+    difference2 = (
+        target2 -
+        start2
+    )
+
+
+    # Number of movement steps
+
+    steps = max(
+        abs(difference1),
+        abs(difference2)
+    )
+
+
+    if steps == 0:
+
+        return
+
+
+    # --------------------------------------------------------
+    # Both servos move simultaneously
+    # --------------------------------------------------------
+
+    for i in range(
+        steps + 1
+    ):
+
+        wdt.feed()
+
+
+        new1 = int(
+
+            start1 +
+
+            difference1 *
+
+            i /
+
+            steps
+
+        )
+
+
+        new2 = int(
+
+            start2 +
+
+            difference2 *
+
+            i /
+
+            steps
+
+        )
+
+
+        servo_write(
+            servo1,
+            new1
+        )
+
+
+        servo_write(
+            servo2,
+            new2
+        )
+
+
+        servo1_angle = new1
+        servo2_angle = new2
+
+
+        # Adjust for arm movement speed
+        time.sleep_ms(20)
+
+
+    # Make sure target is exact
+
+    servo1_angle = target1
+    servo2_angle = target2
+
+
+    servo_write(
+        servo1,
+        target1
+    )
+
+
+    servo_write(
+        servo2,
+        target2
+    )
+
+
+# ============================================================
+# ARM HOME
+# ============================================================
+
+def arm_home():
+
+    print()
+    print("ARM RETURNING HOME")
+
+
+    stop()
+
+
+    move_servos_slow(
+        SERVO1_HOME,
+        SERVO2_HOME
+    )
+
+
+    print(
+        "Servo 1:",
+        servo1_angle
+    )
+
+    print(
+        "Servo 2:",
+        servo2_angle
+    )
+
+    print(
+        "ARM HOME COMPLETE"
+    )
+
+
+# ============================================================
+# AUTOMATIC MEASUREMENT SEQUENCE
+# ============================================================
+
+def automatic_measure():
+
+    global servo1_angle
+    global servo2_angle
+
+
+    print()
+    print("==============================")
+    print("MEASUREMENT STARTED")
+    print("==============================")
+
+
+    # --------------------------------------------------------
+    # Safety: stop rover
+    # --------------------------------------------------------
+
+    stop()
+
+
+    # --------------------------------------------------------
+    # Move ARM to measurement position
+    #
+    # Servo 1:
+    # 180 -> 0
+    #
+    # Servo 2:
+    # 0 -> 90
+    # --------------------------------------------------------
+
+    print(
+        "Moving arm..."
+    )
+
+
+    move_servos_slow(
+        SERVO1_MEASURE,
+        SERVO2_MEASURE
+    )
+
+
+    print(
+        "Servo 1:",
+        servo1_angle
+    )
+
+
+    print(
+        "Servo 2:",
+        servo2_angle
+    )
+
+
+    # --------------------------------------------------------
+    # Allow probe to settle
+    # --------------------------------------------------------
+
+    print(
+        "Waiting for sensors..."
+    )
+
+
+    for i in range(10):
+
+        wdt.feed()
+
+        time.sleep_ms(100)
+
+
+    # --------------------------------------------------------
+    # Soil measurement
+    # --------------------------------------------------------
+
+    measure_soil()
+
+
+    # --------------------------------------------------------
+    # Temperature measurement
+    # --------------------------------------------------------
+
+    measure_temperature()
+
+
+    print()
+    print("==============================")
+    print("MEASUREMENT COMPLETE")
+    print("==============================")
+
+    print(
+        "Soil:",
+        soil_percent,
+        "%"
+    )
+
+
+    if water_temperature is not None:
+
+        print(
+            "Temperature:",
+            water_temperature,
+            "C"
+        )
+
+
+    print("==============================")
+    print()
+
+
+# ============================================================
+# WIFI ACCESS POINT
+# ============================================================
+
+SSID = "LOF_ARM_ROVER"
+
+PASSWORD = "12345678"
+
+
+ap = network.WLAN(
+    network.AP_IF
+)
+
+
+ap.active(False)
+
+time.sleep_ms(300)
+
+wdt.feed()
+
+
+ap.active(True)
+
+
+ap.config(
+    essid=SSID,
+    password=PASSWORD
+)
+
+
+while not ap.active():
+
+    wdt.feed()
+
+    time.sleep_ms(100)
+
+
+ip = ap.ifconfig()[0]
+
+
+print()
+print("==============================")
+print("LOF SENSOR ARM ROVER")
+print("==============================")
+
+print(
+    "WiFi:",
+    SSID
+)
+
+print(
+    "Password:",
+    PASSWORD
+)
+
+print(
+    "IP:",
+    ip
+)
+
+print(
+    "Servo 1 HOME:",
+    SERVO1_HOME
+)
+
+print(
+    "Servo 2 HOME:",
+    SERVO2_HOME
+)
+
+print(
+    "Servo 1 MEASURE:",
+    SERVO1_MEASURE
+)
+
+print(
+    "Servo 2 MEASURE:",
+    SERVO2_MEASURE
+)
+
+print(
+    "Soil Sensor GPIO:",
+    SOIL_PIN
+)
+
+print(
+    "DS18B20 GPIO:",
+    DS18_PIN
+)
+
+print("==============================")
+
+
+# ============================================================
+# WEB PAGE
+# ============================================================
+
+html = """<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta name="viewport"
+content="width=device-width,
+initial-scale=1,
+maximum-scale=1,
+user-scalable=no">
+
+<title>LOF ARM ROVER</title>
+
+
+<style>
+
+:root{
+
+--orange:#ff6b21;
+
+--background:#080c0f;
+
+--panel:#11171c;
+
+--panel2:#161d22;
+
+--line:#303b43;
+
+--white:#ffffff;
+
+--grey:#aab3ba;
+
+--green:#00e676;
+
+}
+
+
+*{
+
+box-sizing:border-box;
+
+-webkit-user-select:none;
+
+user-select:none;
+
+}
+
+
+html,
+body{
+
+margin:0;
+
+padding:0;
+
+width:100%;
+
+height:100%;
+
+overflow:hidden;
+
+background:var(--background);
+
+color:var(--orange);
+
+font-family:Arial,sans-serif;
+
+touch-action:none;
+
+}
+
+
+/* ======================================================
+   HEADER
+====================================================== */
+
+.header{
+
+height:12%;
+
+border-bottom:
+2px solid var(--orange);
+
+display:flex;
+
+align-items:center;
+
+justify-content:space-around;
+
+padding:5px 20px;
+
+}
+
+
+.title{
+
+font-size:25px;
+
+font-weight:900;
+
+letter-spacing:2px;
+
+text-align:center;
+
+}
+
+
+.subtitle{
+
+font-size:11px;
+
+color:var(--grey);
+
+margin-top:3px;
+
+}
+
+
+.topInfo{
+
+font-size:12px;
+
+}
+
+
+.valueWhite{
+
+color:white;
+
+font-weight:bold;
+
+}
+
+
+/* ======================================================
+   MAIN LAYOUT
+====================================================== */
+
+.main{
+
+height:88%;
+
+display:grid;
+
+grid-template-columns:
+
+1fr
+1.25fr
+1fr;
+
+gap:12px;
+
+padding:12px;
+
+}
+
+
+/* ======================================================
+   JOYSTICK PANEL
+====================================================== */
+
+.joyPanel{
+
+display:flex;
+
+flex-direction:column;
+
+align-items:center;
+
+justify-content:center;
+
+border:
+
+1px solid var(--line);
+
+border-radius:18px;
+
+background:
+
+linear-gradient(
+145deg,
+#10161a,
+#080c0f
+);
+
+}
+
+
+.joy{
+
+position:relative;
+
+width:min(29vw,235px);
+
+height:min(29vw,235px);
+
+border:
+
+3px solid var(--orange);
+
+border-radius:50%;
+
+background:
+
+radial-gradient(
+circle,
+#273036,
+#0a0d10 72%
+);
+
+box-shadow:
+
+0 0 15px
+rgba(
+255,
+107,
+33,
+0.15
+);
+
+touch-action:none;
+
+}
+
+
+.ring{
+
+position:absolute;
+
+width:72%;
+
+height:72%;
+
+left:14%;
+
+top:14%;
+
+border:
+
+2px dashed
+rgba(
+255,
+107,
+33,
+0.5
+);
+
+border-radius:50%;
+
+}
+
+
+.crossV{
+
+position:absolute;
+
+width:1px;
+
+height:100%;
+
+left:50%;
+
+background:
+rgba(
+255,
+255,
+255,
+0.15
+);
+
+}
+
+
+.crossH{
+
+position:absolute;
+
+height:1px;
+
+width:100%;
+
+top:50%;
+
+background:
+rgba(
+255,
+255,
+255,
+0.15
+);
+
+}
+
+
+.knob{
+
+position:absolute;
+
+width:30%;
+
+height:30%;
+
+left:35%;
+
+top:35%;
+
+border-radius:50%;
+
+background:
+
+radial-gradient(
+circle at 35% 30%,
+#ff9b65,
+var(--orange)
+);
+
+box-shadow:
+
+0 0 20px
+rgba(
+255,
+107,
+33,
+0.8
+);
+
+}
+
+
+.joyTitle{
+
+font-size:18px;
+
+font-weight:bold;
+
+margin-top:12px;
+
+}
+
+
+.joySub{
+
+font-size:11px;
+
+color:var(--grey);
+
+margin-top:4px;
+
+}
+
+
+/* ======================================================
+   CENTER PANEL
+====================================================== */
+
+.center{
+
+display:flex;
+
+flex-direction:column;
+
+gap:8px;
+
+overflow:auto;
+
+}
+
+
+.card{
+
+background:
+var(--panel);
+
+border:
+1px solid var(--line);
+
+border-radius:13px;
+
+padding:10px;
+
+}
+
+
+.cardTitle{
+
+font-size:14px;
+
+font-weight:bold;
+
+margin-bottom:8px;
+
+}
+
+
+/* ======================================================
+   SENSORS
+====================================================== */
+
+.sensorGrid{
+
+display:grid;
+
+grid-template-columns:
+1fr 1fr;
+
+gap:8px;
+
+}
+
+
+.sensorBox{
+
+background:
+var(--panel2);
+
+border-radius:10px;
+
+padding:9px;
+
+}
+
+
+.sensorName{
+
+font-size:10px;
+
+color:var(--grey);
+
+}
+
+
+.sensorValue{
+
+font-size:25px;
+
+color:white;
+
+font-weight:bold;
+
+margin-top:3px;
+
+}
+
+
+.sensorSmall{
+
+font-size:9px;
+
+color:var(--grey);
+
+margin-top:3px;
+
+}
+
+
+/* ======================================================
+   SERVO
+====================================================== */
+
+.servoHeader{
+
+display:flex;
+
+align-items:center;
+
+justify-content:space-between;
+
+font-size:13px;
+
+font-weight:bold;
+
+color:white;
+
+}
+
+
+.servoAngle{
+
+color:var(--orange);
+
+font-size:18px;
+
+}
+
+
+input[type=range]{
+
+width:100%;
+
+margin-top:7px;
+
+accent-color:
+var(--orange);
+
+}
+
+
+.positionInfo{
+
+font-size:9px;
+
+color:var(--grey);
+
+}
+
+
+/* ======================================================
+   BUTTONS
+====================================================== */
+
+.homeButton{
+
+width:100%;
+
+height:40px;
+
+border:
+
+2px solid var(--orange);
+
+border-radius:10px;
+
+background:
+
+rgba(
+255,
+107,
+33,
+0.08
+);
+
+color:var(--orange);
+
+font-weight:bold;
+
+font-size:14px;
+
+}
+
+
+.measureButton{
+
+width:100%;
+
+height:48px;
+
+border:
+
+2px solid var(--orange);
+
+border-radius:10px;
+
+background:
+var(--orange);
+
+color:white;
+
+font-weight:900;
+
+font-size:18px;
+
+letter-spacing:1px;
+
+}
+
+
+.measureButton:active,
+.homeButton:active{
+
+transform:
+scale(0.98);
+
+}
+
+
+.measureButton:disabled{
+
+opacity:0.4;
+
+}
+
+
+/* ======================================================
+   MEASUREMENT STATUS
+====================================================== */
+
+.measureStatus{
+
+text-align:center;
+
+font-size:11px;
+
+color:var(--grey);
+
+min-height:14px;
+
+}
+
+
+@media(
+max-height:500px
+){
+
+.header{
+
+height:14%;
+
+}
+
+
+.main{
+
+height:86%;
+
+}
+
+
+.card{
+
+padding:6px;
+
+}
+
+
+.sensorValue{
+
+font-size:19px;
+
+}
+
+
+.joyTitle{
+
+font-size:14px;
+
+margin-top:5px;
+
+}
+
+
+.measureButton{
+
+height:38px;
+
+font-size:14px;
+
+}
+
+
+.homeButton{
+
+height:32px;
+
+}
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+HEADER
+===================================================== -->
+
+<div class="header">
+
+
+<div class="topInfo">
+
+STATUS:
+
+<span
+id="status"
+class="valueWhite">
+
+IDLE
+
+</span>
+
+</div>
+
+
+
+<div class="title">
+
+LOF ARM ROVER
+
+<div class="subtitle">
+
+4WD + 2DOF ARM + SOIL & TEMPERATURE
+
+</div>
+
+</div>
+
+
+
+<div class="topInfo">
+
+THRUST:
+
+<span
+id="thrust"
+class="valueWhite">
+
+0%
+
+</span>
+
+
+&nbsp;&nbsp;
+
+
+STEER:
+
+<span
+id="steer"
+class="valueWhite">
+
+0%
+
+</span>
+
+</div>
+
+
+</div>
+
+
+
+<!-- =====================================================
+MAIN
+===================================================== -->
+
+<div class="main">
+
+
+<!-- =====================================================
+LEFT JOYSTICK
+===================================================== -->
+
+<div class="joyPanel">
+
+
+<div
+id="joyY"
+class="joy">
+
+
+<div class="ring"></div>
+
+<div class="crossV"></div>
+
+<div class="crossH"></div>
+
+
+<div
+id="knobY"
+class="knob">
+</div>
+
+
+</div>
+
+
+<div class="joyTitle">
+
+THRUST CONTROL
+
+</div>
+
+
+<div class="joySub">
+
+FORWARD / REVERSE
+
+</div>
+
+
+</div>
+
+
+
+<!-- =====================================================
+CENTER CONTROL
+===================================================== -->
+
+<div class="center">
+
+
+<!-- SENSOR MONITORING -->
+
+<div class="card">
+
+
+<div class="cardTitle">
+
+SENSOR MONITORING
+
+</div>
+
+
+<div class="sensorGrid">
+
+
+<div class="sensorBox">
+
+
+<div class="sensorName">
+
+SOIL MOISTURE
+
+</div>
+
+
+<div
+id="soil"
+class="sensorValue">
+
+-- %
+
+</div>
+
+
+<div
+id="soilRaw"
+class="sensorSmall">
+
+RAW: --
+
+</div>
+
+
+</div>
+
+
+
+<div class="sensorBox">
+
+
+<div class="sensorName">
+
+WATER TEMPERATURE
+
+</div>
+
+
+<div
+id="temp"
+class="sensorValue">
+
+-- °C
+
+</div>
+
+
+<div class="sensorSmall">
+
+DS18B20
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+<!-- SERVO 1 -->
+
+<div class="card">
+
+
+<div class="servoHeader">
+
+
+<span>
+
+SERVO 1
+
+</span>
+
+
+<span
+class="servoAngle">
+
+<span id="servo1Value">
+
+180
+
+</span>°
+
+</span>
+
+
+</div>
+
+
+<input
+
+id="servo1"
+
+type="range"
+
+min="0"
+
+max="180"
+
+value="180">
+
+
+<div class="positionInfo">
+
+HOME: 180° &nbsp;&nbsp; MEASURE: 0°
+
+</div>
+
+
+</div>
+
+
+
+<!-- SERVO 2 -->
+
+<div class="card">
+
+
+<div class="servoHeader">
+
+
+<span>
+
+SERVO 2
+
+</span>
+
+
+<span
+class="servoAngle">
+
+<span id="servo2Value">
+
+0
+
+</span>°
+
+</span>
+
+
+</div>
+
+
+<input
+
+id="servo2"
+
+type="range"
+
+min="0"
+
+max="180"
+
+value="0">
+
+
+<div class="positionInfo">
+
+HOME: 0° &nbsp;&nbsp; MEASURE: 90°
+
+</div>
+
+
+</div>
+
+
+
+<!-- ARM HOME -->
+
+<button
+
+class="homeButton"
+
+id="homeButton"
+
+onclick="homeArm()">
+
+ARM HOME
+
+</button>
+
+
+
+<!-- MEASURE -->
+
+<button
+
+class="measureButton"
+
+id="measureButton"
+
+onclick="startMeasure()">
+
+MEASURE
+
+</button>
+
+
+<div
+id="measureStatus"
+class="measureStatus">
+
+Ready for measurement
+
+</div>
+
+
+</div>
+
+
+
+<!-- =====================================================
+RIGHT JOYSTICK
+===================================================== -->
+
+<div class="joyPanel">
+
+
+<div
+id="joyX"
+class="joy">
+
+
+<div class="ring"></div>
+
+<div class="crossV"></div>
+
+<div class="crossH"></div>
+
+
+<div
+id="knobX"
+class="knob">
+</div>
+
+
+</div>
+
+
+<div class="joyTitle">
+
+VECTOR STEERING
+
+</div>
+
+
+<div class="joySub">
+
+LEFT / RIGHT
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+<script>
+
+
+// =========================================================
+// JOYSTICK VARIABLES
+// =========================================================
+
+let moveY = 0;
+
+let moveX = 0;
+
+
+let measuring = false;
+
+
+const DEADZONE = 0.08;
+
+const EXPO = 1.6;
+
+
+// =========================================================
+// RESPONSE CURVE
+// =========================================================
+
+function processAxis(n){
+
+
+if(
+Math.abs(n)
+<=
+DEADZONE
+){
+
+return 0;
+
+}
+
+
+let value =
+
+(
+Math.abs(n)
+-
+DEADZONE
+)
+
+/
+
+(
+1 -
+DEADZONE
+);
+
+
+value =
+
+Math.pow(
+value,
+EXPO
+)
+
+*
+
+Math.sign(n);
+
+
+return Math.round(
+value *
+255
+);
+
+}
+
+
+// =========================================================
+// CREATE JOYSTICK
+// =========================================================
+
+function createJoystick(
+zoneID,
+knobID,
+axis
+){
+
+
+const zone =
+document.getElementById(
+zoneID
+);
+
+
+const knob =
+document.getElementById(
+knobID
+);
+
+
+let active = false;
+
+
+
+function move(e){
+
+
+if(
+!active ||
+measuring
+){
+
+return;
+
+}
+
+
+const rect =
+zone.getBoundingClientRect();
+
+
+const centerX =
+rect.left +
+rect.width /
+2;
+
+
+const centerY =
+rect.top +
+rect.height /
+2;
+
+
+const max =
+rect.width /
+2 -
+rect.width *
+0.18;
+
+
+let dx =
+e.clientX -
+centerX;
+
+
+let dy =
+e.clientY -
+centerY;
+
+
+
+if(
+axis === "Y"
+){
+
+dx = 0;
+
+}
+
+
+if(
+axis === "X"
+){
+
+dy = 0;
+
+}
+
+
+
+dx = Math.max(
+-max,
+Math.min(
+max,
+dx
+)
+);
+
+
+dy = Math.max(
+-max,
+Math.min(
+max,
+dy
+)
+);
+
+
+
+knob.style.transform =
+
+"translate(" +
+dx +
+"px," +
+dy +
+"px)";
+
+
+
+if(
+axis === "Y"
+){
+
+moveY =
+processAxis(
+-dy /
+max
+);
+
+}
+
+else{
+
+moveX =
+processAxis(
+dx /
+max
+);
+
+}
+
+
+updateDriveDisplay();
+
+}
+
+
+
+function start(e){
+
+
+if(measuring)
+return;
+
+
+active = true;
+
+
+zone.setPointerCapture(
+e.pointerId
+);
+
+
+move(e);
+
+}
+
+
+
+function end(){
+
+
+active = false;
+
+
+knob.style.transform =
+
+"translate(0px,0px)";
+
+
+if(
+axis === "Y"
+){
+
+moveY = 0;
+
+}
+
+else{
+
+moveX = 0;
+
+}
+
+
+updateDriveDisplay();
+
+sendDrive();
+
+}
+
+
+
+zone.addEventListener(
+"pointerdown",
+start
+);
+
+
+zone.addEventListener(
+"pointermove",
+move
+);
+
+
+zone.addEventListener(
+"pointerup",
+end
+);
+
+
+zone.addEventListener(
+"pointercancel",
+end
+);
+
+
+}
+
+
+// =========================================================
+// DRIVE DISPLAY
+// =========================================================
+
+function updateDriveDisplay(){
+
+
+document.getElementById(
+"thrust"
+).innerText =
+
+Math.round(
+moveY /
+255 *
+100
+)
++
+"%";
+
+
+document.getElementById(
+"steer"
+).innerText =
+
+Math.round(
+moveX /
+255 *
+100
+)
++
+"%";
+
+
+if(measuring){
+
+document.getElementById(
+"status"
+).innerText =
+"MEASURING";
+
+return;
+
+}
+
+
+if(
+moveY === 0 &&
+moveX === 0
+){
+
+document.getElementById(
+"status"
+).innerText =
+"IDLE";
+
+}
+
+else{
+
+document.getElementById(
+"status"
+).innerText =
+"DRIVING";
+
+}
+
+
+}
+
+
+// =========================================================
+// DRIVE COMMAND
+// =========================================================
+
+function sendDrive(){
+
+
+if(measuring)
+return;
+
+
+fetch(
+
+"/d?y=" +
+moveY +
+"&x=" +
+moveX,
+
+{
+cache:"no-store"
+}
+
+).catch(()=>{});
+
+
+}
+
+
+// Send control every 100ms
+
+setInterval(
+sendDrive,
+100
+);
+
+
+// =========================================================
+// SERVO MANUAL CONTROL
+// =========================================================
+
+const servo1Slider =
+document.getElementById(
+"servo1"
+);
+
+
+const servo2Slider =
+document.getElementById(
+"servo2"
+);
+
+
+let servoTimer = null;
+
+
+function sendServo(
+number,
+angle
+){
+
+
+if(measuring)
+return;
+
+
+clearTimeout(
+servoTimer
+);
+
+
+servoTimer = setTimeout(
+
+function(){
+
+
+fetch(
+
+"/s?n=" +
+number +
+"&a=" +
+angle,
+
+{
+cache:"no-store"
+}
+
+).catch(()=>{});
+
+
+},
+
+80
+
+);
+
+
+}
+
+
+servo1Slider.oninput =
+function(){
+
+
+if(measuring)
+return;
+
+
+document.getElementById(
+"servo1Value"
+).innerText =
+this.value;
+
+
+sendServo(
+1,
+this.value
+);
+
+
+};
+
+
+servo2Slider.oninput =
+function(){
+
+
+if(measuring)
+return;
+
+
+document.getElementById(
+"servo2Value"
+).innerText =
+this.value;
+
+
+sendServo(
+2,
+this.value
+);
+
+
+};
+
+
+// =========================================================
+// ARM HOME
+// =========================================================
+
+function homeArm(){
+
+
+if(measuring)
+return;
+
+
+document.getElementById(
+"status"
+).innerText =
+"ARM MOVING";
+
+
+document.getElementById(
+"measureStatus"
+).innerText =
+"Returning arm to home position...";
+
+
+fetch(
+"/home",
+{
+cache:"no-store"
+}
+)
+
+
+.then(
+response =>
+response.json()
+)
+
+
+.then(
+data => {
+
+
+servo1Slider.value =
+data.servo1;
+
+
+servo2Slider.value =
+data.servo2;
+
+
+document.getElementById(
+"servo1Value"
+).innerText =
+data.servo1;
+
+
+document.getElementById(
+"servo2Value"
+).innerText =
+data.servo2;
+
+
+document.getElementById(
+"status"
+).innerText =
+"IDLE";
+
+
+document.getElementById(
+"measureStatus"
+).innerText =
+"Arm at home position";
+
+
+})
+
+
+.catch(
+()=>{
+
+
+document.getElementById(
+"status"
+).innerText =
+"ERROR";
+
+
+});
+
+
+}
+
+
+// =========================================================
+// MEASURE
+// =========================================================
+
+function startMeasure(){
+
+
+if(measuring)
+return;
+
+
+measuring = true;
+
+
+moveY = 0;
+moveX = 0;
+
+
+sendDrive();
+
+
+document.getElementById(
+"status"
+).innerText =
+"MEASURING";
+
+
+document.getElementById(
+"measureStatus"
+).innerText =
+"Moving arm to measurement position...";
+
+
+const button =
+document.getElementById(
+"measureButton"
+);
+
+
+button.disabled =
+true;
+
+
+button.innerText =
+"MEASURING...";
+
+
+document.getElementById(
+"homeButton"
+).disabled =
+true;
+
+
+
+fetch(
+"/measure",
+{
+cache:"no-store"
+}
+)
+
+
+.then(
+response =>
+response.json()
+)
+
+
+.then(
+data => {
+
+
+servo1Slider.value =
+data.servo1;
+
+
+servo2Slider.value =
+data.servo2;
+
+
+document.getElementById(
+"servo1Value"
+).innerText =
+data.servo1;
+
+
+document.getElementById(
+"servo2Value"
+).innerText =
+data.servo2;
+
+
+
+document.getElementById(
+"soil"
+).innerText =
+
+data.soil +
+" %";
+
+
+document.getElementById(
+"soilRaw"
+).innerText =
+
+"RAW: " +
+data.raw;
+
+
+
+if(
+data.temp === null
+){
+
+document.getElementById(
+"temp"
+).innerText =
+"-- °C";
+
+}
+
+else{
+
+document.getElementById(
+"temp"
+).innerText =
+
+Number(
+data.temp
+).toFixed(1)
++
+" °C";
+
+}
+
+
+
+document.getElementById(
+"measureStatus"
+).innerText =
+"Measurement completed";
+
+
+document.getElementById(
+"status"
+).innerText =
+"MEASURED";
+
+
+button.disabled =
+false;
+
+
+button.innerText =
+"MEASURE";
+
+
+document.getElementById(
+"homeButton"
+).disabled =
+false;
+
+
+measuring =
+false;
+
+
+})
+
+
+.catch(
+function(){
+
+
+document.getElementById(
+"status"
+).innerText =
+"ERROR";
+
+
+document.getElementById(
+"measureStatus"
+).innerText =
+"Measurement failed";
+
+
+button.disabled =
+false;
+
+
+button.innerText =
+"MEASURE";
+
+
+document.getElementById(
+"homeButton"
+).disabled =
+false;
+
+
+measuring =
+false;
+
+
+});
+
+
+}
+
+
+// =========================================================
+// JOYSTICKS
+// =========================================================
+
+createJoystick(
+"joyY",
+"knobY",
+"Y"
+);
+
+
+createJoystick(
+"joyX",
+"knobX",
+"X"
+);
+
+
+// =========================================================
+// SAFETY
+// =========================================================
+
+document.addEventListener(
+
+"visibilitychange",
+
+function(){
+
+
+if(
+document.hidden
+){
+
+moveY = 0;
+
+moveX = 0;
+
+fetch(
+"/d?y=0&x=0",
+{
+cache:"no-store"
+}
+).catch(()=>{});
+
+}
+
+
+}
+
+);
+
+</script>
+
+
+</body>
+
+</html>
+"""
+
+
+# ============================================================
+# URL QUERY FUNCTION
+# ============================================================
+
+def get_value(
+    path,
+    key,
+    default=0
+):
+
+    try:
+
+        query = path.split(
+            "?",
+            1
+        )[1]
+
+
+        sections = query.split(
+            "&"
+        )
+
+
+        for section in sections:
+
+            pair = section.split(
+                "=",
+                1
+            )
+
+
+            if len(pair) == 2:
+
+                if pair[0] == key:
+
+                    return int(
+                        pair[1]
+                    )
+
+
+    except:
+        pass
+
+
+    return default
+
+
+# ============================================================
+# JSON DATA FUNCTION
+# ============================================================
+
+def sensor_json():
+
+    if water_temperature is None:
+
+        temperature_text = (
+            "null"
+        )
+
+    else:
+
+        temperature_text = (
+            "{:.2f}".format(
+                water_temperature
+            )
+        )
+
+
+    return (
+
+        "{"
+
+        '"soil":' +
+        str(
+            soil_percent
+        )
+
+        +
+
+        ',"raw":' +
+        str(
+            soil_raw
+        )
+
+        +
+
+        ',"temp":' +
+        temperature_text
+
+        +
+
+        ',"servo1":' +
+        str(
+            servo1_angle
+        )
+
+        +
+
+        ',"servo2":' +
+        str(
+            servo2_angle
+        )
+
+        +
+
+        "}"
+
+    )
+
+
+# ============================================================
+# WEB SERVER
+# ============================================================
+
+addr = socket.getaddrinfo(
+    "0.0.0.0",
+    80
+)[0][-1]
+
+
+server = socket.socket()
+
+
+server.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_REUSEADDR,
+    1
+)
+
+
+server.bind(
+    addr
+)
+
+
+server.listen(3)
+
+
+# Prevent watchdog timeout
+
+server.settimeout(
+    0.1
+)
+
+
+print()
+print(
+    "Web server started"
+)
+
+print(
+    "Open: http://" +
+    ip
+)
+
+print()
+
+
+# ============================================================
+# DRIVE FAILSAFE
+# ============================================================
+
+last_drive = (
+    time.ticks_ms()
+)
+
+
+# ============================================================
+# MAIN LOOP
+# ============================================================
+
+while True:
+
+    wdt.feed()
+
+
+    now = (
+        time.ticks_ms()
+    )
+
+
+    # --------------------------------------------------------
+    # AUTOMATIC DRIVE STOP
+    # --------------------------------------------------------
+
+    if time.ticks_diff(
+        now,
+        last_drive
+    ) > 600:
+
+        stop()
+
+
+    client = None
+
+
+    try:
+
+        client, address = (
+            server.accept()
+        )
+
+
+        client.settimeout(
+            0.4
+        )
+
+
+        wdt.feed()
+
+
+        request = client.recv(
+            1024
+        )
+
+
+        if not request:
+
+            continue
+
+
+        request = request.decode(
+            "utf-8",
+            "ignore"
+        )
+
+
+        first_line = (
+            request.split(
+                "\\r\\n"
+            )[0]
+        )
+
+
+        parts = first_line.split(
+            " "
+        )
+
+
+        if len(parts) < 2:
+
+            continue
+
+
+        path = parts[1]
+
+
+        # ====================================================
+        # DRIVE
+        # ====================================================
+
+        if path.startswith(
+            "/d?"
+        ):
+
+            y = get_value(
+                path,
+                "y",
+                0
+            )
+
+
+            x = get_value(
+                path,
+                "x",
+                0
+            )
+
+
+            drive(
+                y,
+                x
+            )
+
+
+            last_drive = (
+                time.ticks_ms()
+            )
+
+
+            content_type = (
+                "text/plain"
+            )
+
+
+            response = (
+                "OK"
+            )
+
+
+        # ====================================================
+        # MANUAL SERVO
+        # ====================================================
+
+        elif path.startswith(
+            "/s?"
+        ):
+
+            number = get_value(
+                path,
+                "n",
+                1
+            )
+
+
+            angle = get_value(
+                path,
+                "a",
+                90
+            )
+
+
+            angle = max(
+                0,
+                min(
+                    180,
+                    angle
+                )
+            )
+
+
+            if number == 1:
+
+                servo1_angle = angle
+
+                servo_write(
+                    servo1,
+                    servo1_angle
+                )
+
+
+            elif number == 2:
+
+                servo2_angle = angle
+
+                servo_write(
+                    servo2,
+                    servo2_angle
+                )
+
+
+            content_type = (
+                "text/plain"
+            )
+
+
+            response = (
+                "OK"
+            )
+
+
+        # ====================================================
+        # ARM HOME
+        # ====================================================
+
+        elif path == "/home":
+
+            stop()
+
+
+            arm_home()
+
+
+            content_type = (
+                "application/json"
+            )
+
+
+            response = (
+                sensor_json()
+            )
+
+
+        # ====================================================
+        # AUTOMATIC MEASUREMENT
+        # ====================================================
+
+        elif path == "/measure":
+
+            stop()
+
+
+            automatic_measure()
+
+
+            content_type = (
+                "application/json"
+            )
+
+
+            response = (
+                sensor_json()
+            )
+
+
+        # ====================================================
+        # SENSOR DATA
+        # ====================================================
+
+        elif path == "/sensor":
+
+            content_type = (
+                "application/json"
+            )
+
+
+            response = (
+                sensor_json()
+            )
+
+
+        # ====================================================
+        # MAIN PAGE
+        # ====================================================
+
+        else:
+
+            content_type = (
+                "text/html"
+            )
+
+
+            response = html
+
+
+        # ====================================================
+        # HTTP RESPONSE
+        # ====================================================
+
+        wdt.feed()
+
+
+        header = (
+
+            "HTTP/1.1 200 OK\\r\\n"
+
+            +
+
+            "Content-Type: " +
+            content_type +
+            "\\r\\n"
+
+            +
+
+            "Cache-Control: no-store\\r\\n"
+
+            +
+
+            "Connection: close\\r\\n"
+
+            +
+
+            "\\r\\n"
+
+        )
+
+
+        client.send(
+            header
+        )
+
+
+        client.send(
+            response
+        )
+
+
+    except OSError:
+
+        # Normal socket timeout
+        pass
+
+
+    except Exception as e:
+
+        print(
+            "WEB ERROR:",
+            e
+        )
+
+
+    finally:
+
+        if client:
+
+            try:
+
+                client.close()
+
+            except:
+
+                pass
+
+
+    wdt.feed()
+
+    time.sleep_ms(5)
+`,
   },
   {
     id: 'lithogram',
@@ -17344,6 +28888,7 @@ if __name__ == '__main__':
     // card falls back to a stand-in rather than borrowing another kit's banner.
     // Add as lof-titan/banners/banner-measuring-the-cosmos when the art arrives.
     tagline: 'Joystick-Aimed Planetary Measurement Station',
+    codeFilename: 'measuring_the_cosmos.py',
     description:
       'Explore the scale of our solar system using an interactive planetary measurement station. Control a rotating sensor dish with a joystick, point the Time-of-Flight (ToF) sensor toward a selected target, and display the corresponding distance in astronomical units (AU) on an OLED screen. Compare planetary distances using real-time astronomical reference information from Planets Today and discover how scientists measure and represent distances across the solar system.',
 
@@ -17618,5 +29163,904 @@ if __name__ == '__main__':
     // baseline-vs-modified worksheet table with a closing question) and the Final
     // CTA banner. No kit schema field exists for either; both need a new section
     // in the detail view.
+
+    // MicroPython Main Script
+    code: `# ==============================================================================
+# LOF TITAN — Measuring the Cosmos (Space Science & Astronomy)
+# ------------------------------------------------------------------------------
+# Hardware Pin Assignment:
+#   - MCU: ESP32-S3 (LOF TITAN Board)
+#   - Display: 1.3" SH1106 / 0.96" SSD1306 I2C OLED (SDA: GPIO 7, SCL: GPIO 8, Addr: 0x3C)
+#   - ToF Distance Sensor: VL53L1X (SDA: GPIO 7, SCL: GPIO 8, Addr: 0x29)
+#   - Pan & Tilt Servos: 
+#       * Rotation (Pan) Servo: GPIO 2 (Sensor Port S1 - PWM)
+#       * Pitch (Tilt) Servo:    GPIO 1 (Sensor Port S2 - PWM)
+#   - Laser Module (Red Diode / Pointer on Sensor Port S5):
+#       * Pin 1 (GND):           Connect to Sensor Port S5 GND
+#       * Pin 2 (5V / VCC):      Connect to Sensor Port S5 5V / VCC
+#       * Pin 3 (S / Control):   Connect to Sensor Port S5 Signal (GPIO 5, HIGH = ON, LOW = OFF)
+#   - Analog Joystick (Ultrasonic Port):
+#       * VRX (Pan X-Axis):      GPIO 6  (Ultrasonic S1 / 12-bit ADC1_CH5)
+#       * VRY (Tilt Y-Axis):     GPIO 19 (Ultrasonic S2 / 12-bit ADC2_CH8)
+#       * VCC & GND:             Directly powered by Ultrasonic Port VCC & GND
+#   - In-Built Joystick Switch SW / Push Buttons (Target Lock / Measure / Start):
+#       * SW Push Switch:        GPIO 18 (UART Port RX / Active LOW with Pull-Up)
+#       * Board Buttons:         GPIO 39 (SW1), GPIO 40 (SW2), GPIO 41 (SW3), GPIO 42 (SW4)
+#   - Status Indicators:
+#       * Red LED:   GPIO 47 (Aiming / Lock / Error)
+#       * Green LED: GPIO 48 (Target Match / Victory)
+#       * Buzzer:    GPIO 20 (Audio alerts, tones & celebratory fanfares)
+#
+# Workflow:
+#   1. STARTUP & IDLE: Laser is OFF and Servos are in standby mode.
+#   2. WAIT_FOR_START: Prompts astronaut to press SW button to begin mission.
+#   3. MISSION ACTIVE (All 3 Planet Measurements):
+#       - Laser module (GPIO 5) turns ON immediately when start is pressed.
+#       - Servos (GPIO 2 & 1) activate for continuous Joystick aiming.
+#       - Laser and Servos REMAIN ON across all 3 planet selections and measurements.
+#       - Pressing SW button takes the distance measurement:
+#           * Correct distance: Score +1, celebratory chime -> RESULT screen.
+#           * Incorrect distance: Alert beep & retry prompt.
+#   4. MISSION COMPLETED:
+#       - Once all 3 planets are measured successfully, Laser turns OFF and Servos enter standby.
+#       - Victory fanfare plays and celebration screen is shown.
+#       - Pressing SW button restarts a new 3-planet mission.
+# ==============================================================================
+
+import time
+import math
+import random
+from machine import Pin, PWM, ADC, I2C, SoftI2C
+import framebuf
+
+# ==============================================================================
+# 1. HARDWARE PIN DEFINITIONS
+# ==============================================================================
+
+# I2C Bus (OLED Display & VL53L1X Laser ToF Sensor)
+PIN_I2C_SDA = 7
+PIN_I2C_SCL = 8
+
+# Pan & Tilt Servos (Sensor Ports S1 & S2)
+PIN_SERVO_ROTATION = 2  # Pan / Rotation Servo (Sensor Port S1 / GPIO 2)
+PIN_SERVO_PITCH    = 1  # Tilt / Pitch Servo    (Sensor Port S2 / GPIO 1)
+
+# Laser Module (Sensor Port S5 / GPIO 5)
+PIN_LASER          = 5  # Laser Module Signal / Control (Sensor Port S5)
+
+# Analog Joystick (Ultrasonic Port)
+PIN_JOYSTICK_VRX   = 6   # Ultrasonic Port S1: Analog VRX (ADC1_CH5)
+PIN_JOYSTICK_VRY   = 19  # Ultrasonic Port S2: Analog VRY (ADC2_CH8)
+
+# Joystick In-Built Switch / Push Button (UART Port RX - GPIO 18)
+# Connect Switch between GPIO 18 and GND
+PIN_BUTTON_18      = 18  # UART RX: Primary digital switch input (Active-LOW to GND with Pull-Up)
+
+# Status LEDs & Buzzer
+PIN_LED_RED   = 47
+PIN_LED_GREEN = 48
+PIN_BUZZER    = 20
+
+# ==============================================================================
+# 2. PWM POOL & AUDIO FEEDBACK
+# ==============================================================================
+
+_pwm_pool = {}
+
+def get_pwm(pin_num, freq=50):
+    """Reuses PWM timers to avoid ESP32-S3 hardware timer exhaustion."""
+    if pin_num not in _pwm_pool:
+        _pwm_pool[pin_num] = PWM(Pin(pin_num), freq=freq)
+    else:
+        try:
+            _pwm_pool[pin_num].freq(freq)
+        except Exception:
+            pass
+    return _pwm_pool[pin_num]
+
+led_red = Pin(PIN_LED_RED, Pin.OUT, value=0)
+led_green = Pin(PIN_LED_GREEN, Pin.OUT, value=0)
+
+def beep(freq=2000, duration_ms=50, duty_val=512):
+    """Produces crisp audio tone feedback."""
+    try:
+        buz = get_pwm(PIN_BUZZER, freq=freq)
+        buz.duty(duty_val)
+        time.sleep_ms(duration_ms)
+        buz.duty(0)
+    except Exception:
+        pass
+
+def tone_button_click():
+    beep(2400, 35)
+
+def tone_correct():
+    led_green.value(1)
+    notes = [1046, 1318, 1568, 2093]  # C6, E6, G6, C7
+    for n in notes:
+        beep(n, 70)
+        time.sleep_ms(20)
+    led_green.value(0)
+
+def tone_wrong():
+    led_red.value(1)
+    beep(400, 150)
+    time.sleep_ms(50)
+    beep(300, 250)
+    led_red.value(0)
+
+def tone_mission_complete():
+    fanfare = [
+        (1046, 120), (1046, 120), (1046, 120), (1318, 300),
+        (1174, 150), (1318, 150), (1568, 400), (2093, 600)
+    ]
+    for freq, dur in fanfare:
+        led_green.value(1)
+        led_red.value(0)
+        beep(freq, dur)
+        led_green.value(0)
+        led_red.value(1)
+        time.sleep_ms(30)
+    led_red.value(0)
+    led_green.value(1)
+
+# ==============================================================================
+# 3. HIGH-PRECISION SERVO DRIVER (50Hz RC PWM WITH NANOSECOND PRECISION)
+# ==============================================================================
+
+class TitanServo:
+    """Controls RC standard servo (0° to 180°) using 50Hz PWM with nanosecond precision."""
+    def __init__(self, pin_num, min_us=500, max_us=2500, default_deg=90.0, auto_enable=False):
+        self.pin_num = pin_num
+        self.min_us = min_us
+        self.max_us = max_us
+        self.current_angle = default_deg
+        self.target_angle = default_deg
+        self.pwm = get_pwm(pin_num, freq=50)
+        self.enabled = False
+        self._last_ns = -1
+        if auto_enable:
+            self.enable()
+        else:
+            self.disable()
+
+    def enable(self):
+        """Enables servo PWM signal output."""
+        self.enabled = True
+        self._last_ns = -1
+        self.write_angle(self.current_angle)
+
+    def disable(self):
+        """Disables servo PWM signal to eliminate idle jitter & save power."""
+        self.enabled = False
+        self._last_ns = -1
+        try:
+            if hasattr(self.pwm, 'duty_u16'):
+                self.pwm.duty_u16(0)
+            else:
+                self.pwm.duty(0)
+        except Exception:
+            pass
+
+    def write_angle(self, angle_deg):
+        """Sets servo angle (0 to 180 degrees) with sub-degree nanosecond resolution."""
+        angle_deg = max(0.0, min(180.0, float(angle_deg)))
+        self.current_angle = angle_deg
+        if not self.enabled:
+            return
+        us = self.min_us + (angle_deg / 180.0) * (self.max_us - self.min_us)
+        ns = int(us * 1000)
+        if ns == self._last_ns:
+            return
+        self._last_ns = ns
+        try:
+            if hasattr(self.pwm, 'duty_ns'):
+                self.pwm.duty_ns(ns)
+            elif hasattr(self.pwm, 'duty_u16'):
+                duty_16bit = int((us / 20000.0) * 65535.0)
+                self.pwm.duty_u16(duty_16bit)
+            else:
+                duty_10bit = int((us / 20000.0) * 1023.0)
+                self.pwm.duty(duty_10bit)
+        except Exception:
+            try:
+                duty_16bit = int((us / 20000.0) * 65535.0)
+                self.pwm.duty_u16(duty_16bit)
+            except Exception:
+                pass
+
+    def update_smooth(self, target, max_step=2.0):
+        """Smoothly interpolates towards target angle."""
+        self.target_angle = target
+        diff = self.target_angle - self.current_angle
+        if abs(diff) <= max_step:
+            self.current_angle = self.target_angle
+        else:
+            self.current_angle += max_step if diff > 0 else -max_step
+        self.write_angle(self.current_angle)
+
+# ==============================================================================
+# 4. 1.3" SH1106 / 0.96" SSD1306 OLED DRIVER
+# ==============================================================================
+
+class TitanOLED:
+    """OLED graphics and text rendering engine with Large Font scaling."""
+    def __init__(self, i2c, width=128, height=64, addr=0x3C, is_sh1106=True):
+        self.i2c = i2c
+        self.width = width
+        self.height = height
+        self.addr = addr
+        self.is_sh1106 = is_sh1106
+        self.buffer = bytearray((height // 8) * width)
+        self.fb = framebuf.FrameBuffer(self.buffer, width, height, framebuf.MONO_VLSB)
+        self.init_display()
+
+    def _cmd(self, cmd):
+        try:
+            self.i2c.writeto(self.addr, bytearray([0x80, cmd]))
+        except Exception:
+            pass
+
+    def init_display(self):
+        cmds = [
+            0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+            0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+            0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+        ]
+        for c in cmds:
+            self._cmd(c)
+        self.fill(0)
+        self.show()
+
+    def fill(self, color):
+        self.fb.fill(color)
+
+    def text(self, string, x, y, col=1):
+        self.fb.text(string, int(x), int(y), col)
+
+    def center_text(self, string, y, col=1):
+        x = max(0, (self.width - len(string) * 8) // 2)
+        self.fb.text(string, int(x), int(y), col)
+
+    def draw_large_text(self, string, x, y, scale=2, col=1):
+        """Renders integer-scaled bold characters."""
+        _w = len(string) * 8
+        temp_buf = bytearray(_w)
+        temp_fb = framebuf.FrameBuffer(temp_buf, _w, 8, framebuf.MONO_VLSB)
+        temp_fb.fill(0)
+        temp_fb.text(string, 0, 0, 1)
+        for px in range(_w):
+            for py in range(8):
+                if temp_fb.pixel(px, py):
+                    self.fb.fill_rect(int(x + px * scale), int(y + py * scale), scale, scale, col)
+
+    def center_large_text(self, string, y, scale=2, col=1):
+        w = len(string) * 8 * scale
+        x = max(0, (self.width - w) // 2)
+        self.draw_large_text(string, x, y, scale=scale, col=col)
+
+    def line(self, x1, y1, x2, y2, col=1):
+        self.fb.line(int(x1), int(y1), int(x2), int(y2), col)
+
+    def rect(self, x, y, w, h, col=1):
+        self.fb.rect(int(x), int(y), int(w), int(h), col)
+
+    def fill_rect(self, x, y, w, h, col=1):
+        self.fb.fill_rect(int(x), int(y), int(w), int(h), col)
+
+    def show(self):
+        try:
+            for page in range(self.height // 8):
+                self._cmd(0xB0 + page)
+                if self.is_sh1106:
+                    self._cmd(0x02)  # SH1106 2-column offset for 1.3" OLEDs
+                    self._cmd(0x10)
+                else:
+                    self._cmd(0x00)
+                    self._cmd(0x10)
+                start = page * self.width
+                self.i2c.writeto(self.addr, b'\\x40' + self.buffer[start:start + self.width])
+        except Exception:
+            pass
+
+# ==============================================================================
+# 5. VL53L1X TIME-OF-FLIGHT LASER SENSOR DRIVER (SINGLE FILE MICROPYTHON)
+# ==============================================================================
+
+VL53_ADDR = 0x29
+
+class VL53L1X:
+    """VL53L1X single-file driver for LOF TITAN (ESP32-S3)."""
+    def __init__(self, i2c, address=0x29):
+        self.i2c = i2c
+        self.address = address
+        self.connected = False
+
+        try:
+            print("Resetting VL53L1X...")
+            self.reset()
+            time.sleep_ms(150)
+
+            model_id = self.read16(0x010F)
+            print("Sensor ID:", hex(model_id))
+
+            if model_id != 0xEACC:
+                print("Note: Sensor model ID is {}".format(hex(model_id)))
+
+            print("VL53L1X detected")
+            self.init_sensor()
+            print("VL53L1X initialised")
+            self.connected = True
+        except Exception as e:
+            print("[VL53L1X] Init Error:", e)
+            self.connected = False
+        except KeyboardInterrupt:
+            raise
+
+    def write8(self, reg, value):
+        self.i2c.writeto_mem(
+            self.address,
+            reg,
+            bytes([value]),
+            addrsize=16
+        )
+
+    def write16(self, reg, value):
+        data = bytes([
+            (value >> 8) & 0xFF,
+            value & 0xFF
+        ])
+        self.i2c.writeto_mem(
+            self.address,
+            reg,
+            data,
+            addrsize=16
+        )
+
+    def read8(self, reg):
+        return self.i2c.readfrom_mem(
+            self.address,
+            reg,
+            1,
+            addrsize=16
+        )[0]
+
+    def read16(self, reg):
+        data = self.i2c.readfrom_mem(
+            self.address,
+            reg,
+            2,
+            addrsize=16
+        )
+        return (data[0] << 8) | data[1]
+
+    def reset(self):
+        self.write8(0x0000, 0x00)
+        time.sleep_ms(100)
+        self.write8(0x0000, 0x01)
+        time.sleep_ms(100)
+
+    def init_sensor(self):
+        config = bytes([
+            0x00, 0x00, 0x00, 0x01,
+            0x02, 0x00, 0x02, 0x08,
+            0x00, 0x08, 0x10, 0x01,
+            0x01, 0x00, 0x00, 0x00,
+
+            0x00, 0xFF, 0x00, 0x0F,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x20, 0x0B, 0x00,
+            0x00, 0x02, 0x0A, 0x21,
+
+            0x00, 0x00, 0x05, 0x00,
+            0x00, 0x00, 0x00, 0xC8,
+            0x00, 0x00, 0x38, 0xFF,
+            0x01, 0x00, 0x08, 0x00,
+
+            0x00, 0x01, 0xDB, 0x0F,
+            0x01, 0xF1, 0x0D, 0x01,
+            0x68, 0x00, 0x80, 0x08,
+            0xB8, 0x00, 0x00, 0x00,
+
+            0x00, 0x0F, 0x89, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x01, 0x0F,
+            0x0D, 0x0E, 0x0E, 0x00,
+
+            0x00, 0x02, 0xC7, 0xFF,
+            0x9B, 0x00, 0x00, 0x00,
+            0x01, 0x01, 0x40
+        ])
+
+        self.i2c.writeto_mem(
+            self.address,
+            0x002D,
+            config,
+            addrsize=16
+        )
+
+        value = self.read16(0x0022)
+        self.write16(
+            0x001E,
+            value * 4
+        )
+        time.sleep_ms(300)
+
+    def read_distance(self):
+        if not self.connected:
+            return 0, 255
+        try:
+            data = self.i2c.readfrom_mem(
+                self.address,
+                0x0089,
+                17,
+                addrsize=16
+            )
+            status = data[0]
+            distance = ((data[13] << 8) | data[14])
+            self.write8(0x0086, 0x01)
+            return distance, status
+        except Exception:
+            return 0, 255
+
+    def read_distance_cm(self):
+        dist_mm, status = self.read_distance()
+        if dist_mm > 0 and dist_mm < 4000:
+            return round(dist_mm / 10.0, 1)
+        return 0.0
+
+# ==============================================================================
+# 6. SOLAR SYSTEM PLANETS DATABASE
+# ==============================================================================
+
+# Scaled astronomical target distances (15 cm to 60 cm for tabletop lab activities)
+PLANETS = [
+    {"name": "MERCURY", "cm": 18.0, "au": 0.39,  "min_cm": 16.0, "max_cm": 20.0, "measured": False},
+    {"name": "VENUS",   "cm": 24.0, "au": 0.72,  "min_cm": 22.0, "max_cm": 26.0, "measured": False},
+    {"name": "EARTH",   "cm": 30.0, "au": 1.00,  "min_cm": 28.0, "max_cm": 32.0, "measured": False},
+    {"name": "MARS",    "cm": 36.0, "au": 1.52,  "min_cm": 34.0, "max_cm": 38.0, "measured": False},
+    {"name": "JUPITER", "cm": 42.0, "au": 5.20,  "min_cm": 40.0, "max_cm": 44.0, "measured": False},
+    {"name": "SATURN",  "cm": 48.0, "au": 9.58,  "min_cm": 46.0, "max_cm": 50.0, "measured": False},
+    {"name": "URANUS",  "cm": 54.0, "au": 19.22, "min_cm": 52.0, "max_cm": 56.0, "measured": False},
+    {"name": "NEPTUNE", "cm": 60.0, "au": 30.05, "min_cm": 58.0, "max_cm": 62.0, "measured": False},
+]
+
+def map_float(val, in_min, in_max, out_min, out_max):
+    """Linearly maps a floating point value across ranges."""
+    if in_max == in_min:
+        return out_min
+    return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+# ==============================================================================
+# 7. MAIN COSMOS CONTROLLER & STATE MACHINE
+# ==============================================================================
+
+class CosmosMissionController:
+    # Game States
+    STATE_STARTUP          = 0
+    STATE_TITLE            = 1
+    STATE_WAIT_FOR_START   = 2
+    STATE_PLANET_SELECT    = 3
+    STATE_MEASUREMENT      = 4
+    STATE_RESULT           = 5
+    STATE_COMPLETED        = 6
+
+    def __init__(self):
+        print("=" * 60)
+        print("LOF TITAN — MEASURING THE COSMOS (SPACE SCIENCE IDE)")
+        print("=" * 60)
+
+        # 1. Initialize High-Speed I2C Bus at 400kHz (SDA: 7, SCL: 8)
+        try:
+            self.i2c = I2C(0, sda=Pin(PIN_I2C_SDA), scl=Pin(PIN_I2C_SCL), freq=400000)
+        except Exception:
+            self.i2c = SoftI2C(sda=Pin(PIN_I2C_SDA), scl=Pin(PIN_I2C_SCL), freq=400000)
+        time.sleep_ms(50)
+
+        # 2. Initialize 1.3" OLED Display
+        self.oled = TitanOLED(self.i2c, width=128, height=64, addr=0x3C, is_sh1106=True)
+
+        # 3. Initialize VL53L1X Laser ToF Sensor
+        self.tof = VL53L1X(self.i2c, address=VL53_ADDR)
+
+        # 4. Initialize Laser Module (Sensor Port S5 / GPIO 5)
+        self.laser = Pin(PIN_LASER, Pin.OUT, value=0)
+
+        # 5. Initialize Servos (Pan: Sensor S1 / GPIO 2, Tilt: Sensor S2 / GPIO 1)
+        self.servo_rot = TitanServo(PIN_SERVO_ROTATION, default_deg=90.0, auto_enable=False)
+        self.servo_pitch = TitanServo(PIN_SERVO_PITCH, default_deg=90.0, auto_enable=False)
+
+        # Servo motion parameters
+        self.target_rot = 90.0
+        self.target_pitch = 90.0
+        self.min_rot = 0.0
+        self.max_rot = 180.0
+        self.min_pitch = 30.0
+        self.max_pitch = 150.0
+        self.servo_speed = 3.0
+
+        # 6. Initialize 12-bit Analog Joystick on Ultrasonic Port (VRX=GPIO 6, VRY=GPIO 19)
+        self.joy_vrx = ADC(Pin(PIN_JOYSTICK_VRX))
+        self.joy_vry = ADC(Pin(PIN_JOYSTICK_VRY))
+        try:
+            self.joy_vrx.atten(ADC.ATTN_11DB)
+            self.joy_vry.atten(ADC.ATTN_11DB)
+        except Exception:
+            pass
+
+        # 7. Initialize Button Inputs with Pull-Up (Primary: GPIO 18 / UART RX, Secondary: SW1..SW4)
+        # GPIO 18 (UART RX) is a dedicated digital GPIO with strong pull-up that works 100% reliably with GND.
+        self.btn_pins = [
+            ("RX_18", Pin(PIN_BUTTON_18, Pin.IN, Pin.PULL_UP)),
+            ("SW1", Pin(39, Pin.IN, Pin.PULL_UP)),
+            ("SW2", Pin(40, Pin.IN, Pin.PULL_UP)),
+            ("SW3", Pin(41, Pin.IN, Pin.PULL_UP)),
+            ("SW4", Pin(42, Pin.IN, Pin.PULL_UP)),
+        ]
+
+        # State Variables
+        self.state = self.STATE_STARTUP
+        self.state_start_time = time.ticks_ms()
+        self.score = 0
+        self.current_planet_idx = -1
+        self.used_planets = []
+        self.current_distance_cm = 0.0
+        self.last_measure_time = 0
+        self.last_serial_print_time = 0
+        self.last_btn_press_time = 0
+        self.last_screen_draw_time = 0
+        self.last_joy_time = time.ticks_ms()
+        self.filtered_joy_x = 2048.0
+        self.filtered_joy_y = 2048.0
+        self.attempts = 0
+
+        # Initial standby: Laser OFF, Servos DISABLED
+        self.disable_laser_and_servos()
+
+        # Button debounce state tracking
+        self.prev_btn_states = {name: pin.value() for name, pin in self.btn_pins}
+
+    def enable_laser_and_servos(self):
+        """Enables laser and pan/tilt servos when planet search/measurement starts."""
+        try:
+            self.laser.value(1)
+        except Exception:
+            pass
+        self.servo_rot.enable()
+        self.servo_pitch.enable()
+        self.servo_rot.write_angle(self.target_rot)
+        self.servo_pitch.write_angle(self.target_pitch)
+        self.last_joy_time = time.ticks_ms()
+        print("[ACTIVE] Laser ON (GPIO 5) & Pan/Tilt Servos ENABLED")
+
+    def disable_laser_and_servos(self):
+        """Disables laser and pan/tilt servos during menus and result screens."""
+        try:
+            self.laser.value(0)
+        except Exception:
+            pass
+        self.servo_rot.disable()
+        self.servo_pitch.disable()
+        print("[STANDBY] Laser OFF (GPIO 5) & Pan/Tilt Servos DISABLED")
+
+    def reset_game(self):
+        for p in PLANETS:
+            p["measured"] = False
+        self.score = 0
+        self.used_planets = []
+        self.current_planet_idx = -1
+        self.target_rot = 90.0
+        self.target_pitch = 90.0
+        self.disable_laser_and_servos()
+
+    def change_state(self, new_state):
+        self.state = new_state
+        self.state_start_time = time.ticks_ms()
+        print("[STATE] Transitioned to:", new_state)
+
+    def select_random_planet(self):
+        if len(self.used_planets) >= len(PLANETS):
+            self.reset_game()
+
+        available = [i for i in range(len(PLANETS)) if i not in self.used_planets]
+        if available:
+            self.current_planet_idx = random.choice(available)
+            self.used_planets.append(self.current_planet_idx)
+        else:
+            self.current_planet_idx = random.randint(0, len(PLANETS) - 1)
+
+        self.attempts = 0
+        planet_name = PLANETS[self.current_planet_idx]["name"]
+        print("[MISSION] Target Planet Selected:", planet_name)
+
+    def is_correct_distance(self):
+        if self.current_planet_idx < 0:
+            return False
+        p = PLANETS[self.current_planet_idx]
+        return p["min_cm"] <= self.current_distance_cm <= p["max_cm"]
+
+    def read_inputs(self):
+        """Reads 12-bit Analog Joystick (GPIO 6, GPIO 19) and Button inputs (Active-LOW to GND)."""
+        now = time.ticks_ms()
+
+        # 1. Read Button Inputs (Active-LOW: Pin pulled to GND when pressed)
+        #    Monitors UART RX (GPIO 18) and onboard switches simultaneously
+        action_triggered = False
+        for name, pin in self.btn_pins:
+            val = pin.value()
+            prev = self.prev_btn_states[name]
+            if val == 0 and prev == 1:
+                if time.ticks_diff(now, self.last_btn_press_time) > 150:
+                    self.last_btn_press_time = now
+                    action_triggered = True
+                    tone_button_click()
+                    print(f"[BUTTON] {name} Pressed (Short to GND) -> Target Lock / Action!")
+            self.prev_btn_states[name] = val
+
+        # 2. Read 12-bit Analog Joystick with Time-Delta Integration & Low-Pass Filtering
+        # Provides instant response, smooth proportional control, and zero resting jitter
+        dt_ms = time.ticks_diff(now, self.last_joy_time)
+        if dt_ms < 1:
+            dt_ms = 1
+        elif dt_ms > 50:
+            dt_ms = 50
+        self.last_joy_time = now
+        dt = dt_ms / 1000.0
+
+        if self.state in (self.STATE_MEASUREMENT, self.STATE_PLANET_SELECT) and self.servo_rot.enabled:
+            raw_x = 2048
+            raw_y = 2048
+            try:
+                raw_x = self.joy_vrx.read()
+                raw_y = self.joy_vry.read()
+            except Exception:
+                pass
+
+            # Exponential low-pass filter (alpha = 0.35) to eliminate raw ADC jitter
+            self.filtered_joy_x += (raw_x - self.filtered_joy_x) * 0.35
+            self.filtered_joy_y += (raw_y - self.filtered_joy_y) * 0.35
+
+            diff_x = self.filtered_joy_x - 2048.0
+            diff_y = self.filtered_joy_y - 2048.0
+
+            # Tight responsive deadzone (120 counts)
+            deadzone = 120.0
+
+            # Dynamic Proportional Pan Control (VRX: GPIO 6)
+            abs_dx = abs(diff_x)
+            if abs_dx > deadzone:
+                norm_x = min(1.0, (abs_dx - deadzone) / (2048.0 - deadzone))
+                # Smooth progressive curve: fine precision aiming at low tilt, up to 85°/s at full tilt
+                speed_x = (norm_x ** 1.4) * 85.0
+                dir_x = -1.0 if diff_x > 0 else 1.0
+                self.target_rot = max(self.min_rot, min(self.max_rot, self.target_rot + dir_x * speed_x * dt))
+                self.servo_rot.write_angle(self.target_rot)
+
+            # Dynamic Proportional Tilt Control (VRY: GPIO 19)
+            abs_dy = abs(diff_y)
+            if abs_dy > deadzone:
+                norm_y = min(1.0, (abs_dy - deadzone) / (2048.0 - deadzone))
+                speed_y = (norm_y ** 1.4) * 85.0
+                dir_y = 1.0 if diff_y > 0 else -1.0
+                self.target_pitch = max(self.min_pitch, min(self.max_pitch, self.target_pitch + dir_y * speed_y * dt))
+                self.servo_pitch.write_angle(self.target_pitch)
+
+        # 3. Periodic Serial Telemetry (every 250ms)
+        if time.ticks_diff(now, self.last_serial_print_time) >= 250:
+            self.last_serial_print_time = now
+            rx18_val = self.prev_btn_states.get("RX_18", 1)
+            sw_status = "CLICKED(GND)" if rx18_val == 0 else "IDLE(3.3V)"
+            target_p = PLANETS[self.current_planet_idx]["name"] if self.current_planet_idx >= 0 else "READY"
+            laser_st = "ON" if self.laser.value() == 1 else "OFF"
+            print(f"[STATUS] Laser={laser_st} | SW_RX(GPIO18)={sw_status} | Pan={self.target_rot:.1f}° | Tilt={self.target_pitch:.1f}° | ToF={self.current_distance_cm:.1f}cm | Target={target_p}")
+
+        return action_triggered
+
+    def update_distance(self):
+        """Samples VL53L1X ToF laser distance sensor."""
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self.last_measure_time) >= 150:
+            self.last_measure_time = now
+            if self.tof and self.tof.connected:
+                dist_cm = self.tof.read_distance_cm()
+                if dist_cm > 0:
+                    self.current_distance_cm = dist_cm
+            else:
+                # Simulation / Test fallback if sensor unplugged
+                self.current_distance_cm = round(map_float(self.target_rot, 0, 180, 15.0, 65.0), 1)
+
+    # ----------------------------------------------------------
+    # DISPLAY SCREENS
+    # ----------------------------------------------------------
+
+    def show_screen_startup(self):
+        self.oled.fill(0)
+        self.oled.rect(0, 0, 128, 64, 1)
+        self.oled.center_large_text("LOF TITAN", 8, scale=2)
+        self.oled.line(10, 28, 118, 28, 1)
+        self.oled.center_text("Lab of Future", 34)
+        self.oled.center_text("Cosmos Observatory", 48)
+        self.oled.show()
+
+    def show_screen_title(self):
+        self.oled.fill(0)
+        self.oled.center_large_text("MEASURING", 6, scale=2)
+        self.oled.center_large_text("COSMOS", 24, scale=2)
+        self.oled.line(10, 44, 118, 44, 1)
+        self.oled.center_text("Space Science IDE", 50)
+        self.oled.show()
+
+    def show_screen_wait_for_start(self):
+        self.oled.fill(0)
+        self.oled.rect(2, 2, 124, 60, 1)
+        self.oled.center_text("READY TO LAUNCH", 10)
+        self.oled.line(10, 22, 118, 22, 1)
+        self.oled.center_text("Press SW (Pin 18)", 30)
+        self.oled.center_text("to Start Mission", 44)
+        self.oled.show()
+
+    def show_screen_planet_selection(self):
+        if self.current_planet_idx < 0:
+            return
+        p = PLANETS[self.current_planet_idx]
+        self.oled.fill(0)
+        self.oled.rect(0, 0, 128, 64, 1)
+        self.oled.center_text("TARGET PLANET:", 8)
+        self.oled.line(10, 22, 118, 22, 1)
+        self.oled.center_large_text(p["name"], 30, scale=2)
+        self.oled.center_text(f"Expected: {p['au']} AU", 50)
+        self.oled.show()
+
+    def show_screen_measurement(self):
+        if self.current_planet_idx < 0:
+            return
+        p = PLANETS[self.current_planet_idx]
+        self.oled.fill(0)
+
+        # Header: Planet target
+        self.oled.fill_rect(0, 0, 128, 12, 1)
+        self.oled.text(f"FIND: {p['name']}", 4, 2, 0)
+
+        # Distance Readings
+        self.oled.text(f"DIST : {self.current_distance_cm:.1f} cm", 4, 16, 1)
+        
+        # Calculate scaled AU
+        if self.current_distance_cm > 0:
+            calc_au = map_float(self.current_distance_cm, 15.0, 60.0, 0.39, 30.05)
+            self.oled.text(f"SCALE: {calc_au:.2f} AU", 4, 28, 1)
+        else:
+            self.oled.text("SCALE: --- AU", 4, 28, 1)
+
+        # Status Bar & Controls
+        self.oled.line(0, 42, 128, 42, 1)
+        self.oled.text("Joy:Aim  SW:Measure", 4, 46, 1)
+        self.oled.text(f"Pan:{int(self.target_rot)}° Tilt:{int(self.target_pitch)}°", 4, 55, 1)
+        self.oled.show()
+
+    def show_screen_wrong_attempt(self):
+        self.oled.fill(0)
+        self.oled.rect(2, 2, 124, 60, 1)
+        self.oled.center_large_text("TRY AGAIN", 10, scale=2)
+        self.oled.line(10, 30, 118, 30, 1)
+        self.oled.center_text("Distance Mismatch!", 36)
+        self.oled.center_text(f"Got {self.current_distance_cm:.1f}cm", 48)
+        self.oled.show()
+
+    def show_screen_result(self):
+        if self.current_planet_idx < 0:
+            return
+        p = PLANETS[self.current_planet_idx]
+        self.oled.fill(0)
+        self.oled.center_large_text("CORRECT!", 4, scale=2)
+        self.oled.line(0, 22, 128, 22, 1)
+        self.oled.text(f"Planet: {p['name']}", 4, 26, 1)
+        self.oled.text(f"Dist  : {p['cm']:.1f} cm", 4, 38, 1)
+        self.oled.text(f"AU    : {p['au']:.2f} AU", 4, 48, 1)
+        self.oled.text(f"Score : {self.score}/3", 80, 48, 1)
+        self.oled.show()
+
+    def show_screen_completed(self):
+        self.oled.fill(0)
+        self.oled.rect(0, 0, 128, 64, 1)
+        self.oled.center_large_text("MISSION", 6, scale=2)
+        self.oled.center_large_text("COMPLETE!", 24, scale=2)
+        self.oled.line(10, 42, 118, 42, 1)
+        self.oled.center_text("Score: 3/3 Planets", 46)
+        self.oled.center_text("Press SW to Restart", 55)
+        self.oled.show()
+
+    # ----------------------------------------------------------
+    # MAIN EVENT LOOP
+    # ----------------------------------------------------------
+
+    def run(self):
+        while True:
+            now = time.ticks_ms()
+            elapsed = time.ticks_diff(now, self.state_start_time)
+            action_btn_triggered = self.read_inputs()
+
+            if self.state == self.STATE_STARTUP:
+                self.show_screen_startup()
+                if elapsed >= 2000:
+                    self.change_state(self.STATE_TITLE)
+
+            elif self.state == self.STATE_TITLE:
+                self.show_screen_title()
+                if elapsed >= 3000:
+                    self.change_state(self.STATE_WAIT_FOR_START)
+
+            elif self.state == self.STATE_WAIT_FOR_START:
+                self.show_screen_wait_for_start()
+                if action_btn_triggered:
+                    self.reset_game()
+                    self.select_random_planet()
+                    self.enable_laser_and_servos()  # Laser ON & Servos active for entire 3-planet mission
+                    self.change_state(self.STATE_PLANET_SELECT)
+
+            elif self.state == self.STATE_PLANET_SELECT:
+                self.show_screen_planet_selection()
+                if elapsed >= 2500:
+                    self.change_state(self.STATE_MEASUREMENT)
+
+            elif self.state == self.STATE_MEASUREMENT:
+                self.update_distance()
+                if time.ticks_diff(now, self.last_screen_draw_time) >= 60:
+                    self.last_screen_draw_time = now
+                    self.show_screen_measurement()
+
+                # Single push button measures current pointed distance
+                if action_btn_triggered:
+                    print(f"[MEASURE] Reading: {self.current_distance_cm} cm | Checking against target...")
+                    if self.is_correct_distance():
+                        self.score += 1
+                        PLANETS[self.current_planet_idx]["measured"] = True
+                        tone_correct()
+                        # Laser and Servos REMAIN ON for next planet
+                        self.change_state(self.STATE_RESULT)
+                    else:
+                        tone_wrong()
+                        self.show_screen_wrong_attempt()
+                        time.sleep_ms(1800)
+
+            elif self.state == self.STATE_RESULT:
+                self.show_screen_result()
+                if elapsed >= 3500:
+                    if self.score >= 3:
+                        # All 3 measurements completed: turn off laser & disable servos
+                        self.disable_laser_and_servos()
+                        tone_mission_complete()
+                        self.change_state(self.STATE_COMPLETED)
+                    else:
+                        # Continue to next planet without turning off laser/servos
+                        self.select_random_planet()
+                        self.change_state(self.STATE_PLANET_SELECT)
+
+            elif self.state == self.STATE_COMPLETED:
+                self.show_screen_completed()
+                if action_btn_triggered:
+                    self.reset_game()
+                    self.select_random_planet()
+                    self.enable_laser_and_servos()
+                    self.change_state(self.STATE_PLANET_SELECT)
+
+            # Auto CPU Safety Yield
+            time.sleep_ms(5)
+
+# ==============================================================================
+# 8. PROGRAM ENTRY POINT
+# ==============================================================================
+
+def main():
+    try:
+        app = CosmosMissionController()
+        app.run()
+    except KeyboardInterrupt:
+        print("\\n[INFO] Stopped by user.")
+    except Exception as e:
+        print("[FATAL ERROR]:", e)
+
+if __name__ == '__main__':
+    main()
+`,
   },
 ];
