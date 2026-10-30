@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="UTF-8" />
@@ -10,10 +10,22 @@
   <link rel="apple-touch-icon" href="/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOF TITAN Dashboard</title>
+  <!-- Theme before first paint: the saved choice (key "lof-theme"), otherwise the
+       system setting. Runs ahead of the stylesheet so there is no light flash. -->
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem('lof-theme'); } catch (e) { /* storage blocked */ }
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
 
   <!-- No crossorigin: our <img> tags fetch without it, and a preconnect that
@@ -31,7 +43,7 @@
         https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_1440/lof-titan/banners/banner-axes3 1440w">
 </head>
 
-<body class="bg-slate-900 text-white min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
+<body class="min-h-screen antialiased">
   <div id="root"></div>
   <script>
     // Restore a deep link that public/404.html stashed on its way through

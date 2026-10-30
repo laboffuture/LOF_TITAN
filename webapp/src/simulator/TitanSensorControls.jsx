@@ -179,13 +179,13 @@ export function TitanSensorControls({ state, simulatorEngine }) {
                         }}
                         className="text-[10px] bg-white border border-slate-300 text-slate-800 rounded-lg px-2 py-0.5 font-sans cursor-pointer shadow-xs hover:border-slate-400"
                       >
-                        <option value="light">☀️ Light / LDR</option>
-                        <option value="potentiometer">🎛️ Potentiometer</option>
-                        <option value="flame">🔥 Flame Sensor</option>
-                        <option value="line">🏁 Line Tracker</option>
-                        <option value="motion">🚶 PIR Motion</option>
-                        <option value="touch">👆 Touch Sensor</option>
-                        <option value="ds18b20">🌡️ DS18B20 Temp Probe</option>
+                        <option value="light">Light / LDR</option>
+                        <option value="potentiometer">Potentiometer</option>
+                        <option value="flame">Flame Sensor</option>
+                        <option value="line">Line Tracker</option>
+                        <option value="motion">PIR Motion</option>
+                        <option value="touch">Touch Sensor</option>
+                        <option value="ds18b20">DS18B20 Temp Probe</option>
                       </select>
                     )}
                   </div>
@@ -487,7 +487,7 @@ export function TitanSensorControls({ state, simulatorEngine }) {
                   : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
               }`}
             >
-              {pulseSensor.fingerDetected ? '👆 Finger Placed' : 'No Finger'}
+              {pulseSensor.fingerDetected ? 'Finger Placed' : 'No Finger'}
             </button>
           )}
         </div>

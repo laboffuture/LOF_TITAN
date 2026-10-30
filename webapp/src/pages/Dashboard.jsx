@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Cpu, ChevronRight, Lock, Check, Clock, Search } from 'lucide-react';
+import { ChevronRight, Lock, Check, Clock } from 'lucide-react';
 import { Carousel } from '../components/Carousel';
 import { projects } from '../projects';
 import { useAuth } from '../auth/authContext';
@@ -110,19 +110,16 @@ export function Dashboard() {
     <>
       <Carousel items={slides} onItemClick={(item) => openKit(item?.id)} />
 
-      <section className="p-6 rounded-3xl bg-white/[0.02] border border-white/[0.07] backdrop-blur-xs shadow-2xl space-y-6">
+      <section className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md">
-              <Cpu size={22} />
-            </div>
             <div>
-              <h2 className="text-2xl font-heading font-extrabold text-white">
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-heading">
                 Project Store and DIY Kits
               </h2>
             </div>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 backdrop-blur-xs">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-600 border border-cyan-400/20 backdrop-blur-xs">
             {projects.length} Official Kits Available
           </span>
         </div>
@@ -138,16 +135,13 @@ export function Dashboard() {
 
         {visible.length === 0 && (
           <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500">
-              <Search size={26} />
-            </div>
-            <h3 className="font-heading font-extrabold text-lg text-white">No kits match that</h3>
-            <p className="text-sm text-gray-400 max-w-sm">
+            <h3 className="font-heading tracking-[-0.02em] font-[750] text-lg text-heading">No kits match that</h3>
+            <p className="text-sm text-muted max-w-sm">
               Try a different search term, or clear the filters to see all {projects.length} kits.
             </p>
             <button
               onClick={() => setFilters({ q: '', level: '', duration: '', age: '', ownership: 'all' })}
-              className="mt-1 px-5 py-2 rounded-full text-xs font-bold bg-white/10 text-white border border-white/15 hover:bg-white/20 transition-colors"
+              className="mt-1 px-5 py-2 rounded-full text-xs font-bold bg-subtle text-heading border border-line hover:bg-subtle transition-colors"
             >
               Clear filters
             </button>
@@ -163,9 +157,9 @@ export function Dashboard() {
               <div
                 key={p.id}
                 onClick={() => openKit(p.id)}
-                className="group rounded-3xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.07] hover:border-cyan-500/50 p-4 sm:p-5 cursor-pointer transition-all duration-300 shadow-md hover:shadow-[0_12px_35px_rgba(6,182,212,0.18)] backdrop-blur-xs flex flex-col justify-between gap-4 relative overflow-hidden"
+                className="group rounded-xl bg-panel border border-line hover:border-navy-100 p-4 sm:p-5 cursor-pointer transition-all duration-200 shadow-lof-sm hover:shadow-lof-lift hover:-translate-y-0.5 flex flex-col justify-between gap-4 relative overflow-hidden"
               >
-                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-canvas border border-line shadow-inner group-hover:border-cyan-500/30 transition-colors">
                   <Img
                     id={p.thumbnail || p.heroImage || 'lof-titan/invisible-line/invisible-line-main'}
                     alt={p.name}
@@ -183,11 +177,11 @@ export function Dashboard() {
 
                   <div className="absolute top-3 right-3">
                     {owned ? (
-                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 backdrop-blur-md">
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-600 border border-emerald-400/40 backdrop-blur-md">
                         <Check size={11} /> Owned
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-950/80 text-slate-300 border border-white/20 backdrop-blur-md">
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-canvas/80 text-ink-2 border border-line-strong backdrop-blur-md">
                         <Lock size={11} /> Locked
                       </span>
                     )}
@@ -195,33 +189,33 @@ export function Dashboard() {
                 </div>
 
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
+                  <div className="flex items-center justify-between text-xs text-ink-2">
                     {/* A kit with no rating is new, not a 4.9. Printing a
                         default score would be inventing customer feedback. */}
                     {p.rating ? (
-                      <div className="flex items-center gap-1 text-amber-400 font-bold">
+                      <div className="flex items-center gap-1 text-amber-600 font-bold">
                         <span>&#9733;</span>
                         <span>{p.rating}</span>
                       </div>
                     ) : (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/90">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-600">
                         New
                       </span>
                     )}
-                    <span className="text-[11px] text-slate-400 font-medium">
+                    <span className="text-[11px] text-muted font-medium">
                       {p.duration || '45 Mins'}
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-semibold text-purple-300">
+                    <span className="px-2 py-0.5 rounded-md bg-subtle border border-line text-[10px] font-semibold text-purple-600">
                       {p.difficulty || 'Intermediate'}
                     </span>
                   </div>
 
-                  <h3 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
+                  <h3 className="font-heading tracking-[-0.02em] font-[750] text-base sm:text-lg text-heading group-hover:text-cyan-600 transition-colors line-clamp-1">
                     {kitName}
                   </h3>
                 </div>
 
-                <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs font-bold text-cyan-400 group-hover:text-cyan-300">
+                <div className="pt-3 border-t border-line flex items-center justify-between text-xs font-bold text-cyan-600 group-hover:text-cyan-600">
                   <span>{owned ? 'Open Kit & Mission' : 'Preview Kit'}</span>
                   <div className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500 group-hover:text-white transition-colors">
                     <ChevronRight size={15} />
@@ -240,9 +234,9 @@ export function Dashboard() {
               .map((item) => (
               <div
                 key={item.id}
-                className="rounded-3xl bg-white/[0.01] border border-dashed border-white/10 p-4 sm:p-5 flex flex-col justify-between gap-4 opacity-60"
+                className="rounded-xl bg-panel border border-dashed border-line p-4 sm:p-5 flex flex-col justify-between gap-4 opacity-60"
               >
-                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-slate-950 border border-white/10 grayscale">
+                <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden relative bg-canvas border border-line grayscale">
                   <Img
                     id={item.image}
                     alt={item.title}
@@ -250,15 +244,15 @@ export function Dashboard() {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-3 right-3">
-                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-950/80 text-amber-300 border border-amber-400/30 backdrop-blur-md">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-canvas/80 text-amber-600 border border-amber-400/30 backdrop-blur-md">
                       <Clock size={11} /> Coming Soon
                     </span>
                   </div>
                 </div>
-                <h3 className="font-heading font-extrabold text-base sm:text-lg text-white line-clamp-1">
+                <h3 className="font-heading tracking-[-0.02em] font-[750] text-base sm:text-lg text-heading line-clamp-1">
                   {getKit(item.id)?.name || item.title}
                 </h3>
-                <div className="pt-3 border-t border-white/10 text-xs font-bold text-slate-500">
+                <div className="pt-3 border-t border-line text-xs font-bold text-slate-500">
                   Not available yet
                 </div>
               </div>

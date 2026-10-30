@@ -4,7 +4,7 @@ This file provides system context, hardware specifications, and development inst
 
 ---
 
-## 🚀 Quick Start for Development
+## Quick Start for Development
 
 ### 1. Web Application (React + Vite + Blockly + Tailwind CSS)
 ```bash
@@ -27,7 +27,7 @@ npm run dev
 
 ---
 
-## ⚡ Official Hardware Pinout Reference
+## Official Hardware Pinout Reference
 
 | Function / Peripheral | GPIO Pins | Behavior & MicroPython Usage |
 | :--- | :--- | :--- |
@@ -46,7 +46,7 @@ npm run dev
 
 ---
 
-## 🛡️ Critical Code Generation Rules for MicroPython
+## Critical Code Generation Rules for MicroPython
 
 1. **Singleton PWM Pool Manager:**
    ESP32-S3 has 4 hardware PWM timers. Always reuse PWM instances via `_get_pwm(pin, freq)` to avoid `RuntimeError: out of PWM timers`:

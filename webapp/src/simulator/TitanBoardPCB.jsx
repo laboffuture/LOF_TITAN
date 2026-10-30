@@ -16,7 +16,7 @@ export function TitanBoardPCB({ state, onButtonPress, onButtonRelease, onSensorC
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[580px] bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Deep Red PCB Board Container */}
-      <div className="relative w-full max-w-[580px] bg-gradient-to-br from-[#d91424] via-[#b50a18] to-[#82050f] rounded-3xl p-3.5 sm:p-4 border-2 border-[#ff4757]/50 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_0_25px_rgba(0,0,0,0.5)] flex flex-col justify-between space-y-3">
+      <div className="relative w-full max-w-[580px] bg-gradient-to-br from-[#d91424] via-[#b50a18] to-[#82050f] rounded-xl p-3.5 sm:p-4 border-2 border-[#ff4757]/50 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_0_25px_rgba(0,0,0,0.5)] flex flex-col justify-between space-y-3">
         
         {/* Golden PCB Mounting Holes */}
         <div className="absolute top-3 left-3 w-4 h-4 rounded-full bg-[#1e293b] border-2 border-amber-400 shadow-inner" />

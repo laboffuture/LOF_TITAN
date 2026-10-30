@@ -513,7 +513,7 @@ export function registerPythonGenerators() {
              `try:\n` +
              `  _raw = _pi.readfrom_mem(0x57, 0x07, 6)\n` +
              `  _ir_val = (int.from_bytes(_raw[3:6], 'big') & 0x3FFFF)\n` +
-             `  _finger = "Finger Detected ✅" if _ir_val > 50000 else "No Finger ❌"\n` +
+             `  _finger = "Finger Detected" if _ir_val > 50000 else "No Finger"\n` +
              `  print(f"[PULSE SENSOR 0x57] IR Value: {_ir_val} | {_finger}")\n` +
              `except Exception as _pe:\n` +
              `  print(f"[PULSE SENSOR 0x57] Device present at 0x57 (init required: {_pe})")\n`;

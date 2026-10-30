@@ -96,10 +96,10 @@ export function Login() {
   };
 
   const tabClass = (active) =>
-    `flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+    `flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm transition-all ${
       active
-        ? 'bg-gradient-to-r from-primary-start to-primary-end text-white shadow-glow'
-        : 'text-gray-400 hover:text-white hover:bg-white/5'
+        ? 'bg-panel text-brand-text font-semibold shadow-lof-sm'
+        : 'text-muted font-medium hover:text-heading'
     }`;
 
   return (
@@ -108,7 +108,7 @@ export function Login() {
         {/* Brand lockup. The portal is the first thing a customer sees, so it
             carries the identity rather than dropping them onto a bare form. */}
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="w-16 h-16 rounded-full overflow-hidden border border-white/15 bg-white flex items-center justify-center shadow-glow">
+          <div className="w-16 h-16 rounded-full overflow-hidden border border-line bg-white flex items-center justify-center shadow-glow">
             <img
               src={cld('lof-titan/lof-normal', 192)}
               alt="LOF TITAN"
@@ -118,8 +118,8 @@ export function Login() {
             />
           </div>
           <div>
-            <h1 className="font-heading font-extrabold text-2xl tracking-wider text-white">LOF TITAN</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h1 className="font-heading font-extrabold text-2xl tracking-wider text-heading">LOF TITAN</h1>
+            <p className="text-sm text-muted mt-0.5">
               Sign in to open your kits and the build tools.
             </p>
           </div>
@@ -127,8 +127,8 @@ export function Login() {
 
         {PREVIEW_MODE && (
           <div className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4">
-            <AlertCircle size={17} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-200/90 leading-relaxed">
+            <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-600 leading-relaxed">
               <span className="font-bold">Preview build.</span> This copy has no
               server attached, so sign-in and the kit tools are unavailable. Browse
               the catalogue here, or use the deployment connected to the LOF TITAN API.
@@ -136,17 +136,17 @@ export function Login() {
           </div>
         )}
 
-        <div className="glass-panel rounded-3xl p-5 sm:p-7 space-y-5">
+        <div className="glass-panel rounded-xl p-5 sm:p-7 space-y-5">
           {user ? (
             /* Already signed in. Rather than showing a pointless second form,
                offer the two places worth going. */
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                <p className="text-sm text-gray-200">
-                  Signed in as <span className="font-bold text-white">{user.name}</span>
-                  <span className="text-gray-400"> · {user.entitlements.length} kit(s)</span>
+                <p className="text-sm text-ink">
+                  Signed in as <span className="font-bold text-heading">{user.name}</span>
+                  <span className="text-muted"> · {user.entitlements.length} kit(s)</span>
                   {isAdmin && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 text-[10px] font-bold uppercase align-middle">
+                    <span className="ml-2 px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-600 text-[10px] font-bold uppercase align-middle">
                       admin
                     </span>
                   )}
@@ -156,21 +156,21 @@ export function Login() {
                 {isAdmin ? (
                   <Link
                     to="/admin"
-                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/25 transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold bg-cyan-500/15 text-cyan-600 border border-cyan-400/30 hover:bg-cyan-500/25 transition-all"
                   >
                     <ShieldCheck size={17} /> Admin panel
                   </Link>
                 ) : (
                   <Link
                     to="/"
-                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-primary-start to-primary-end text-white hover:shadow-glow transition-all"
+                    className="lof-primary w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-white transition-all"
                   >
                     <LayoutDashboard size={17} /> Go to dashboard
                   </Link>
                 )}
                 <button
                   onClick={signOut}
-                  className="w-full px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                  className="w-full px-5 py-2.5 rounded-xl text-sm font-medium text-muted hover:text-heading hover:bg-subtle transition-all"
                 >
                   Sign out
                 </button>
@@ -178,7 +178,7 @@ export function Login() {
             </div>
           ) : (
             <>
-              <div className="flex gap-1.5 p-1.5 rounded-2xl bg-black/30 border border-white/10">
+              <div className="flex gap-0.5 p-[3px] rounded-lg bg-subtle border border-line">
                 <button type="button" onClick={() => switchMode('signin')} className={tabClass(!isRegister)}>
                   <LogIn size={15} /> Sign in
                 </button>
@@ -190,7 +190,7 @@ export function Login() {
               <form onSubmit={submit} className="space-y-4">
                 {isRegister && (
                   <div className="space-y-1.5">
-                    <label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                    <label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted">
                       Name
                     </label>
                     <input
@@ -199,13 +199,13 @@ export function Login() {
                       onChange={(e) => setName(e.target.value)}
                       autoComplete="name"
                       placeholder="Your name"
-                      className="w-full bg-[#0d1117] text-white px-4 py-3 rounded-xl border border-white/10 focus:outline-none focus:border-cyan-500/60 transition-colors"
+                      className="w-full bg-panel text-heading placeholder-faint px-4 py-3 rounded-lg border border-line-strong focus:outline-none focus:border-brand transition-colors"
                     />
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted">
                     Email
                   </label>
                   <input
@@ -215,12 +215,12 @@ export function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="username"
                     placeholder="you@example.com"
-                    className="w-full bg-[#0d1117] text-white px-4 py-3 rounded-xl border border-white/10 focus:outline-none focus:border-cyan-500/60 transition-colors"
+                    className="w-full bg-panel text-heading placeholder-faint px-4 py-3 rounded-lg border border-line-strong focus:outline-none focus:border-brand transition-colors"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  <label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted">
                     Password
                   </label>
                   <input
@@ -230,7 +230,7 @@ export function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
                     placeholder="••••••••"
-                    className="w-full bg-[#0d1117] text-white px-4 py-3 rounded-xl border border-white/10 focus:outline-none focus:border-cyan-500/60 transition-colors"
+                    className="w-full bg-panel text-heading placeholder-faint px-4 py-3 rounded-lg border border-line-strong focus:outline-none focus:border-brand transition-colors"
                   />
                   {isRegister && (
                     <p className="text-[11px] text-gray-500">At least 8 characters.</p>
@@ -239,15 +239,15 @@ export function Login() {
 
                 {error && (
                   <div className="flex items-start gap-2.5 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3.5">
-                    <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
-                    <p className="text-sm text-rose-200">{error}</p>
+                    <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                    <p className="text-sm text-rose-600">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-primary-start to-primary-end text-white hover:shadow-glow transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="lof-primary w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {busy ? <Loader2 size={17} className="animate-spin" /> : isRegister ? <UserPlus size={17} /> : <LogIn size={17} />}
                   {busy ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}

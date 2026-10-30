@@ -38,7 +38,7 @@ import {
 
 import { registerCustomBlocks } from '../blockly/blocks/customBlocks';
 import { registerPythonGenerators, generateTitanWorkspaceCode } from '../blockly/generators/pythonGenerator';
-import { LunarTheme } from '../blockly/theme/lunarTheme';
+import { currentBlocklyTheme } from '../blockly/theme/lunarTheme';
 import { toolboxDefinition } from '../blockly/toolbox/toolboxDefinition';
 import { asset } from '../lib/asset';
 import { cld } from '../lib/cld';
@@ -104,6 +104,15 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
     { name: "Network and Internet", icon: Globe, color: "#2563eb", bg: "#eff6ff", customId: "network", hasChevron: true }
   ];
 
+  // Follow the app's light/dark switch.
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      workspaceRef.current?.setTheme(currentBlocklyTheme());
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -118,12 +127,13 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
       const workspace = Blockly.inject(blocklyDivRef.current, {
         toolbox: toolboxDefinition,
-        theme: LunarTheme,
+        theme: currentBlocklyTheme(),
         renderer: 'zelos',
         grid: {
           spacing: 24,
           length: 2,
-          colour: '#CBD5E1',
+          // mid-tone dots read on both the light and the dark canvas
+          colour: '#8A94AB',
           snap: true
         },
         zoom: {
@@ -619,10 +629,10 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
       />
 
       {/* Main Glassmorphic Container Card (Lunar Light Theme) */}
-      <div className="relative w-full h-full flex flex-col bg-gradient-to-br from-[#FDFEFE] to-[#F8FAFC] overflow-hidden">
+      <div className="relative w-full h-full flex flex-col bg-canvas overflow-hidden">
         
         {/* Top Header Bar - Intelligent Responsive Layout */}
-        <div className="flex flex-col xl:flex-row items-center justify-between border-b border-[#E2E8F0]/80 bg-white/90 backdrop-blur-md shrink-0 z-20">
+        <div className="flex flex-col xl:flex-row items-center justify-between border-b border-line/80 bg-white/90 backdrop-blur-md shrink-0 z-20">
           
           {/* Top Row on Mobile (Logo & Close Button), Left Side on Desktop */}
           <div className="flex items-center justify-between w-full xl:w-auto h-14 sm:h-16 px-3 sm:px-5">
@@ -774,7 +784,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                 }
                 setShowSimulator(true);
               }}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all active:scale-95 shrink-0 cursor-pointer"
+              className="lof-primary flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all active:scale-95 shrink-0 cursor-pointer"
               title="Open the interactive LOF TITAN visual simulator"
             >
               <Play size={13} fill="currentColor" />
@@ -784,7 +794,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
             {/* Run on TITAN Button */}
             <button 
               onClick={handleUploadToTitan}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0"
+              className="lof-primary flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0"
               title="Deploy and Upload MicroPython code directly to LOF TITAN"
             >
               <Upload size={13} />
@@ -806,7 +816,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
         <div className="flex-1 flex overflow-hidden relative">
           
           {/* Left Custom Sidebar (Clean White Theme) */}
-          <div className="w-[64px] sm:w-[230px] shrink-0 bg-white border-r border-[#E2E8F0] flex flex-col justify-between relative overflow-hidden select-none z-10">
+          <div className="w-[64px] sm:w-[230px] shrink-0 bg-white border-r border-line flex flex-col justify-between relative overflow-hidden select-none z-10">
             
             {/* Category List */}
             <div className="flex-1 overflow-y-auto px-1.5 sm:px-3 py-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-200">
@@ -885,7 +895,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
           </div>
 
           {/* Center Workspace + Embedded Serial Monitor Layout */}
-          <div className="flex-1 flex flex-col relative overflow-hidden bg-[#F8FAFC]">
+          <div className="flex-1 flex flex-col relative overflow-hidden bg-subtle">
             
             {/* Center Blockly Workspace */}
             <div className="flex-1 relative lunar-blockly-wrapper">
@@ -894,10 +904,10 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
             {/* Integrated Serial Monitor Bottom Panel */}
             {showSerialMonitor && (
-              <div className="serial-panel h-56 bg-[#0B0F19] border-t border-slate-700/80 flex flex-col z-20 shadow-[0_-5px_25px_rgba(0,0,0,0.3)] animate-fade-in shrink-0">
+              <div className="serial-panel h-56 bg-[#0A1120] border-t border-slate-700/80 flex flex-col z-20 shadow-[0_-5px_25px_rgba(0,0,0,0.3)] animate-fade-in shrink-0">
                 
                 {/* Serial Bar Header */}
-                <div className="px-4 py-2 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between">
+                <div className="px-4 py-2 bg-[#111A2D] border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Terminal size={15} className="text-emerald-400" />
                     <span className="text-xs font-bold text-slate-200">TITAN Serial REPL Monitor</span>
@@ -948,17 +958,17 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                 </div>
 
                 {/* Serial Command Input Form */}
-                <form onSubmit={handleSendSerialCommand} className="p-2 bg-[#0F172A] border-t border-slate-800 flex gap-2">
+                <form onSubmit={handleSendSerialCommand} className="p-2 bg-[#111A2D] border-t border-slate-800 flex gap-2">
                   <input
                     type="text"
                     value={serialInput}
                     onChange={(e) => setSerialInput(e.target.value)}
                     placeholder="Send command to TITAN REPL..."
-                    className="flex-1 bg-[#060911] text-slate-100 text-xs px-3 py-1.5 rounded-lg border border-slate-700/60 focus:outline-none focus:border-emerald-500 font-mono"
+                    className="flex-1 bg-[#0A1120] text-slate-100 text-xs px-3 py-1.5 rounded-lg border border-slate-700/60 focus:outline-none focus:border-emerald-500 font-mono"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    className="lof-primary px-3 py-1.5 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                   >
                     <Send size={12} />
                     <span>Send</span>
@@ -972,7 +982,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
 
           {/* Right Slide-over Python Code Drawer */}
           {showPythonDrawer && (
-            <div className="absolute inset-0 w-full sm:static sm:w-[420px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
+            <div className="absolute inset-0 w-full sm:static sm:w-[420px] bg-[#111A2D] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
               
               <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
@@ -996,7 +1006,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
                 </div>
               </div>
 
-              <div className="flex-1 p-4 overflow-auto font-mono text-xs leading-relaxed text-sky-200 bg-[#0B0F19]">
+              <div className="flex-1 p-4 overflow-auto font-mono text-xs leading-relaxed text-sky-200 bg-[#0A1120]">
                 <pre className="whitespace-pre-wrap selection:bg-sky-500/30">
                   {pythonCode || "# Add blocks connected to TITAN Start to generate MicroPython code"}
                 </pre>
@@ -1005,7 +1015,7 @@ export function BlocklyIDE({ isOpen, onClose, device, onUploadCode }) {
               <div className="p-3 border-t border-slate-800 bg-slate-900/90 flex gap-2">
                 <button
                   onClick={handleUploadToTitan}
-                  className="flex-1 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95"
+                  className="lof-primary border flex-1 py-2 rounded-lg text-white text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Upload size={14} />
                   <span>Run on TITAN</span>

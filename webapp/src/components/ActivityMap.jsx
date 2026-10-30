@@ -144,8 +144,8 @@ export function ActivityMap({ places, onSelect }) {
 
   if (failed) {
     return (
-      <div className="h-[420px] lg:h-[560px] rounded-2xl bg-slate-950 border border-white/10 flex items-center justify-center text-center p-6">
-        <p className="text-sm text-slate-400 max-w-sm">
+      <div className="h-[420px] lg:h-[560px] rounded-2xl bg-canvas border border-line flex items-center justify-center text-center p-6">
+        <p className="text-sm text-muted max-w-sm">
           Map tiles could not be loaded — this network may block OpenStreetMap.
           The city rankings below are unaffected.
         </p>
@@ -156,7 +156,7 @@ export function ActivityMap({ places, onSelect }) {
   return (
     <div
       ref={holder}
-      className="h-[420px] lg:h-[560px] rounded-2xl overflow-hidden border border-white/15 bg-slate-200"
+      className="h-[420px] lg:h-[560px] rounded-2xl overflow-hidden border border-line bg-slate-200"
     />
   );
 }

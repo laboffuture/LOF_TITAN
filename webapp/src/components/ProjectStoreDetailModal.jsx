@@ -6,23 +6,13 @@ import {
   Code, 
   Play, 
   Terminal, 
-  ShieldAlert, 
-  Cpu, 
   Sun, 
-  Zap, 
   Footprints, 
   BatteryCharging, 
   CheckCircle2, 
-  HelpCircle, 
-  Trophy, 
-  Wrench, 
-  Sparkles, 
-  Star, 
-  Clock, 
   Layers, 
   Copy, 
   Check, 
-  FileCode,
   Flame,
   ChevronRight,
   ChevronLeft,
@@ -31,22 +21,16 @@ import {
   ExternalLink,
   SquareCheck,
   RotateCcw,
-  Sliders,
   SlidersHorizontal,
   Lock,
   Image as ImageIcon
 } from 'lucide-react';
 import { RequireKit } from '../auth/RequireKit';
-import { asset } from '../lib/asset';
 import { Img } from './Img';
 import { cld } from '../lib/cld';
+import { HeroSky, PageWatermarks } from './SpaceArt';
+import { NavSlot } from './NavSlot';
 
-/**
- * Safety strings carry a leading icon (⚠️ ⚡ 🔦) that the UI renders separately.
- * The /u flag matters: ⚠️ is U+26A0 followed by variation selector U+FE0F, and
- * without /u only the first code unit is stripped, leaving an invisible U+FE0F
- * that renders as a stray mark at the start of the line.
- */
 /**
  * Challenge difficulty badge colours.
  *
@@ -62,10 +46,6 @@ const LEVEL_BADGE = {
   Advanced: 'bg-purple-100 text-purple-800',
   _default: 'bg-purple-100 text-purple-800',
 };
-
-function stripLeadingIcon(text) {
-  return String(text ?? '').replace(/^[⚠⚡🔦️s]+/u, '');
-}
 
 export function ProjectStoreDetailModal({ 
   isOpen, 
@@ -245,156 +225,90 @@ export function ProjectStoreDetailModal({
     <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[100] flex items-center justify-center backdrop-blur-md bg-slate-950/65 transition-all duration-300 animate-fade-in">
       
       {/* Main Lunar Light Modal Container */}
-      <div className="relative w-full h-full flex flex-col bg-gradient-to-br from-[#FCFDFF] via-[#F8FAFC] to-[#F1F5F9] overflow-hidden text-slate-800 font-sans">
+      <div className="relative w-full h-full flex flex-col bg-canvas overflow-hidden text-slate-800 font-sans">
+        <PageWatermarks contained />
         
-        {/* Top Lunar Header Bar - Intelligent Responsive Layout */}
-        <div className="flex flex-col xl:flex-row items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md shrink-0 z-30 shadow-xs">
-          
-          {/* Top Row on Mobile (Logo & Close Button), Left Side on Desktop */}
-          <div className="flex items-center justify-between w-full xl:w-auto h-14 sm:h-16 px-3 sm:px-6">
-            {/* Top Left: Logo & Project Identity */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-              <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden shadow-[0_0_12px_rgba(186,230,253,0.8)] border border-sky-200 shrink-0">
-                <img
-                  src={cld('lof-titan/lof-silver', 192)}
-                  alt="LOF TITAN Lunar"
-                  decoding="async"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { e.target.src = asset('logo.webp'); }}
-                />
-              </div>
-              <div className="flex items-center gap-2 truncate">
-                <span className="font-heading font-extrabold text-base tracking-wide text-slate-900 truncate">
-                  {project.name}
-                </span>
-                <span className="hidden md:inline-flex px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase bg-sky-100 text-sky-800 border border-sky-200 shrink-0">
-                  {project.badge || 'DIY Kit'}
-                </span>
-              </div>
-            </div>
+        {/* Kit controls live in the app's single top bar (see NavSlot), so the
+            page has no toolbar of its own. Serial and Block Studio are not
+            repeated here: the top bar's Monitor and Code open the same tools. */}
+        <NavSlot name="start">
+          <span className="hidden md:block w-px h-6 bg-line shrink-0" />
+          <span className="text-[14.5px] font-bold text-heading truncate max-w-[160px] lg:max-w-[240px]" title={project.name}>
+            {project.name}
+          </span>
 
-            {/* Close Button (Visible only on Mobile/Tablet in top row). Absent
-                when there is nowhere to close to - an LMS-embedded kit. */}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="xl:hidden p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors shrink-0 cursor-pointer"
-                title="Close and Return to Store"
-              >
-                <X size={20} />
-              </button>
-            )}
+          {/* Section switcher: previous, current section (jumps to it), next. */}
+          <div className="flex items-center gap-0.5 p-[3px] rounded-lg bg-subtle border border-line shrink-0">
+            <button
+              onClick={handlePrevNav}
+              disabled={currentNavIndex === 0}
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:text-brand-text hover:bg-panel transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              title="Previous Section"
+            >
+              <ChevronLeft size={16} strokeWidth={1.8} />
+            </button>
+            <button
+              onClick={() => scrollToSection(navLinks[currentNavIndex]?.id)}
+              className="h-8 px-3 rounded-md bg-panel shadow-lof-sm min-w-[110px] sm:min-w-[140px] text-center text-[13px] font-semibold text-brand-text truncate cursor-pointer"
+              title="Jump to Current Section"
+            >
+              {navLinks[currentNavIndex]?.label}
+            </button>
+            <button
+              onClick={handleNextNav}
+              disabled={currentNavIndex === navLinks.length - 1}
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:text-brand-text hover:bg-panel transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              title="Next Section"
+            >
+              <ChevronRight size={16} strokeWidth={1.8} />
+            </button>
           </div>
+        </NavSlot>
 
-          {/* Action Toolbar (Scrollable horizontally on mobile, flex row on desktop) */}
-          <div className="flex items-center gap-2 sm:gap-4 w-full xl:w-auto overflow-x-auto scrollbar-hide px-3 sm:px-6 pb-2 xl:pb-0 shrink-0">
-            
-            {/* Center: Premium Single-Item Stepper Pill with Enlarged Typography */}
-            <div className="flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 bg-slate-100/90 rounded-full border border-slate-200/90 shadow-2xs text-slate-700 shrink-0">
-              <button
-                onClick={handlePrevNav}
-                disabled={currentNavIndex === 0}
-                className={`p-1.5 rounded-full transition-all ${
-                  currentNavIndex === 0 
-                    ? 'opacity-30 cursor-not-allowed text-slate-400' 
-                    : 'hover:bg-white hover:text-indigo-600 active:scale-95 text-slate-700 cursor-pointer shadow-2xs'
-                }`}
-                title="Previous Section"
-              >
-                <ChevronLeft size={16} />
-              </button>
+        <NavSlot name="end">
+          {owned ? (
+            <button
+              onClick={() => onUploadCode?.(primaryCode)}
+              className="lof-primary inline-flex items-center gap-[7px] h-[38px] px-3 sm:px-3.5 rounded-lg border font-semibold text-[12.5px] whitespace-nowrap cursor-pointer"
+              title="Upload & Run on LOF TITAN"
+            >
+              <Upload size={18} strokeWidth={1.8} />
+              <span>Upload & Run</span>
+            </button>
+          ) : (
+            <span
+              className="inline-flex items-center gap-[7px] h-[38px] px-3 sm:px-3.5 rounded-lg border border-line bg-subtle text-muted font-semibold text-[12.5px] whitespace-nowrap"
+              title="Get this kit to unlock the build tools"
+            >
+              <Lock size={16} strokeWidth={1.8} />
+              <span>Kit locked</span>
+            </span>
+          )}
+        </NavSlot>
 
-              <button
-                onClick={() => scrollToSection(navLinks[currentNavIndex]?.id)}
-                className="flex items-center justify-center px-2 sm:px-4 py-1 rounded-full hover:bg-white/90 transition-all min-w-[100px] sm:min-w-[150px] text-center cursor-pointer shadow-2xs overflow-hidden shrink-0"
-                title="Jump to Current Section"
-              >
-                <span className="text-xs sm:text-base font-extrabold text-indigo-700 tracking-wide truncate">
-                  {navLinks[currentNavIndex]?.label}
-                </span>
-              </button>
-
-              <button
-                onClick={handleNextNav}
-                disabled={currentNavIndex === navLinks.length - 1}
-                className={`p-1.5 rounded-full transition-all ${
-                  currentNavIndex === navLinks.length - 1 
-                    ? 'opacity-30 cursor-not-allowed text-slate-400' 
-                    : 'hover:bg-white hover:text-indigo-600 active:scale-95 text-slate-700 cursor-pointer shadow-2xs'
-                }`}
-                title="Next Section"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            <div className="w-px h-5 bg-slate-200 mx-1 shrink-0" />
-
-            {/* Top Right Actions */}
-            <div className="flex items-center gap-2 shrink-0">
-              {owned ? (
-                <>
-                  <button
-                    onClick={() => onOpenSerialMonitor?.()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                    title="Open Live Serial Monitor"
-                  >
-                    <Terminal size={14} className="text-emerald-600" />
-                    <span className="hidden sm:inline">Serial</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenBlockCode?.()}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                    title="Open in Block Code Studio"
-                  >
-                    <Code size={14} className="text-indigo-600" />
-                    <span className="hidden sm:inline">Block Studio</span>
-                  </button>
-
-                  <button
-                    onClick={() => onUploadCode?.(primaryCode)}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
-                    title="Upload & Run on LOF TITAN"
-                  >
-                    <Upload size={13} />
-                    <span>Upload & Run</span>
-                  </button>
-                </>
-              ) : (
-                <span
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-300 shrink-0"
-                  title="Get this kit to unlock the build tools"
-                >
-                  <Lock size={13} />
-                  <span className="hidden sm:inline">Kit locked</span>
-                </span>
-              )}
-
-              {/* Close Button (Visible only on Desktop in toolbar) */}
-              {onClose && (
-                <button
-                  onClick={onClose}
-                  className="hidden xl:flex p-1.5 rounded-full hover:bg-slate-200/80 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
-                  title="Close and Return to Store"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-
-          </div>
-        </div>
+        {/* Absent when there is nowhere to close to - an LMS-embedded kit. */}
+        {onClose && (
+          <NavSlot name="close">
+            <button
+              onClick={onClose}
+              className="lof-icon-btn inline-flex items-center justify-center w-[38px] h-[38px] shrink-0 cursor-pointer"
+              title="Close and Return to Store"
+              aria-label="Close and return to store"
+            >
+              <X size={18} strokeWidth={1.8} />
+            </button>
+          </NavSlot>
+        )}
 
         {/* Scrollable Articulate-Style Body Content with Enhanced Typography */}
-        <div ref={contentRef} className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-12 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+        <div ref={contentRef} className="relative z-[1] flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-12 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
           
           {/* ================= 1. HERO COVER SECTION ================= */}
-          <div id="section-overview" className="rounded-3xl bg-white border border-slate-200/90 shadow-md p-6 sm:p-10 lg:p-12 space-y-8">
+          <div id="section-overview" className="rounded-xl bg-white border border-slate-200/90 shadow-md p-6 sm:p-10 lg:p-12 space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
               
               {/* Main Visual Frame - Sleek Full Border Fit */}
-              <div className="lg:col-span-5 rounded-3xl bg-slate-950 border border-slate-200/80 p-2 sm:p-2.5 flex items-center justify-center relative shadow-md overflow-hidden min-h-[340px] max-h-[400px]">
+              <div className="lg:col-span-5 rounded-xl bg-slate-950 border border-slate-200/80 p-2 sm:p-2.5 flex items-center justify-center relative shadow-md overflow-hidden min-h-[340px] max-h-[400px]">
                 <Img
                   id={project.heroImage}
                   alt={project.name}
@@ -410,7 +324,7 @@ export function ProjectStoreDetailModal({
               {/* Title & Metadata */}
               <div className="lg:col-span-7 space-y-6 flex flex-col justify-between h-full">
                 <div className="space-y-3.5">
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-extrabold text-slate-900 leading-tight">
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-heading tracking-[-0.02em] font-[750] text-slate-900 leading-tight">
                     {project.name}
                   </h1>
 
@@ -443,16 +357,13 @@ export function ProjectStoreDetailModal({
                 {/* Ratings, Duration & Difficulty Metadata at Bottom */}
                 <div className="flex items-center gap-3.5 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap pt-1">
                   <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-4 py-2 rounded-full border border-amber-200 font-bold shadow-2xs">
-                    <Star size={16} className="fill-current" />
                     <span>{project.rating || 4.9}</span>
                     <span className="text-slate-400 font-normal">({project.reviews || 128} Reviews)</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 text-slate-700 font-bold shadow-2xs">
-                    <Clock size={16} className="text-indigo-600" />
                     <span>{project.duration || '45 Mins'}</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 text-slate-700 font-bold shadow-2xs">
-                    <Layers size={16} className="text-purple-600" />
                     <span>{project.difficulty || 'Intermediate'}</span>
                   </div>
                 </div>
@@ -464,11 +375,8 @@ export function ProjectStoreDetailModal({
           {/* Kit exists but its deep content has not been written yet. Without this
               the page would end after the hero and look broken. */}
           {navLinks.length === 1 && (
-            <div className="p-10 sm:p-14 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col items-center text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-                <Wrench size={26} />
-              </div>
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">
+            <div className="p-10 sm:p-14 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col items-center text-center gap-4">
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">
                 Build guide coming soon
               </h2>
               <p className="text-sm sm:text-base text-slate-600 max-w-xl leading-relaxed">
@@ -482,42 +390,39 @@ export function ProjectStoreDetailModal({
           {hasSection('safety') && (
           <div id="section-safety" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <ShieldAlert size={24} className="text-amber-500" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('safety')}. Product Safety Warnings</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('safety')}. Product Safety Warnings</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               
               {/* Hardware Safety */}
-              <div className="p-7 rounded-3xl bg-amber-50/80 border border-amber-200/90 shadow-2xs space-y-4">
+              <div className="p-7 rounded-xl bg-amber-50/80 border border-amber-200/90 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2.5 text-amber-950 font-bold text-base border-b border-amber-200/60 pb-3">
-                  <Wrench size={18} className="text-amber-600" />
                   <span>{hardwareTitle}</span>
                 </div>
-                <ul className="space-y-3.5 text-sm sm:text-base text-amber-950/90 leading-relaxed font-medium">
+                <ol className="space-y-3.5 text-sm sm:text-base text-amber-950/90 leading-relaxed font-medium">
                   {project.safetyWarnings?.hardware?.map((item, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
-                      <span className="shrink-0 mt-0.5">⚠️</span>
-                      <span>{stripLeadingIcon(item)}</span>
+                      <span className="shrink-0 w-6 h-6 mt-0.5 rounded-full bg-amber-200/80 text-amber-900 text-xs font-extrabold flex items-center justify-center">{idx + 1}</span>
+                      <span>{item}</span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
 
               {/* Electronics Safety */}
-              <div className="p-7 rounded-3xl bg-rose-50/80 border border-rose-200/90 shadow-2xs space-y-4">
+              <div className="p-7 rounded-xl bg-rose-50/80 border border-rose-200/90 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2.5 text-rose-950 font-bold text-base border-b border-rose-200/60 pb-3">
-                  <Zap size={18} className="text-rose-600" />
                   <span>{electronicsTitle}</span>
                 </div>
-                <ul className="space-y-3.5 text-sm sm:text-base text-rose-950/90 leading-relaxed font-medium">
+                <ol className="space-y-3.5 text-sm sm:text-base text-rose-950/90 leading-relaxed font-medium">
                   {project.safetyWarnings?.electronics?.map((item, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
-                      <span className="shrink-0 mt-0.5">{item.startsWith('⚡') ? '⚡' : item.startsWith('🔦') ? '🔦' : '⚠️'}</span>
-                      <span>{stripLeadingIcon(item)}</span>
+                      <span className="shrink-0 w-6 h-6 mt-0.5 rounded-full bg-rose-200/80 text-rose-900 text-xs font-extrabold flex items-center justify-center">{idx + 1}</span>
+                      <span>{item}</span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
 
             </div>
@@ -528,8 +433,7 @@ export function ProjectStoreDetailModal({
           {hasSection('components') && (
           <div id="section-components" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <Cpu size={24} className="text-cyan-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('components')}. Components Introduction & Live Labs</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('components')}. Components Introduction & Live Labs</h2>
             </div>
 
             {/* Vertical Sidebar + Deep Dive Content Grid */}
@@ -554,11 +458,6 @@ export function ProjectStoreDetailModal({
                           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'
-                      }`}>
-                        <Cpu size={18} />
-                      </div>
                       <div className="min-w-0 flex-1">
                         <div className={`text-sm tracking-wide truncate ${isActive ? 'font-extrabold text-indigo-950' : 'font-bold text-slate-700'}`}>
                           {shortName}
@@ -576,7 +475,7 @@ export function ProjectStoreDetailModal({
                 if (!comp) return null;
 
                 return (
-                  <div className="md:col-span-8 lg:col-span-9 p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/90 shadow-md space-y-6">
+                  <div className="md:col-span-8 lg:col-span-9 p-6 sm:p-8 rounded-xl bg-white border border-slate-200/90 shadow-md space-y-6">
                     
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-7 items-center">
                       
@@ -651,7 +550,7 @@ export function ProjectStoreDetailModal({
                       <div className="pt-5 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/70 via-sky-50/50 to-purple-50/70 p-5 rounded-2xl border">
                         <div className="space-y-1 text-center sm:text-left">
                           <span className="text-xs font-extrabold uppercase text-indigo-700 tracking-wider flex items-center gap-1.5 justify-center sm:justify-start">
-                            <Zap size={14} className="text-amber-500 fill-amber-500" /> Interactive Hardware Calibration Lab
+                            Interactive Hardware Calibration Lab
                           </span>
                           <h4 className="font-bold text-base text-slate-900">
                             {comp.experiment?.title || 'Live Sensor Experiment & Code Runner'}
@@ -660,9 +559,8 @@ export function ProjectStoreDetailModal({
 
                         <button
                           onClick={() => setActiveExperimentModal(comp)}
-                          className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-md hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5 active:scale-95 cursor-pointer shrink-0"
+                          className="lof-primary w-full sm:w-auto px-6 py-3.5 rounded-2xl text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2.5 active:scale-95 cursor-pointer shrink-0"
                         >
-                          <Zap size={18} className="text-amber-300 fill-amber-300" />
                           <span>Launch Live Calibration Lab</span>
                           <ExternalLink size={15} className="text-indigo-200" />
                         </button>
@@ -680,14 +578,13 @@ export function ProjectStoreDetailModal({
           {hasSection('assembly') && (
           <div id="section-assembly" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <Wrench size={24} className="text-indigo-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('assembly')}. {assemblyTitle}</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('assembly')}. {assemblyTitle}</h2>
             </div>
 
             <RequireKit kitId={project.id} kitName={kitName} sectionName="The assembly guide">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {project.assembly?.map(item => (
-                  <div key={item.step} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
+                  <div key={item.step} className="p-6 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
                     <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
                       {item.step}
                     </div>
@@ -709,14 +606,13 @@ export function ProjectStoreDetailModal({
           {hasSection('coding') && (
           <div id="section-coding" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <Code size={24} className="text-violet-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('coding')}. {codingTitle}</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('coding')}. {codingTitle}</h2>
             </div>
 
             <RequireKit kitId={project.id} kitName={kitName} sectionName="The coding guide">
               <ol className="space-y-3">
                 {project.coding?.map((item) => (
-                  <li key={item.step} className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
+                  <li key={item.step} className="p-5 sm:p-6 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex gap-4 items-start">
                     <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 font-extrabold text-sm flex items-center justify-center shrink-0">
                       {item.step}
                     </div>
@@ -736,8 +632,7 @@ export function ProjectStoreDetailModal({
           <div id="section-code" className="space-y-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2.5">
-                <FileCode size={24} className="text-blue-600" />
-                <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('code')}. Production MicroPython Firmware</h2>
+                <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('code')}. Production MicroPython Firmware</h2>
               </div>
 
               {/* With two programs these would be ambiguous - which board? - so
@@ -754,7 +649,7 @@ export function ProjectStoreDetailModal({
 
                   <button
                     onClick={() => onUploadCode?.(codePrograms[0].code)}
-                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+                    className="lof-primary px-5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
                   >
                     <Upload size={15} />
                     <span>Upload & Run on TITAN</span>
@@ -768,11 +663,11 @@ export function ProjectStoreDetailModal({
                 {codePrograms.map((program, idx) => {
                   const key = program.filename || `program-${idx}`;
                   return (
-                    <div key={key} className="rounded-3xl bg-[#060911] border border-slate-800 overflow-hidden shadow-xl">
+                    <div key={key} className="rounded-xl bg-[#0A1120] border border-slate-800 overflow-hidden shadow-xl">
                       {/* A label only exists on a multi-program kit, where it is
                           the thing that says which board this belongs on. */}
                       {program.label && (
-                        <div className="px-5 py-3 bg-[#0B1220] border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="px-5 py-3 bg-[#0A1120] border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
                           <div className="flex items-center gap-2.5">
                             <span className="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[11px] font-extrabold flex items-center justify-center shrink-0">
                               {idx + 1}
@@ -791,7 +686,7 @@ export function ProjectStoreDetailModal({
                               </button>
                               <button
                                 onClick={() => onUploadCode?.(program.code)}
-                                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-[11px] font-bold text-white flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                                className="lof-primary px-3.5 py-1.5 rounded-lg text-[11px] font-bold text-white flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                               >
                                 <Upload size={13} />
                                 <span>Upload</span>
@@ -801,7 +696,7 @@ export function ProjectStoreDetailModal({
                         </div>
                       )}
 
-                      <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
+                      <div className="px-5 py-3 bg-[#111A2D] border-b border-slate-800 flex items-center justify-between text-xs sm:text-sm text-slate-400">
                         <span className="font-mono text-cyan-400 font-bold">{program.filename || codeFilename}</span>
                         <span className="text-xs text-slate-500">MicroPython ESP32-S3 Firmware</span>
                       </div>
@@ -822,14 +717,13 @@ export function ProjectStoreDetailModal({
           {hasSection('faq') && (
           <div id="section-faq" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <HelpCircle size={24} className="text-purple-600" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('faq')}. {faqTitle}</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('faq')}. {faqTitle}</h2>
             </div>
 
             <RequireKit kitId={project.id} kitName={kitName} sectionName="Troubleshooting">
               <div className="space-y-4">
                 {project.faq?.map((item, idx) => (
-                  <div key={idx} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+                  <div key={idx} className="p-6 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
                     <h4 className="font-bold text-base sm:text-lg text-indigo-900 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold shrink-0">Q</span>
                       <span>{item.q}</span>
@@ -846,20 +740,19 @@ export function ProjectStoreDetailModal({
           {hasSection('challenges') && (
           <div id="section-challenges" className="space-y-5">
             <div className="flex items-center gap-2.5">
-              <Trophy size={24} className="text-amber-500" />
-              <h2 className="text-2xl font-heading font-extrabold text-slate-900">{sectionNo('challenges')}. {challengesTitle}</h2>
+              <h2 className="text-2xl font-heading tracking-[-0.02em] font-[750] text-slate-900">{sectionNo('challenges')}. {challengesTitle}</h2>
             </div>
 
             <RequireKit kitId={project.id} kitName={kitName} sectionName="Mission challenges">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {project.challenges?.map(ch => (
-                  <div key={ch.id} className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-5 hover:border-indigo-300 transition-all">
+                  <div key={ch.id} className="p-6 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-5 hover:border-indigo-300 transition-all">
                     <div className="space-y-2.5">
                       {/* Some kits have no level yet; an empty coloured pill looks
                           like a rendering fault, so drop the badge entirely. */}
                       {ch.level && (
                         <div className="flex items-center justify-between">
-                          <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${LEVEL_BADGE[ch.level] || LEVEL_BADGE._default}`}>
+                          <span className={`px-3 py-1 rounded-full text-xs font-[750] uppercase ${LEVEL_BADGE[ch.level] || LEVEL_BADGE._default}`}>
                             {ch.level}
                           </span>
                         </div>
@@ -878,7 +771,7 @@ export function ProjectStoreDetailModal({
                       <div className="space-y-2">
                         {(Array.isArray(ch.hint) ? ch.hint : [ch.hint]).map((h, hi) => (
                           <div key={hi} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                            <strong className="text-indigo-700">💡 Hint:</strong> {h}
+                            <strong className="text-indigo-700">Hint:</strong> {h}
                           </div>
                         ))}
                       </div>
@@ -899,33 +792,34 @@ export function ProjectStoreDetailModal({
           )}
 
           {/* Bottom Completion & Launch Card */}
-          <div className="p-7 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center md:text-left">
-              <h3 className="text-2xl font-heading font-extrabold">Ready to Build & Deploy {project.name}?</h3>
-              <p className="text-sm text-blue-100 max-w-xl leading-relaxed font-normal">
+          <div className="lof-hero p-7 sm:p-10 rounded-2xl text-white flex flex-col md:flex-row items-center justify-between gap-6">
+            <HeroSky />
+            <div className="relative z-[1] space-y-2 text-center md:text-left">
+              <h3 className="text-[22px] font-heading tracking-[-0.015em] font-bold">Ready to Build & Deploy {project.name}?</h3>
+              <p className="text-sm text-[#C9D6EE] max-w-xl leading-relaxed font-normal">
                 {outroCopy}
               </p>
             </div>
             {owned ? (
-              <div className="flex items-center gap-3 shrink-0 flex-wrap justify-center">
+              <div className="relative z-[1] flex items-center gap-3 shrink-0 flex-wrap justify-center">
                 <button
                   onClick={() => onOpenBlockCode?.()}
-                  className="px-6 py-3 rounded-full text-sm font-bold bg-white text-indigo-700 hover:bg-blue-50 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                  className="lof-primary border px-5 py-3 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-pointer"
                 >
                   <Code size={16} />
                   <span>Open Block Studio</span>
                 </button>
                 <button
                   onClick={() => onUploadCode?.(primaryCode)}
-                  className="px-6 py-3 rounded-full text-sm font-bold bg-indigo-950 text-white hover:bg-slate-900 shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 rounded-lg text-sm font-semibold bg-transparent text-white border border-[#fff]/40 hover:bg-[#fff]/10 hover:border-[#fff] transition-colors active:scale-[.97] flex items-center gap-2 cursor-pointer"
                 >
                   <Upload size={16} />
                   <span>Upload to Rover</span>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3 shrink-0 flex-wrap justify-center">
-                <span className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-white/15 text-white border border-white/25">
+              <div className="relative z-[1] flex items-center gap-3 shrink-0 flex-wrap justify-center">
+                <span className="flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-semibold bg-[#fff]/10 text-white border border-[#fff]/30">
                   <Lock size={16} />
                   <span>Get this kit to build it</span>
                 </span>
@@ -1010,14 +904,11 @@ while True:
 
         return (
           <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[140] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/40 animate-fade-in">
-            <div className="relative w-full max-w-3xl rounded-[32px] bg-gradient-to-br from-[#FFFFFF] to-[#F8FAFC] text-slate-800 border border-slate-200 shadow-[0_25px_70px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="relative w-full max-w-3xl rounded-[32px] bg-canvas text-slate-800 border border-slate-200 shadow-[0_25px_70px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col max-h-[92vh]">
               
               {/* Top Modal Header (Lunar White Theme) */}
               <div className="h-16 px-6 bg-white/95 backdrop-blur-md border-b border-slate-200 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md shadow-indigo-500/20">
-                    <Zap size={20} className="text-amber-300 fill-amber-300" />
-                  </div>
                   <div>
                     <h3 className="font-heading font-extrabold text-base sm:text-lg text-slate-900">
                       {activeExperimentModal.experiment?.title}
@@ -1068,7 +959,7 @@ while True:
                 {/* Protocol & Guide Card (Lunar White Theme) */}
                 <div className="p-4.5 rounded-2xl bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border border-indigo-100/90 space-y-1.5 shadow-2xs">
                   <span className="text-xs font-extrabold uppercase text-indigo-800 tracking-wider flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-indigo-600" /> Experiment Guide & Observation:
+                    Experiment Guide & Observation:
                   </span>
                   <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed font-normal">
                     {activeExperimentModal.experiment?.instruction}
@@ -1086,7 +977,7 @@ while True:
 
                     {/* Dotted Grid Blockly Canvas Container */}
                     <div 
-                      className="p-6 sm:p-10 rounded-3xl bg-[#F8FAFC] border-2 border-slate-200/90 shadow-sm overflow-x-auto select-none"
+                      className="p-6 sm:p-10 rounded-xl bg-subtle border-2 border-slate-200/90 shadow-sm overflow-x-auto select-none"
                       style={{
                         backgroundImage: 'radial-gradient(#94a3b8 1.5px, transparent 1.5px)',
                         backgroundSize: '22px 22px'
@@ -1096,7 +987,7 @@ while True:
                         
                         {/* 1. TITAN Start Cap Block */}
                         <div className="relative z-10 bg-[#6580D4] text-white px-5 py-3 rounded-tl-2xl rounded-tr-md rounded-bl-sm font-black text-sm flex items-center gap-2.5 shadow-sm border-t border-l border-r border-[#8199E8]">
-                          <span className="text-base">🚀</span>
+                          <Play size={14} className="fill-current" />
                           <span className="tracking-wide">TITAN Start</span>
                           {/* Bottom Puzzle Notch Tab */}
                           <div className="absolute -bottom-2 left-6 w-4 h-2 bg-[#6580D4] rounded-b-md"></div>
@@ -1130,7 +1021,7 @@ while True:
                             </div>
 
                             {/* Inner Nested Blocks (UV Sensor vs DC Motor) */}
-                            <div className="flex-1 bg-[#E2E8F0]/40 p-2.5 space-y-1.5 rounded-l-md border-l-2 border-[#569C48]/40 min-w-[280px]">
+                            <div className="flex-1 bg-subtle p-2.5 space-y-1.5 rounded-l-md border-l-2 border-[#569C48]/40 min-w-[280px]">
                               
                               {/* UV SENSOR BLOCKS */}
                               {isUvSensor && (
@@ -1290,7 +1181,6 @@ while True:
                     {/* Interactive Parameter Sliders Toolbar (Lunar White Theme) */}
                     <div className="p-4.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                        <Sliders size={16} className="text-indigo-600" />
                         <span>Tune Block Parameters:</span>
                       </div>
 
@@ -1373,8 +1263,8 @@ while True:
 
                 {/* TAB 2: PYTHON CODE RAW VIEW */}
                 {experimentTab === 'code' && (
-                  <div className="rounded-2xl bg-[#060911] border border-slate-800 overflow-hidden shadow-inner">
-                    <div className="px-5 py-3 bg-[#0B1120] border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                  <div className="rounded-2xl bg-[#0A1120] border border-slate-800 overflow-hidden shadow-inner">
+                    <div className="px-5 py-3 bg-[#0A1120] border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
                       <span className="font-mono text-cyan-400 font-bold">lab_experiment.py</span>
                       <button
                         onClick={() => handleCopy(activeCode)}
@@ -1427,7 +1317,7 @@ while True:
 
                   <button
                     onClick={() => onUploadCode?.(activeCode)}
-                    className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-md hover:shadow-emerald-500/20 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                    className="lof-primary border px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-white hover:shadow-emerald-500/20 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                   >
                     <Upload size={15} />
                     <span>Upload & Run on TITAN</span>

@@ -14,7 +14,7 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
 
   if (!hasAnyKit) {
     return (
-      <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[150] flex flex-col items-center justify-center gap-4 p-6 backdrop-blur-md bg-slate-900/70">
+      <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[150] flex flex-col items-center justify-center gap-4 p-6 backdrop-blur-md bg-panel/70">
         <div className="w-full max-w-lg">
           <LockedState
             title={`${toolName} is locked`}
@@ -28,7 +28,7 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Link
             to="/"
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-subtle hover:bg-subtle text-ink-2 border border-line transition-all"
           >
             <ArrowLeft size={16} /> Back to kits
           </Link>
@@ -36,7 +36,7 @@ export function RequireAnyKit({ children, toolName = 'This tool' }) {
               route out is the redeem screen, not the store. */}
           <Link
             to="/redeem"
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-600 border border-cyan-400/40 transition-all"
           >
             <KeyRound size={16} /> I have a kit ID
           </Link>

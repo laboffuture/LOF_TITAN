@@ -3,7 +3,9 @@ import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   Bluetooth, Usb, Play, Square, RotateCcw, Terminal, Bot, Code, Cpu, LogIn,
 } from 'lucide-react';
-import Galaxy from './components/Galaxy';
+import { ThemeToggle } from './components/ThemeToggle';
+import { PageWatermarks } from './components/SpaceArt';
+import { NAV_SLOT_IDS } from './components/NavSlot';
 import { useDeviceContext } from './device/deviceContext';
 import { useAuth } from './auth/authContext';
 import { RequireAuth } from './auth/RequireAuth';
@@ -24,27 +26,34 @@ import { EMBED_KIT, EMBED_HOME, isEmbedPath } from './lib/embed';
 const NAV_HIDDEN_ON = ['/login', '/redeem', '/admin'];
 
 const TOOL_LINKS = [
-  { to: '/code', label: 'Code', title: 'Open Block Code Workspace', Icon: Code, tint: 'text-blue-400' },
-  { to: '/monitor', label: 'Monitor', title: 'Open Serial Monitor', Icon: Terminal, tint: 'text-green-400' },
-  { to: '/ai', label: 'AI', title: 'Open AI Studio', Icon: Bot, tint: 'text-purple-400' },
+  { to: '/code', label: 'Code', title: 'Open Block Code Workspace', Icon: Code },
+  { to: '/monitor', label: 'Monitor', title: 'Open Serial Monitor', Icon: Terminal },
+  { to: '/ai', label: 'AI', title: 'Open AI Studio', Icon: Bot },
+  { to: '/flash', label: 'Flash', title: 'Open Dedicated Firmware Flasher', Icon: Cpu },
 ];
+
+// Shared top-bar control shape (guide: 8px radius, 12.5px semibold, 7px icon gap).
+const NAV_BTN =
+  'inline-flex items-center gap-[7px] h-[38px] px-3 sm:px-3.5 rounded-lg border font-semibold text-[12.5px] whitespace-nowrap';
+// Guide: line icons on a 1.8 stroke; muted at rest, red when active.
+const ICON = { size: 18, strokeWidth: 1.8 };
 
 function StatusPill({ device, compact }) {
   return (
     <span
       className={`font-bold flex items-center justify-end gap-1.5 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} ${
         device.status === 'RUNNING'
-          ? 'text-emerald-400 animate-pulse'
+          ? 'text-green-600 animate-pulse'
           : device.connected || device.status === 'CONNECTED_IDLE'
-          ? 'text-green-400'
+          ? 'text-green-600'
           : device.status === 'WAITING_FOR_CONNECTION'
-          ? 'text-amber-400'
-          : 'text-gray-400'
+          ? 'text-amber-600'
+          : 'text-muted'
       }`}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full ${
-          device.connected ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-gray-500'
+          device.connected ? 'bg-green-500' : 'bg-faint'
         }`}
       />
       <span className={compact ? 'truncate max-w-[80px] sm:max-w-full' : ''}>{device.status}</span>
@@ -57,9 +66,6 @@ function App() {
   const { user } = useAuth();
   const location = useLocation();
 
-  // The routed screens present as full-screen overlays; pause the WebGL
-  // background while one is open so it isn't burning frames behind them.
-  const overlayOpen = location.pathname !== '/';
   const showNav = !NAV_HIDDEN_ON.includes(location.pathname);
   // Inside an LMS iframe the student stays on their kit and its tools. Any
   // other route - the store, another kit, sign-in - leads back to the kit.
@@ -95,106 +101,91 @@ function App() {
   }, [showNav]);
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-[#060911] text-white relative overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-90">
-        <Galaxy
-          mouseRepulsion={false}
-          mouseInteraction={false}
-          disableAnimation={overlayOpen}
-          density={1.0}
-          glowIntensity={0.45}
-          saturation={0.8}
-          hueShift={200}
-          speed={0.25}
-          starSpeed={0.12}
-          rotationSpeed={0.02}
-          repulsionStrength={0}
-          twinkleIntensity={0.25}
-          transparent
-        />
-      </div>
+    <div className="min-h-screen flex flex-col font-sans text-ink relative overflow-x-hidden">
+      {/* Faint solar system and head mark behind every page. */}
+      <PageWatermarks />
 
       {showNav && (
-        <nav ref={navRef} className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-6 py-3 md:py-4 flex flex-col xl:flex-row items-center justify-between rounded-3xl xl:rounded-full sticky top-2 md:top-4 z-50 gap-4 xl:gap-0">
+        <nav ref={navRef} className="glass-panel mx-2 md:mx-4 mt-2 md:mt-4 px-3 md:px-5 py-3 flex flex-col xl:flex-row items-center justify-between rounded-2xl sticky top-2 md:top-4 z-50 gap-3 xl:gap-0">
           {/* The brand is centred in its row rather than pinned left. On mobile
               the status sits absolutely to the right so it cannot push the
               wordmark off-centre; from xl the nav is a single row and the brand
               centres between the status block and the action buttons. */}
           <div className="relative flex items-center justify-center w-full xl:w-auto gap-2 sm:gap-4">
             <Link to={EMBED_HOME || '/'} className="flex items-center gap-2 md:gap-4">
-              <img src={asset('logo.webp')} alt="Lab of Future" className="h-8 md:h-10 w-auto object-contain" />
-              <h1 className="text-lg sm:text-xl md:text-2xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-start to-white truncate">
+              {/* Guide: the full-colour logo sits on white; in dark it gets a white plate. */}
+              <img src={asset('logo.webp')} alt="Lab of Future" className="h-8 md:h-9 w-auto object-contain dark:bg-white dark:rounded-[10px] dark:px-2.5 dark:py-1.5 dark:box-content" />
+              <h1 className="text-lg sm:text-xl font-heading font-[750] tracking-[-0.02em] text-heading truncate">
                 LOF TITAN
               </h1>
             </Link>
 
             <div className="absolute right-0 flex flex-col text-right xl:hidden">
-              <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase truncate max-w-[100px] sm:max-w-[150px]">
+              <span className="text-[10.5px] text-muted font-bold tracking-[0.12em] uppercase truncate max-w-[100px] sm:max-w-[150px]">
                 {device.deviceName || (device.connected ? 'TITAN' : 'Offline')}
               </span>
               <StatusPill device={device} compact />
             </div>
           </div>
 
+          {/* Page controls (e.g. a kit's title and section switcher) land here,
+              so a full-screen page never needs a second toolbar. See NavSlot. */}
+          <div id={NAV_SLOT_IDS.start} className="flex items-center justify-center gap-3 min-w-0 empty:hidden" />
+
           <div className="flex flex-col xl:flex-row items-center gap-3 xl:gap-4 w-full xl:w-auto">
             <div className="hidden xl:flex flex-col text-right">
-              <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase">
+              <span className="text-[10.5px] text-muted font-bold tracking-[0.12em] uppercase">
                 {device.deviceName || (device.connected ? 'LOF TITAN' : 'Device Offline')}
               </span>
               <StatusPill device={device} />
             </div>
 
             <div className="flex flex-wrap xl:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 w-full xl:w-auto">
-              {TOOL_LINKS.map(({ to, label, title, Icon, tint }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  title={title}
-                  className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
-                >
-                  <Icon size={16} className={`${tint} sm:w-[18px] sm:h-[18px]`} />
-                  <span className="hidden sm:inline">{label}</span>
-                </Link>
-              ))}
-
-              <Link
-                to="/flash"
-                title="Open Dedicated Firmware Flasher"
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-300 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 transition-all duration-300 shadow-sm hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] text-xs sm:text-sm"
-              >
-                <Cpu size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
-                <span className="hidden sm:inline">Flash</span>
-              </Link>
+              {TOOL_LINKS.map(({ to, label, title, Icon }) => {
+                const active = location.pathname === to;
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    title={title}
+                    aria-current={active ? 'page' : undefined}
+                    className={`${NAV_BTN} lof-secondary group ${active ? 'border-brand text-brand-text' : ''}`}
+                  >
+                    <Icon {...ICON} className={active ? 'text-brand' : 'text-muted group-hover:text-brand-text'} />
+                    <span className="hidden sm:inline">{label}</span>
+                  </Link>
+                );
+              })}
 
               {device.isConnected ? (
                 <>
                   <button
                     onClick={device.runCode}
                     title="Run Program"
-                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all duration-300 text-xs sm:text-sm"
+                    className={`${NAV_BTN} lof-primary border`}
                   >
-                    <Play size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <Play {...ICON} />
                     <span className="hidden sm:inline">Run</span>
                   </button>
                   <button
                     onClick={device.stopExecution}
                     title="Stop Program"
-                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all duration-300 text-xs sm:text-sm"
+                    className={`${NAV_BTN} lof-secondary`}
                   >
-                    <Square size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <Square {...ICON} className="text-brand" />
                     <span className="hidden sm:inline">Stop</span>
                   </button>
                   <button
                     onClick={device.softReset}
                     title="Soft Reset Board"
-                    className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                    className="lof-icon-btn inline-flex items-center justify-center w-[38px] h-[38px]"
                   >
-                    <RotateCcw size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <RotateCcw {...ICON} />
                   </button>
                   <button
                     onClick={device.disconnectBLE}
                     title="Disconnect"
-                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-300 text-xs sm:text-sm"
+                    className={`${NAV_BTN} lof-secondary`}
                   >
                     Disconnect
                   </button>
@@ -204,17 +195,17 @@ function App() {
                   <button
                     onClick={device.connectSerial}
                     title="Connect via Web Serial (USB)"
-                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-surface border border-white/10 hover:bg-white/5 text-gray-300 text-xs sm:text-sm"
+                    className={`${NAV_BTN} lof-secondary group`}
                   >
-                    <Usb size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <Usb {...ICON} className="text-muted group-hover:text-brand-text" />
                     <span className="hidden sm:inline">USB</span>
                   </button>
                   <button
                     onClick={device.connectBLE}
                     title="Connect via Bluetooth LE"
-                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium transition-all duration-300 bg-gradient-to-r from-primary-start to-primary-end hover:shadow-glow text-white text-xs sm:text-sm"
+                    className={`${NAV_BTN} lof-primary border`}
                   >
-                    <Bluetooth size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <Bluetooth {...ICON} />
                     BLE
                   </button>
                 </>
@@ -226,27 +217,31 @@ function App() {
                   staff door to /admin and is reached by URL, not from here. */}
               {!PREVIEW_MODE && !EMBED_KIT && !OPEN_ACCESS && !user && (
                 <>
-                <div className="w-px h-6 bg-white/15 mx-1 hidden sm:block" />
+                <div className="w-px h-6 bg-line mx-1 hidden sm:block" />
                 <Link
                   to="/login"
                   title="Sign in"
-                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-surface border border-white/10 hover:bg-white/5 text-gray-300 transition-all duration-300 text-xs sm:text-sm"
+                  className={`${NAV_BTN} lof-secondary group`}
                 >
-                  <LogIn size={16} className="text-cyan-400 sm:w-[18px] sm:h-[18px]" />
+                  <LogIn {...ICON} className="text-muted group-hover:text-brand-text" />
                   <span className="hidden sm:inline">Sign in</span>
                 </Link>
                 </>
               )}
+
+              {/* Page actions (Upload & Run, Close) sit after the shared tools. */}
+              <div id={NAV_SLOT_IDS.end} className="contents" />
+
+              <ThemeToggle />
+
+              {/* A page's Close button is always the last item. */}
+              <div id={NAV_SLOT_IDS.close} className="contents" />
             </div>
           </div>
         </nav>
       )}
 
-      {/* relative z-10 is load-bearing: the Galaxy behind is `fixed z-0`, which
-          makes it a POSITIONED element. Without a stacking context of its own,
-          <main> is non-positioned and therefore paints BENEATH it - the galaxy
-          washed over the kit cards at 90% opacity. z-10 keeps content above the
-          background while staying under the sticky nav (z-50). */}
+      {/* z-10 keeps page content under the sticky nav (z-50). */}
       <main className="relative z-10 flex-1 p-4 grid grid-cols-12 gap-6 max-w-screen-2xl mx-auto w-full">
         <div className="col-span-12 flex flex-col gap-6">
           {embedOutOfScope ? (
@@ -352,16 +347,17 @@ function App() {
       </main>
 
       {device.uploadProgress !== null && (
-        <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-surface p-8 rounded-2xl border border-white/10 max-w-md w-full text-center shadow-2xl">
-            <h2 className="text-2xl font-bold mb-6 text-white">Uploading Code to LOF TITAN</h2>
-            <div className="h-3 w-full bg-black rounded-full overflow-hidden mb-3">
+        <div className="fixed inset-0 z-[200] lof-scrim flex items-center justify-center p-5">
+          <div className="lof-modal-pop bg-panel p-6 rounded-lof-modal border-t-4 border-brand max-w-md w-full shadow-lof">
+            <h2 className="text-lg font-bold mb-1.5 text-heading">Uploading code to LOF TITAN</h2>
+            <p className="text-[13px] text-muted mb-4">Keep the board connected until the upload finishes.</p>
+            <div className="h-1.5 w-full bg-track rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300 shadow-[0_0_10px_rgba(56,189,248,0.8)]"
+                className="h-full lof-progress rounded-full transition-[width] duration-300"
                 style={{ width: `${device.uploadProgress}%` }}
               />
             </div>
-            <p className="text-sm font-mono text-cyan-400 font-bold">{device.uploadProgress}%</p>
+            <p className="mt-2 text-xs font-bold text-link tabular-nums text-right">{device.uploadProgress}%</p>
           </div>
         </div>
       )}

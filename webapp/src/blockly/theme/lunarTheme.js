@@ -98,17 +98,19 @@ export const LunarTheme = Blockly.Theme.defineTheme('lunar_light', {
     files_category: { colour: '#3b82f6' },
     network_category: { colour: '#2563eb' }
   },
+  // Canvas colours follow the LOF style guide (light theme); block colours are unchanged.
   componentStyles: {
-    workspaceBackgroundColour: '#F8FAFC',
+    workspaceBackgroundColour: '#F5F7FB',
     toolboxBackgroundColour: '#FFFFFF',
-    toolboxForegroundColour: '#475569',
+    toolboxForegroundColour: '#34405A',
     flyoutBackgroundColour: '#FFFFFF',
+    flyoutForegroundColour: '#34405A',
     flyoutOpacity: 0.96,
-    scrollbarColour: '#CBD5E1',
-    scrollbarOpacity: 0.7,
-    insertionMarkerColour: '#38BDF8',
-    insertionMarkerOpacity: 0.6,
-    cursorColour: '#38BDF8'
+    scrollbarColour: '#CFD7E4',
+    scrollbarOpacity: 0.8,
+    insertionMarkerColour: '#D53A28',
+    insertionMarkerOpacity: 0.5,
+    cursorColour: '#D53A28'
   },
   fontStyle: {
     family: '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
@@ -116,3 +118,24 @@ export const LunarTheme = Blockly.Theme.defineTheme('lunar_light', {
     size: 13
   }
 });
+
+// Dark canvas for data-theme="dark": same blocks, guide dark surfaces.
+export const LunarDarkTheme = Blockly.Theme.defineTheme('lunar_dark', {
+  base: LunarTheme,
+  componentStyles: {
+    workspaceBackgroundColour: '#0A1120',
+    toolboxBackgroundColour: '#111A2D',
+    toolboxForegroundColour: '#B6C1D8',
+    flyoutBackgroundColour: '#111A2D',
+    flyoutForegroundColour: '#B6C1D8',
+    flyoutOpacity: 0.96,
+    scrollbarColour: '#2F3E62',
+    scrollbarOpacity: 0.8,
+    insertionMarkerColour: '#EE4B39',
+    insertionMarkerOpacity: 0.5,
+    cursorColour: '#EE4B39'
+  }
+});
+
+export const currentBlocklyTheme = () =>
+  document.documentElement.getAttribute('data-theme') === 'dark' ? LunarDarkTheme : LunarTheme;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Img } from './Img';
+import { HeroSky } from './SpaceArt';
 
 export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -29,7 +30,7 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
 
   return (
     <div 
-      className="relative w-full h-[250px] md:h-[350px] lg:h-[400px] overflow-hidden rounded-2xl group border border-white/10 shadow-2xl bg-surface/50 mb-6"
+      className="relative w-full h-[250px] md:h-[350px] lg:h-[400px] overflow-hidden rounded-2xl group border border-line shadow-lof-sm bg-[#050E22] mb-6"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -54,21 +55,22 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
               className="w-full h-full object-cover object-center transition-transform duration-10000 scale-100 group-hover:scale-105"
             />
             {/* Gradient Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center p-8 md:p-16">
-              <div className="max-w-xl animate-fade-in-up">
-                <span className="inline-block px-3 py-1 bg-primary-start/20 border border-primary-start/50 text-primary-start text-xs md:text-sm font-bold uppercase tracking-widest rounded-full mb-4 shadow-[0_0_10px_rgba(0,229,255,0.3)]">
+            <div className="absolute inset-0 overflow-hidden bg-gradient-to-r from-[#050E22]/90 via-[#0C2150]/50 to-transparent flex items-center p-8 md:p-16">
+              <HeroSky />
+              <div className="relative z-[1] max-w-xl animate-fade-in-up">
+                <span className="lof-eyebrow lof-eyebrow-hero inline-block mb-3">
                   {item.badge || 'Featured Kit'}
                 </span>
-                <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-4 leading-tight drop-shadow-lg">
+                <h2 className="text-3xl md:text-5xl font-heading font-bold tracking-[-0.015em] text-white mb-4 leading-tight">
                   {item.title}
                 </h2>
-                <p className="text-base md:text-lg text-gray-200 line-clamp-3 drop-shadow-md font-medium">
+                <p className="text-base md:text-lg text-[#C9D6EE] line-clamp-3">
                   {item.description}
                 </p>
                 {item.buttonText && (
                   <button 
                     onClick={() => onItemClick?.(item, index)}
-                    className="mt-6 px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-full transition-all shadow-glow flex items-center gap-2 active:scale-95 cursor-pointer"
+                    className="lof-primary mt-6 px-5 py-2.5 border rounded-lg font-semibold text-[13px] transition-all flex items-center gap-2 cursor-pointer"
                   >
                     {item.buttonText} <ChevronRight size={18} />
                   </button>
@@ -84,7 +86,7 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
         <>
           <button 
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 backdrop-blur-sm z-10"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-lg bg-[#050E22]/40 border border-[#fff]/30 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#050E22]/70 hover:scale-110 backdrop-blur-sm z-10"
             aria-label="Previous Slide"
           >
             <ChevronLeft size={24} />
@@ -92,22 +94,22 @@ export function Carousel({ items, autoPlayInterval = 5000, onItemClick }) {
           
           <button 
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 backdrop-blur-sm z-10"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-lg bg-[#050E22]/40 border border-[#fff]/30 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#050E22]/70 hover:scale-110 backdrop-blur-sm z-10"
             aria-label="Next Slide"
           >
             <ChevronRight size={24} />
           </button>
 
           {/* Dot Indicators */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10 bg-black/20 px-4 py-2 rounded-full backdrop-blur-md border border-white/5">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10 bg-[#050E22]/30 px-4 py-2 rounded-full backdrop-blur-md">
             {items.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
                 className={`transition-all duration-300 rounded-full ${
                   currentIndex === index 
-                    ? 'w-8 h-2.5 bg-primary-start shadow-[0_0_8px_rgba(0,229,255,0.8)]' 
-                    : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'
+                    ? 'w-8 h-2.5 bg-brand'
+                    : 'w-2.5 h-2.5 bg-[#fff]/40 hover:bg-[#fff]/70'
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
               />

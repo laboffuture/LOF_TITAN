@@ -30,14 +30,14 @@ export const projects = [
       // a UV source, so the warning card is titled accordingly.
       electronicsTitle: 'Electronics & UV Radiation Safety',
       hardware: [
-        '⚠️ Keep fingers and loose objects clear of the 4-bar leg linkages and gearboxes while motors are active to avoid pinch hazards.',
-        '⚠️ Ensure all screws and mechanical pivot joints are securely fastened before running walking sequences on rough or elevated surfaces.',
-        '⚠️ Always place the robot on a flat, non-slip floor or test track during calibration.'
+        'Keep fingers and loose objects clear of the 4-bar leg linkages and gearboxes while motors are active to avoid pinch hazards.',
+        'Ensure all screws and mechanical pivot joints are securely fastened before running walking sequences on rough or elevated surfaces.',
+        'Always place the robot on a flat, non-slip floor or test track during calibration.'
       ],
       electronics: [
-        '⚡ Never short-circuit battery power leads or motor terminals. Use the dedicated battery port on LOF TITAN.',
-        '⚡ Double-check sensor wiring polarity (GND, VCC, Signal) for S1 (GPIO 2), S2 (GPIO 1), and S3 (GPIO 3) before powering on.',
-        '🔦 UV Light Safety: Do not look directly into high-intensity UV lamps or shine UV light into eyes. Always direct UV pens downwards onto the track.'
+        'Never short-circuit battery power leads or motor terminals. Use the dedicated battery port on LOF TITAN.',
+        'Double-check sensor wiring polarity (GND, VCC, Signal) for S1 (GPIO 2), S2 (GPIO 1), and S3 (GPIO 3) before powering on.',
+        'UV Light Safety: Do not look directly into high-intensity UV lamps or shine UV light into eyes. Always direct UV pens downwards onto the track.'
       ]
     },
 
@@ -675,14 +675,14 @@ if __name__ == '__main__':
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Keep clear of high-speed motor wheels and scanner brackets while autonomous heat-seeking mode is active.',
-        '⚠️ Ensure all chassis frame screws and battery mounts are firmly tightened before testing speed maneuvers.',
-        '⚠️ Always test flame detection using safe LED IR light pens or distance-controlled test candles under adult supervision.'
+        'Keep clear of high-speed motor wheels and scanner brackets while autonomous heat-seeking mode is active.',
+        'Ensure all chassis frame screws and battery mounts are firmly tightened before testing speed maneuvers.',
+        'Always test flame detection using safe LED IR light pens or distance-controlled test candles under adult supervision.'
       ],
       electronics: [
-        '⚡ Double-check sensor wiring polarities (GND, VCC, Signal) for S1 (GPIO 2 - Left Flame) and S2 (GPIO 1 - Right Flame).',
-        '⚡ Never short-circuit battery leads or motor drive channels M1 (GPIO 15/16) and M2 (GPIO 13/14).',
-        '⚡ Always switch off LOF TITAN board power before connecting or re-arranging sensor wiring headers.'
+        'Double-check sensor wiring polarities (GND, VCC, Signal) for S1 (GPIO 2 - Left Flame) and S2 (GPIO 1 - Right Flame).',
+        'Never short-circuit battery leads or motor drive channels M1 (GPIO 15/16) and M2 (GPIO 13/14).',
+        'Always switch off LOF TITAN board power before connecting or re-arranging sensor wiring headers.'
       ]
     },
 
@@ -1249,16 +1249,16 @@ while True:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully while fitting the M3 screws and brass inserts. Avoid excessive force that may crack the 3D-printed parts.',
-        '⚠️ Tighten the screws only until the parts are securely fixed; over-tightening can damage the PCB or mounting points.',
-        '⚠️ Route the sensor, OLED, DFPlayer, and speaker cables neatly so that they are not pinched, pulled, or trapped under screws.'
+        'Use the screwdriver carefully while fitting the M3 screws and brass inserts. Avoid excessive force that may crack the 3D-printed parts.',
+        'Tighten the screws only until the parts are securely fixed; over-tightening can damage the PCB or mounting points.',
+        'Route the sensor, OLED, DFPlayer, and speaker cables neatly so that they are not pinched, pulled, or trapped under screws.'
       ],
       electronics: [
-        '⚡ Switch OFF the ESP32-S3 before connecting or changing the MAX30102, OLED, DFPlayer, speaker, or RMC cables.',
-        '⚡ Check the battery polarity and rocker-switch wiring before powering the project.',
-        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials that could short the terminals.',
-        '⚡ Keep the speaker volume at a comfortable level, especially during repeated sound and mode-switching tests.',
-        '⚡ Insert and remove the microSD card gently and avoid removing it while the DFPlayer is actively reading or playing audio.'
+        'Switch OFF the ESP32-S3 before connecting or changing the MAX30102, OLED, DFPlayer, speaker, or RMC cables.',
+        'Check the battery polarity and rocker-switch wiring before powering the project.',
+        'Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials that could short the terminals.',
+        'Keep the speaker volume at a comfortable level, especially during repeated sound and mode-switching tests.',
+        'Insert and remove the microSD card gently and avoid removing it while the DFPlayer is actively reading or playing audio.'
       ]
     },
 
@@ -1833,7 +1833,7 @@ class RobotFaceRenderer:
 
         # Header status bar (Fits inside 128px)
         oled.print_text(f"DJ BOT T{track_num}", 2, 2, 1)
-        oled.print_text("♪ NORMAL", 56, 2, 1)
+        oled.print_text("NORMAL", 56, 2, 1)
         oled.hline(0, 11, 128, 1)
 
         # Animated Left & Right Eyes (Centered at X=34 and X=94, Y=34)
@@ -1853,7 +1853,7 @@ class RobotFaceRenderer:
 
         # Top Bar (Fits inside 128px)
         oled.print_text(f"CALM {remaining_sec}s", 2, 2, 1)
-        oled.print_text("ZEN ♪", 84, 2, 1)
+        oled.print_text("ZEN", 84, 2, 1)
         oled.hline(0, 11, 128, 1)
 
         # Gentle closed curved serene eyes
@@ -2152,16 +2152,16 @@ if __name__ == '__main__':
       hardwareTitle: 'Fabrication & Mechanical Safety',
       electronicsTitle: 'Hardware & Electrical Precautions',
       hardware: [
-        '⚠️ Make sure the rotating cups and shaft are fixed securely before testing.',
-        '⚠️ Keep fingers, hair, and loose clothing away from the rotating parts.',
-        '⚠️ Tighten screws and brass inserts carefully without damaging the 3D printed parts.',
-        '⚠️ Test the anemometer in a clear area so the rotating assembly does not hit nearby objects.'
+        'Make sure the rotating cups and shaft are fixed securely before testing.',
+        'Keep fingers, hair, and loose clothing away from the rotating parts.',
+        'Tighten screws and brass inserts carefully without damaging the 3D printed parts.',
+        'Test the anemometer in a clear area so the rotating assembly does not hit nearby objects.'
       ],
       electronics: [
-        '⚠️ Switch off the power before connecting or removing the OLED, encoder, battery, or other electronic parts.',
-        '⚠️ Check all connectors and cable orientation before powering the system.',
-        '⚠️ Use only the recommended battery and adapter for charging and powering the project.',
-        '⚠️ Keep the electronics away from water or excessive moisture during wind-speed testing.'
+        'Switch off the power before connecting or removing the OLED, encoder, battery, or other electronic parts.',
+        'Check all connectors and cable orientation before powering the system.',
+        'Use only the recommended battery and adapter for charging and powering the project.',
+        'Keep the electronics away from water or excessive moisture during wind-speed testing.'
       ]
     },
 
@@ -2452,13 +2452,13 @@ class AS5600Encoder:
             self.magnet_too_strong = bool(st & 0x08)
             
             if not self.magnet_detected:
-                self.magnet_status_str = "NO MAGNET ❌"
+                self.magnet_status_str = "NO MAGNET"
             elif self.magnet_too_weak:
-                self.magnet_status_str = "MAG WEAK ⚠️"
+                self.magnet_status_str = "MAG WEAK"
             elif self.magnet_too_strong:
-                self.magnet_status_str = "MAG CLOSE ⚠️"
+                self.magnet_status_str = "MAG CLOSE"
             else:
-                self.magnet_status_str = "MAGNET OK ✅"
+                self.magnet_status_str = "MAGNET OK"
 
         # 3. Read AGC Gain (0x1A: 0-255)
         agc_byte = self._read_reg(self.REG_AGC, 1)
@@ -2703,16 +2703,16 @@ if __name__ == '__main__':
       hardwareTitle: 'Thermal & Material Safety',
       electronicsTitle: 'Hardware & Electrical Precautions',
       hardware: [
-        '⚠️ Do not touch the heater pad or heated wing surface during operation.',
-        '⚠️ Allow the heater pad and aluminium foil to cool before handling or adjusting them.',
-        '⚠️ Fix the heater pad and thermal tape securely so they do not peel or shift during testing.',
-        '⚠️ Do not leave the heating system ON continuously without supervision.'
+        'Do not touch the heater pad or heated wing surface during operation.',
+        'Allow the heater pad and aluminium foil to cool before handling or adjusting them.',
+        'Fix the heater pad and thermal tape securely so they do not peel or shift during testing.',
+        'Do not leave the heating system ON continuously without supervision.'
       ],
       electronics: [
-        '⚠️ Switch off the power before connecting or removing the heater pad, temperature sensor, OLED, or battery.',
-        '⚠️ Check all connectors and polarity before powering the system.',
-        '⚠️ Use only the recommended 12V battery and adapter for the project.',
-        '⚠️ Do not touch exposed electrical connections while the system is powered.'
+        'Switch off the power before connecting or removing the heater pad, temperature sensor, OLED, or battery.',
+        'Check all connectors and polarity before powering the system.',
+        'Use only the recommended 12V battery and adapter for the project.',
+        'Do not touch exposed electrical connections while the system is powered.'
       ]
     },
 
@@ -2853,7 +2853,7 @@ import onewire
 import ds18x20
 
 # ==============================================================================
-# ⚙️ USER CONFIGURATION — GLOBAL TEMPERATURE & POWER LIMITS
+# USER CONFIGURATION — GLOBAL TEMPERATURE & POWER LIMITS
 # ------------------------------------------------------------------------------
 # Easily adjust thermal thresholds and power limits here:
 # ==============================================================================
@@ -3378,15 +3378,15 @@ if __name__ == '__main__':
 
     safetyWarnings: {
       hardware: [
-        '⚠️ Keep fingers clear of the rocker-bogie pivot joints while the rover is moving.',
-        '⚠️ Tighten pivot screws just enough to hold; over-tightening locks the joint and defeats the mechanism.',
-        '⚠️ Test only on the ground or terrain course, never held in the air with wheels spinning.',
+        'Keep fingers clear of the rocker-bogie pivot joints while the rover is moving.',
+        'Tighten pivot screws just enough to hold; over-tightening locks the joint and defeats the mechanism.',
+        'Test only on the ground or terrain course, never held in the air with wheels spinning.',
       ],
       electronicsTitle: 'Electronics & Battery Safety',
       electronics: [
-        '⚡ Check polarity at the DC jack before connecting the battery.',
-        '⚡ Charge the Li-ion battery only with the supplied 12V charger, never unattended.',
-        '⚡ Switch off the rocker switch before reseating any cable on the PCB.',
+        'Check polarity at the DC jack before connecting the battery.',
+        'Charge the Li-ion battery only with the supplied 12V charger, never unattended.',
+        'Switch off the rocker switch before reseating any cable on the PCB.',
       ],
     },
 
@@ -4287,16 +4287,16 @@ if __name__ == '__main__':
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Secure the custom PCB, OLED, PIR sensor, and water sensor firmly so that they do not loosen while the rover is moving.',
-        '⚠️ Keep fingers, hair, loose wires, and objects away from the wheels and moving motor parts while testing the rover.',
-        '⚠️ Route sensor and motor cables neatly so they cannot become pinched, pulled, or caught near the wheels.',
-        '⚠️ Place the rover on a stable testing surface before checking its automatic movement responses.'
+        'Secure the custom PCB, OLED, PIR sensor, and water sensor firmly so that they do not loosen while the rover is moving.',
+        'Keep fingers, hair, loose wires, and objects away from the wheels and moving motor parts while testing the rover.',
+        'Route sensor and motor cables neatly so they cannot become pinched, pulled, or caught near the wheels.',
+        'Place the rover on a stable testing surface before checking its automatic movement responses.'
       ],
       electronics: [
-        '⚡ Switch OFF the rover before connecting or changing the OLED, PIR sensor, water sensor, motors, or other PCB connections.',
-        '⚡ Keep the ESP32-S3 PCB and OLED dry. Only the sensing area of the water sensor should be exposed during water-detection tests.',
-        '⚡ Check all power and sensor connections carefully before switching the system ON to prevent incorrect wiring or short circuits.',
-        '⚡ Avoid leaving the water sensor continuously immersed or allowing water to reach its connector and electronic circuitry.'
+        'Switch OFF the rover before connecting or changing the OLED, PIR sensor, water sensor, motors, or other PCB connections.',
+        'Keep the ESP32-S3 PCB and OLED dry. Only the sensing area of the water sensor should be exposed during water-detection tests.',
+        'Check all power and sensor connections carefully before switching the system ON to prevent incorrect wiring or short circuits.',
+        'Avoid leaving the water sensor continuously immersed or allowing water to reach its connector and electronic circuitry.'
       ]
     },
 
@@ -6064,16 +6064,16 @@ except Exception as e:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Keep fingers away from the arm joints, servo horns, and gripper while the robotic arm is moving.',
-        '⚠️ Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or arm joints.',
-        '⚠️ Make sure the arm structure and servo motors are firmly mounted before testing lifting, rotation, or gripping movements.',
-        '⚠️ Use lightweight objects during gripping and placement tests to avoid placing excessive load on the servos.'
+        'Keep fingers away from the arm joints, servo horns, and gripper while the robotic arm is moving.',
+        'Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or arm joints.',
+        'Make sure the arm structure and servo motors are firmly mounted before testing lifting, rotation, or gripping movements.',
+        'Use lightweight objects during gripping and placement tests to avoid placing excessive load on the servos.'
       ],
       electronics: [
-        '⚡ Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, or servo motor connections.',
-        '⚡ Check the servo connections and channel positions on the PCA9685 before powering the robotic arm.',
-        '⚡ Avoid commanding a servo beyond its safe angle range, as continuous stalling can cause the servo to heat up or become damaged.',
-        '⚡ Do not connect or disconnect servo motors while they are actively moving. Stop the program and power OFF the system first.'
+        'Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, or servo motor connections.',
+        'Check the servo connections and channel positions on the PCA9685 before powering the robotic arm.',
+        'Avoid commanding a servo beyond its safe angle range, as continuous stalling can cause the servo to heat up or become damaged.',
+        'Do not connect or disconnect servo motors while they are actively moving. Stop the program and power OFF the system first.'
       ]
     },
 
@@ -6176,16 +6176,16 @@ except Exception as e:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Secure the custom PCB, sensors, motor driver, and motors firmly so they do not loosen while the rover is moving.',
-        '⚠️ Keep fingers, hair, loose wires, and objects away from the wheels and rotating N20 motor shafts during testing.',
-        '⚠️ Route motor and sensor cables so they are not pulled, pinched, or caught near moving wheels.',
-        '⚠️ Test automatic turning and realignment on a clear, level surface with enough space for the rover to rotate safely.'
+        'Secure the custom PCB, sensors, motor driver, and motors firmly so they do not loosen while the rover is moving.',
+        'Keep fingers, hair, loose wires, and objects away from the wheels and rotating N20 motor shafts during testing.',
+        'Route motor and sensor cables so they are not pulled, pinched, or caught near moving wheels.',
+        'Test automatic turning and realignment on a clear, level surface with enough space for the rover to rotate safely.'
       ],
       electronics: [
-        '⚡ Switch OFF the rover before connecting or changing the QMC5883L, AMG8833, motor driver, motors, or ESP32-S3 connections.',
-        '⚡ Keep the QMC5883L away from strong magnets or large metal objects when taking normal heading readings, as they can disturb the magnetic measurement.',
-        '⚡ Avoid touching or covering the AMG8833 sensing area during thermal measurements, as this can affect its temperature readings.',
-        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the system is powered.'
+        'Switch OFF the rover before connecting or changing the QMC5883L, AMG8833, motor driver, motors, or ESP32-S3 connections.',
+        'Keep the QMC5883L away from strong magnets or large metal objects when taking normal heading readings, as they can disturb the magnetic measurement.',
+        'Avoid touching or covering the AMG8833 sensing area during thermal measurements, as this can affect its temperature readings.',
+        'Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the system is powered.'
       ]
     },
 
@@ -6611,18 +6611,18 @@ HTML_PAGE = """<!DOCTYPE html>
 </head>
 <body>
   <div class="card">
-    <h1>🛡️ LOF TITAN Security Rover</h1>
+    <h1>LOF TITAN Security Rover</h1>
     <div id="status" class="status-badge badge-ok">CONTINUOUS PID LOCK ACTIVE (+/-2°)</div>
     
     <div class="grid" id="heatmap"></div>
 
     <div class="nav-grid">
       <div class="nav-box">
-        <div class="nav-label">🧭 Current Heading</div>
+        <div class="nav-label">Current Heading</div>
         <div class="nav-val cur-val" id="curHeading">--° (--)</div>
       </div>
       <div class="nav-box">
-        <div class="nav-label">🎯 Targeted Heading</div>
+        <div class="nav-label">Targeted Heading</div>
         <div class="nav-val tgt-val" id="tgtHeading">--° (--)</div>
       </div>
     </div>
@@ -6664,10 +6664,10 @@ HTML_PAGE = """<!DOCTYPE html>
         const st = document.getElementById('status');
         if (d.alarm) {
           st.className = 'status-badge badge-alarm';
-          st.innerText = '🚨 HEAT INTRUSION DETECTED (>27°C)';
+          st.innerText = 'HEAT INTRUSION DETECTED (>27°C)';
         } else {
           st.className = 'status-badge badge-ok';
-          st.innerText = '✅ ADVANCING TOWARDS ' + d.tgt_dir + ' (' + d.tgt_angle.toFixed(0) + '°)';
+          st.innerText = 'ADVANCING TOWARDS ' + d.tgt_dir + ' (' + d.tgt_angle.toFixed(0) + '°)';
         }
       } catch(e) {}
     }
@@ -6780,7 +6780,7 @@ def intelligent_align_to_heading(target_heading, tolerance=2.5, server_socket=No
             brake_motors()
             stable_count += 1
             if stable_count >= 3:  # Steady confirmation for ~80ms
-                print(f"[ALIGNED & LOCKED] Steady at {curr:.1f}° ({compass.direction}) | Error: {error:+.1f}° ✅")
+                print(f"[ALIGNED & LOCKED] Steady at {curr:.1f}° ({compass.direction}) | Error: {error:+.1f}°")
                 set_motor_freq(1000) # Reset to default frequency
                 break
             time.sleep_ms(25)
@@ -6907,7 +6907,7 @@ def run_patrol_leg(target_heading, target_name, duration_sec=PATROL_DURATION_SEC
             mission_state["alarm"] = True
             stop_smooth()
             set_buzzer(True)
-            print(f"🚨 [HEAT ALARM] {max_t:.1f}°C detected (>{ALARM_TEMP_THRESHOLD:.0f}°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
+            print(f"[HEAT ALARM] {max_t:.1f}°C detected (>{ALARM_TEMP_THRESHOLD:.0f}°C)! Patrol PAUSED at {duration_sec - elapsed_active_time:.1f}s")
             
             led_state = True
             set_m3_led(True, speed=20)
@@ -6930,7 +6930,7 @@ def run_patrol_leg(target_heading, target_name, duration_sec=PATROL_DURATION_SEC
             set_m3_led(False)
             set_buzzer(False)
             mission_state["alarm"] = False
-            print(f"✅ [HEAT CLEARED] Temp: {thermal.max_temp:.1f}°C. Re-aligning & Resuming...")
+            print(f"[HEAT CLEARED] Temp: {thermal.max_temp:.1f}°C. Re-aligning & Resuming...")
             intelligent_align_to_heading(target_heading, tolerance=2.5, server_socket=s_sock, mission_state=mission_state)
             cruise_pid.reset()
             set_motor_freq(1000)
@@ -6974,11 +6974,11 @@ def run_patrol_leg(target_heading, target_name, duration_sec=PATROL_DURATION_SEC
 # ================= 7. MAIN MISSION ENTRY =================
 def main():
     print("==================================================")
-    print("🚀 LOF TITAN Continuous-PID Security Rover Ready")
-    print(f"⚡ Speed Range: 0% to {MAX_SPEED_PCT:.0f}% | Heading Lock: +/-2.5°")
-    print(f"🚨 Heat Intrusion Alarm: >{ALARM_TEMP_THRESHOLD:.0f}°C (AMG8833 Thermal)")
-    print(f"⏱️ Patrol Leg Time: {PATROL_DURATION_SEC:.1f}s per direction")
-    print("🧭 Adaptive Pivot: Compass Feedback Stall & Freq Tuning")
+    print("LOF TITAN Continuous-PID Security Rover Ready")
+    print(f"Speed Range: 0% to {MAX_SPEED_PCT:.0f}% | Heading Lock: +/-2.5°")
+    print(f"Heat Intrusion Alarm: >{ALARM_TEMP_THRESHOLD:.0f}°C (AMG8833 Thermal)")
+    print(f"Patrol Leg Time: {PATROL_DURATION_SEC:.1f}s per direction")
+    print("Adaptive Pivot: Compass Feedback Stall & Freq Tuning")
     print("==================================================")
 
     start_wifi_ap()
@@ -7054,15 +7054,15 @@ if __name__ == '__main__':
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully while fitting the screws. Avoid excessive force that could crack the 3D-printed parts.',
-        '⚠️ Use the correct screw at each mounting point to prevent damage to the PCB or internal components.',
-        '⚠️ Route the OLED, sensor, LED, and RMC cables neatly so they are not pinched, sharply bent, or trapped under screws.'
+        'Use the screwdriver carefully while fitting the screws. Avoid excessive force that could crack the 3D-printed parts.',
+        'Use the correct screw at each mounting point to prevent damage to the PCB or internal components.',
+        'Route the OLED, sensor, LED, and RMC cables neatly so they are not pinched, sharply bent, or trapped under screws.'
       ],
       electronics: [
-        '⚡ Switch OFF the ESP32-S3 before connecting or changing the AS7341 sensor, OLED, LEDs, or RMC cables.',
-        '⚡ Check the battery polarity and rocker-switch wiring before powering the project. Incorrect polarity may damage the PCB or connected modules.',
-        '⚡ Use the adapter only through the designated power or charging connection and keep the Li-ion battery away from heat, water, and conductive objects.',
-        '⚡ Avoid staring at the red, green, blue, yellow, or white LEDs from very close range, especially during repeated spectrum tests.'
+        'Switch OFF the ESP32-S3 before connecting or changing the AS7341 sensor, OLED, LEDs, or RMC cables.',
+        'Check the battery polarity and rocker-switch wiring before powering the project. Incorrect polarity may damage the PCB or connected modules.',
+        'Use the adapter only through the designated power or charging connection and keep the Li-ion battery away from heat, water, and conductive objects.',
+        'Avoid staring at the red, green, blue, yellow, or white LEDs from very close range, especially during repeated spectrum tests.'
       ]
     },
 
@@ -9078,17 +9078,17 @@ except Exception as e:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully while fitting screws. Avoid excessive force that may crack the 3D-printed parts.',
-        '⚠️ Tighten the screws only until the components are firmly secured.',
-        '⚠️ Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is running.',
-        '⚠️ Route the motor and power cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
+        'Use the screwdriver carefully while fitting screws. Avoid excessive force that may crack the 3D-printed parts.',
+        'Tighten the screws only until the components are firmly secured.',
+        'Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is running.',
+        'Route the motor and power cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
       ],
       electronics: [
-        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, motor driver, motors, battery, or RMC cables.',
-        '⚡ Check the battery polarity and rocker-switch wiring before powering the system.',
-        '⚡ Use the adapter only through the designated charging or power connection.',
-        '⚡ Avoid shorting the TB6612FNG motor outputs or connecting/disconnecting motors while the rover is powered.',
-        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen or unusually hot.'
+        'Switch OFF the rover before connecting or changing the ESP32-S3, motor driver, motors, battery, or RMC cables.',
+        'Check the battery polarity and rocker-switch wiring before powering the system.',
+        'Use the adapter only through the designated charging or power connection.',
+        'Avoid shorting the TB6612FNG motor outputs or connecting/disconnecting motors while the rover is powered.',
+        'Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen or unusually hot.'
       ]
     },
 
@@ -10653,18 +10653,18 @@ while True:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully while fitting screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
-        '⚠️ Tighten the screws only until the components are securely fixed.',
-        '⚠️ Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is moving.',
-        '⚠️ Route motor and sensor cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
+        'Use the screwdriver carefully while fitting screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
+        'Tighten the screws only until the components are securely fixed.',
+        'Keep fingers, hair, wires, and loose objects away from the wheels and rotating motor shafts while the rover is moving.',
+        'Route motor and sensor cables so they are not caught near the wheels, pinched under parts, or pulled during movement.'
       ],
       electronics: [
-        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, VL53L0X sensor, motor driver, motors, or RMC cables.',
-        '⚡ Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
-        '⚡ Use the adapter only through the designated power or charging connection.',
-        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while power is ON.',
-        '⚡ Keep the VL53L0X sensing window clean and unobstructed, and avoid viewing the sensor emitter from extremely close range during operation.',
-        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
+        'Switch OFF the rover before connecting or changing the ESP32-S3, VL53L0X sensor, motor driver, motors, or RMC cables.',
+        'Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
+        'Use the adapter only through the designated power or charging connection.',
+        'Avoid shorting the TB6612FNG motor outputs or reconnecting motors while power is ON.',
+        'Keep the VL53L0X sensing window clean and unobstructed, and avoid viewing the sensor emitter from extremely close range during operation.',
+        'Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
       ]
     },
 
@@ -11201,18 +11201,18 @@ if __name__ == '__main__':
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully and keep fingers away from the tip while tightening screws.',
-        '⚠️ Tighten the screws only until the parts are firmly secured; excessive force may damage mounting points.',
-        '⚠️ Use the correct screw length at each mounting position to prevent screws from touching or damaging internal electronic parts.',
-        '⚠️ Route the 2-pin and 4-pin RMC cables so they are not pinched, trapped under screws, sharply bent, or pulled during assembly.'
+        'Use the screwdriver carefully and keep fingers away from the tip while tightening screws.',
+        'Tighten the screws only until the parts are firmly secured; excessive force may damage mounting points.',
+        'Use the correct screw length at each mounting position to prevent screws from touching or damaging internal electronic parts.',
+        'Route the 2-pin and 4-pin RMC cables so they are not pinched, trapped under screws, sharply bent, or pulled during assembly.'
       ],
       electronics: [
-        '⚡ Switch OFF the ESP32-S3 before making or changing any electrical connection, and verify the OLED and RMC cable connections before powering the system.',
-        '⚡ Check the polarity of the 9V Li-ion battery and rocker-switch wiring before turning the system ON.',
-        '⚡ Use the adapter only through the designated power or charging connection.',
-        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and exposed metal parts that could short its terminals.',
-        '⚡ Stop using the battery if it becomes swollen, damaged, leaking, or unusually hot.',
-        '⚡ Insert the USB Type-C connector gently and use only a suitable USB power/programming source for the ESP32-S3.'
+        'Switch OFF the ESP32-S3 before making or changing any electrical connection, and verify the OLED and RMC cable connections before powering the system.',
+        'Check the polarity of the 9V Li-ion battery and rocker-switch wiring before turning the system ON.',
+        'Use the adapter only through the designated power or charging connection.',
+        'Keep the Li-ion battery away from heat, water, sharp objects, and exposed metal parts that could short its terminals.',
+        'Stop using the battery if it becomes swollen, damaged, leaking, or unusually hot.',
+        'Insert the USB Type-C connector gently and use only a suitable USB power/programming source for the ESP32-S3.'
       ]
     },
 
@@ -13695,18 +13695,18 @@ while True:
     // Safety Warnings
     safetyWarnings: {
       hardware: [
-        '⚠️ Use the screwdriver carefully while fitting the screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
-        '⚠️ Tighten the screws only until the parts are firmly secured.',
-        '⚠️ Keep fingers, hair, loose wires, and other objects away from the wheels and rotating motor shafts while the rover is moving.',
-        '⚠️ Route the motor and sensor cables neatly so they are not caught near the wheels, pulled during movement, or trapped under screws.',
-        '⚠️ Make sure the MPU6050 is mounted firmly so that loose movement does not affect stability measurements.'
+        'Use the screwdriver carefully while fitting the screws. Avoid excessive force that may damage the 3D-printed parts or PCB mounting points.',
+        'Tighten the screws only until the parts are firmly secured.',
+        'Keep fingers, hair, loose wires, and other objects away from the wheels and rotating motor shafts while the rover is moving.',
+        'Route the motor and sensor cables neatly so they are not caught near the wheels, pulled during movement, or trapped under screws.',
+        'Make sure the MPU6050 is mounted firmly so that loose movement does not affect stability measurements.'
       ],
       electronics: [
-        '⚡ Switch OFF the rover before connecting or changing the ESP32-S3, MPU6050, IR sensor, motor driver, motors, or RMC cables.',
-        '⚡ Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
-        '⚡ Use the charger/adapter only through the designated charging or power connection.',
-        '⚡ Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the rover is powered.',
-        '⚡ Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
+        'Switch OFF the rover before connecting or changing the ESP32-S3, MPU6050, IR sensor, motor driver, motors, or RMC cables.',
+        'Check the Li-ion battery polarity and rocker-switch wiring before powering the rover.',
+        'Use the charger/adapter only through the designated charging or power connection.',
+        'Avoid shorting the TB6612FNG motor outputs or reconnecting motors while the rover is powered.',
+        'Keep the Li-ion battery away from heat, water, sharp objects, and conductive materials, and stop using it if it becomes swollen, damaged, or unusually hot.'
       ]
     },
 
@@ -15532,17 +15532,17 @@ main()
     safetyWarnings: {
       hardwareTitle: 'Hardware & Electrical Precautions',
       hardware: [
-        '⚠️ Switch off power before connecting or removing sensors.',
-        '⚠️ Check all connections before powering the LOF TITAN.',
-        '⚠️ Use only the recommended power source and cables.',
-        '⚠️ Keep the electronics away from water and moisture.',
+        'Switch off power before connecting or removing sensors.',
+        'Check all connections before powering the LOF TITAN.',
+        'Use only the recommended power source and cables.',
+        'Keep the electronics away from water and moisture.',
       ],
       electronicsTitle: 'Sensor & Testing Precautions',
       electronics: [
-        '⚠️ Mount the ultrasonic and IMU sensors securely before testing.',
-        '⚠️ Keep the ultrasonic sensor clear of nearby obstructions.',
-        '⚠️ Avoid sudden impacts or excessive movement of the IMU sensor.',
-        '⚠️ Test the system in a clear area away from moving objects.',
+        'Mount the ultrasonic and IMU sensors securely before testing.',
+        'Keep the ultrasonic sensor clear of nearby obstructions.',
+        'Avoid sudden impacts or excessive movement of the IMU sensor.',
+        'Test the system in a clear area away from moving objects.',
       ],
     },
 
@@ -19199,17 +19199,17 @@ if __name__ == "__main__":
     safetyWarnings: {
       hardwareTitle: 'Hardware & Mechanical Precautions',
       hardware: [
-        '⚠️ Keep fingers, loose wires, hair, and other objects away from the DC fan blades while the fan is rotating.',
-        '⚠️ Mount the fan and sensors firmly so that vibration or movement does not loosen them during operation.',
-        '⚠️ Keep the fan air path clear so that airflow is not blocked by wires, panels, or nearby objects.',
-        '⚠️ Do not touch the fan blades or attempt to stop them by hand while the fan is powered.',
+        'Keep fingers, loose wires, hair, and other objects away from the DC fan blades while the fan is rotating.',
+        'Mount the fan and sensors firmly so that vibration or movement does not loosen them during operation.',
+        'Keep the fan air path clear so that airflow is not blocked by wires, panels, or nearby objects.',
+        'Do not touch the fan blades or attempt to stop them by hand while the fan is powered.',
       ],
       electronicsTitle: 'Electronics & Sensor Safety',
       electronics: [
-        '⚡ Switch OFF the system before connecting or changing the MQ135, DHT22, OLED, or DC fan connections.',
-        '⚡ Allow the MQ135 sensor time to stabilise after powering ON before using its readings for gas-level comparison.',
-        '⚡ Keep the DHT22 and OLED away from water or condensation, as moisture may affect their operation or damage the electronics.',
-        '⚡ Do not expose the MQ135 directly to flames, smoke at very close range, or concentrated gases during classroom testing.',
+        'Switch OFF the system before connecting or changing the MQ135, DHT22, OLED, or DC fan connections.',
+        'Allow the MQ135 sensor time to stabilise after powering ON before using its readings for gas-level comparison.',
+        'Keep the DHT22 and OLED away from water or condensation, as moisture may affect their operation or damage the electronics.',
+        'Do not expose the MQ135 directly to flames, smoke at very close range, or concentrated gases during classroom testing.',
       ],
     },
 
@@ -19744,17 +19744,17 @@ if __name__ == '__main__':
     safetyWarnings: {
       hardwareTitle: 'Hardware & Electrical Precautions',
       hardware: [
-        '⚠️ Switch off power before connecting or removing components.',
-        '⚠️ Check all connections before powering the system.',
-        '⚠️ Use only the recommended Li-ion battery and charger.',
-        '⚠️ Keep the electronics away from water and moisture.',
+        'Switch off power before connecting or removing components.',
+        'Check all connections before powering the system.',
+        'Use only the recommended Li-ion battery and charger.',
+        'Keep the electronics away from water and moisture.',
       ],
       electronicsTitle: 'Operation & Handling Precautions',
       electronics: [
-        '⚠️ Press the buttons gently without applying excessive force.',
-        '⚠️ Secure the OLED and buttons firmly before use.',
-        '⚠️ Avoid pulling or bending connected wires sharply.',
-        '⚠️ Switch OFF the system when it is not in use.',
+        'Press the buttons gently without applying excessive force.',
+        'Secure the OLED and buttons firmly before use.',
+        'Avoid pulling or bending connected wires sharply.',
+        'Switch OFF the system when it is not in use.',
       ],
     },
 
@@ -21332,19 +21332,19 @@ while True:
     safetyWarnings: {
       hardwareTitle: 'Hardware & Mechanical Precautions',
       hardware: [
-        '⚠️ Keep fingers away from the servo horns, joints, links, and gripper while the robotic arm is moving.',
-        '⚠️ Do not manually force any arm joint beyond its normal movement range, as this may damage the servo gears or mechanical links.',
-        '⚠️ Tighten the M3 × 8 mm screws and brass inserts securely, but avoid excessive force that may damage the 3D-printed parts.',
-        '⚠️ Ensure the arm base and all six joints are firmly assembled before testing multi-axis movement.',
-        '⚠️ Use lightweight objects during gripping and placement tests to prevent excessive load on the arm.',
+        'Keep fingers away from the servo horns, joints, links, and gripper while the robotic arm is moving.',
+        'Do not manually force any arm joint beyond its normal movement range, as this may damage the servo gears or mechanical links.',
+        'Tighten the M3 × 8 mm screws and brass inserts securely, but avoid excessive force that may damage the 3D-printed parts.',
+        'Ensure the arm base and all six joints are firmly assembled before testing multi-axis movement.',
+        'Use lightweight objects during gripping and placement tests to prevent excessive load on the arm.',
       ],
       electronicsTitle: 'Electronics & Servo Safety',
       electronics: [
-        '⚡ Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, servo motors, or power connections.',
-        '⚡ Check that every servo is connected to the correct PCA9685 channel before powering the arm.',
-        '⚡ Avoid commanding servos beyond their safe angle limits, as continuous stalling can cause overheating or servo damage.',
-        '⚡ Use the 12V battery and adapter only through the designated power connection and verify polarity before switching ON.',
-        '⚡ Do not connect or disconnect servo extension cables while the arm is powered or moving.',
+        'Switch OFF the system before connecting or changing the ESP32-S3, PCA9685, servo motors, or power connections.',
+        'Check that every servo is connected to the correct PCA9685 channel before powering the arm.',
+        'Avoid commanding servos beyond their safe angle limits, as continuous stalling can cause overheating or servo damage.',
+        'Use the 12V battery and adapter only through the designated power connection and verify polarity before switching ON.',
+        'Do not connect or disconnect servo extension cables while the arm is powered or moving.',
       ],
     },
 
@@ -24773,21 +24773,21 @@ while True:
     safetyWarnings: {
       hardwareTitle: 'Hardware & Mechanical Precautions',
       hardware: [
-        '⚠️ Keep fingers, hair, loose wires, and other objects away from the rover wheels, robotic-arm joints, servo horns, and gripper while the system is moving.',
-        '⚠️ Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or mechanical joints.',
-        '⚠️ Tighten the M3x8 mm, M3x12 mm, and M3x25 mm screws only until the parts are firmly secured.',
-        '⚠️ Ensure the M3x4 mm Brass Inserts are seated correctly before fastening the 3D printed parts.',
-        '⚠️ Route motor and servo wiring so it cannot become caught in the wheels or stretched during robotic-arm movement.',
-        '⚠️ Use lightweight objects during gripping and transport tasks to avoid excessive load on the robotic arm.',
+        'Keep fingers, hair, loose wires, and other objects away from the rover wheels, robotic-arm joints, servo horns, and gripper while the system is moving.',
+        'Do not manually force the robotic arm beyond its normal movement range, as this may damage the servo gears or mechanical joints.',
+        'Tighten the M3x8 mm, M3x12 mm, and M3x25 mm screws only until the parts are firmly secured.',
+        'Ensure the M3x4 mm Brass Inserts are seated correctly before fastening the 3D printed parts.',
+        'Route motor and servo wiring so it cannot become caught in the wheels or stretched during robotic-arm movement.',
+        'Use lightweight objects during gripping and transport tasks to avoid excessive load on the robotic arm.',
       ],
       electronicsTitle: 'Electronics & Servo Safety',
       electronics: [
-        '⚡ Switch OFF the system before connecting or changing the ESP32 S3, PCA 9685 Servo Driver PCB, servo motors, drive motors, or power connections.',
-        '⚡ Check that each servo motor is connected to the correct PCA 9685 channel before powering the robotic arm.',
-        '⚡ Avoid commanding servo motors beyond their safe movement limits, as continuous stalling may cause overheating or damage.',
-        '⚡ Do not connect or disconnect drive motors or servo motors while the system is powered.',
-        '⚡ Check all power and motor connections before switching the rover ON.',
-        '⚡ Stop operation if a servo motor, drive motor, wire, or electronic board becomes unusually hot.',
+        'Switch OFF the system before connecting or changing the ESP32 S3, PCA 9685 Servo Driver PCB, servo motors, drive motors, or power connections.',
+        'Check that each servo motor is connected to the correct PCA 9685 channel before powering the robotic arm.',
+        'Avoid commanding servo motors beyond their safe movement limits, as continuous stalling may cause overheating or damage.',
+        'Do not connect or disconnect drive motors or servo motors while the system is powered.',
+        'Check all power and motor connections before switching the rover ON.',
+        'Stop operation if a servo motor, drive motor, wire, or electronic board becomes unusually hot.',
       ],
     },
 
@@ -24917,16 +24917,16 @@ while True:
     safetyWarnings: {
       hardwareTitle: 'Hardware & Mechanical Precautions',
       hardware: [
-        "⚠️ Keep fingers clear of the rover's wheels and moving mechanical parts during operation.",
-        '⚠️ Secure all sensors firmly to prevent damage while navigating uneven terrain.',
-        '⚠️ Test the rover on a stable surface before moving to the simulated Martian terrain.',
+        "Keep fingers clear of the rover's wheels and moving mechanical parts during operation.",
+        'Secure all sensors firmly to prevent damage while navigating uneven terrain.',
+        'Test the rover on a stable surface before moving to the simulated Martian terrain.',
       ],
       electronicsTitle: 'Electronics & Sensor Safety',
       electronics: [
-        '⚡ Verify the sensor pin connections and operating voltage before powering the circuit.',
-        '⚡ Ensure the moisture sensor and temperature sensor are compatible with the controller and its input voltage limits.',
-        '⚡ Switch off the rover before changing sensor connections or modifying the circuit.',
-        '⚡ Keep electronic components protected from direct contact with water or wet soil.',
+        'Verify the sensor pin connections and operating voltage before powering the circuit.',
+        'Ensure the moisture sensor and temperature sensor are compatible with the controller and its input voltage limits.',
+        'Switch off the rover before changing sensor connections or modifying the circuit.',
+        'Keep electronic components protected from direct contact with water or wet soil.',
       ],
     },
 
@@ -28616,17 +28616,17 @@ while True:
     safetyWarnings: {
       hardwareTitle: 'Hardware & Experimental Precautions',
       hardware: [
-        '⚠️ Handle asteroid models carefully and avoid dropping them onto the load-cell platform.',
-        '⚠️ Place models gently on the weighing platform to prevent damage to the load cell.',
-        '⚠️ Keep the electronic components away from the water used during displacement measurements.',
-        '⚠️ Use a stable container with sufficient space to prevent water from spilling during immersion.',
+        'Handle asteroid models carefully and avoid dropping them onto the load-cell platform.',
+        'Place models gently on the weighing platform to prevent damage to the load cell.',
+        'Keep the electronic components away from the water used during displacement measurements.',
+        'Use a stable container with sufficient space to prevent water from spilling during immersion.',
       ],
       electronicsTitle: 'Electronics & Sensor Safety',
       electronics: [
-        '⚡ Check the load-cell wiring and HX711 amplifier connections before powering the circuit.',
-        '⚡ Verify the sensor operating voltage and ensure that the ESP32-S3 input pins receive compatible signals.',
-        '⚡ Switch off the system before changing wiring or modifying the circuit.',
-        '⚡ Dry asteroid models before placing them on the electronic weighing platform to prevent water from entering the electronics.',
+        'Check the load-cell wiring and HX711 amplifier connections before powering the circuit.',
+        'Verify the sensor operating voltage and ensure that the ESP32-S3 input pins receive compatible signals.',
+        'Switch off the system before changing wiring or modifying the circuit.',
+        'Dry asteroid models before placing them on the electronic weighing platform to prevent water from entering the electronics.',
       ],
     },
 
@@ -28901,15 +28901,15 @@ while True:
     safetyWarnings: {
       hardwareTitle: 'Hardware & Mechanical Precautions',
       hardware: [
-        '⚠️ Secure the sensor dish to a stable base so that it remains stationary during operation.',
-        '⚠️ Ensure the rotating mechanism moves smoothly without excessive force or obstruction.',
-        '⚠️ Keep fingers clear of the rotating joints and mechanical components.',
+        'Secure the sensor dish to a stable base so that it remains stationary during operation.',
+        'Ensure the rotating mechanism moves smoothly without excessive force or obstruction.',
+        'Keep fingers clear of the rotating joints and mechanical components.',
       ],
       electronicsTitle: 'Electronics & Sensor Safety',
       electronics: [
-        '⚡ Verify the wiring and operating voltage of the ToF sensor, joystick module, OLED display, and motor or servo used for rotation.',
-        '⚡ Switch off the system before modifying electrical connections.',
-        '⚡ Ensure the sensor has a clear line of sight toward the selected target.',
+        'Verify the wiring and operating voltage of the ToF sensor, joystick module, OLED display, and motor or servo used for rotation.',
+        'Switch off the system before modifying electrical connections.',
+        'Ensure the sensor has a clear line of sight toward the selected target.',
       ],
     },
 

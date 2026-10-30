@@ -18,7 +18,7 @@ export function RequireAdmin({ children }) {
   // signed-in admin to the login page on every refresh.
   if (loading) {
     return (
-      <div className="col-span-12 flex items-center justify-center py-24 text-slate-400 text-sm">
+      <div className="col-span-12 flex items-center justify-center py-24 text-muted text-sm">
         Checking access…
       </div>
     );

@@ -144,7 +144,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
       } catch (e) {}
 
       await transport.disconnect();
-      appendLog('[FLASHER] ✅ Firmware Flashed and Verified Successfully!');
+      appendLog('[FLASHER] Firmware Flashed and Verified Successfully!');
 
       setFlashStatus('SUCCESS');
       setStatusMessage('Firmware flashed successfully! Your LOF TITAN is ready.');
@@ -161,13 +161,13 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[170] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#111827] w-full h-full overflow-hidden flex flex-col">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[170] flex items-center justify-center lof-scrim backdrop-blur-md animate-fadeIn">
+      <div className="bg-canvas w-full h-full overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-3 bg-gradient-to-r from-purple-900/40 via-blue-900/30 to-surface/40">
+        <div className="p-4 sm:p-6 border-b border-line flex items-center justify-between gap-3 bg-panel">
           <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full overflow-hidden shadow-lg border border-white/20 bg-white flex items-center justify-center">
+            <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full overflow-hidden shadow-lg border border-line-strong bg-white flex items-center justify-center">
               <img
                 src={cld('lof-titan/lof-normal', 192)}
                 alt="LOF TITAN"
@@ -177,9 +177,9 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
               />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-heading font-bold text-white flex flex-wrap items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-heading tracking-[-0.02em] font-bold text-heading flex flex-wrap items-center gap-2">
                 LOF TITAN Firmware Flasher
-                <span className="text-xs font-mono font-normal bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
+                <span className="text-xs font-mono font-normal bg-purple-500/20 text-purple-600 px-2 py-0.5 rounded-full border border-purple-500/30">
                   ESP32-S3 N16R8
                 </span>
               </h2>
@@ -190,7 +190,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
           <button 
             disabled={flashing}
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors disabled:opacity-30"
+            className="p-2 rounded-full hover:bg-subtle text-muted hover:text-heading transition-colors disabled:opacity-30"
           >
             <X size={20} />
           </button>
@@ -200,34 +200,34 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5 sm:gap-6 w-full">
           
           {/* Flashing Progress Card (Always Visible) */}
-          <div className="bg-surface/60 p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
+          <div className="lof-panel p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {flashing ? (
-                  <Loader2 size={18} className="text-cyan-400 animate-spin" />
+                  <Loader2 size={18} className="text-cyan-600 animate-spin" />
                 ) : flashStatus === 'SUCCESS' ? (
-                  <CheckCircle2 size={18} className="text-green-400" />
+                  <CheckCircle2 size={18} className="text-green-600" />
                 ) : flashStatus === 'ERROR' ? (
-                  <AlertTriangle size={18} className="text-red-400" />
+                  <AlertTriangle size={18} className="text-red-600" />
                 ) : (
                   <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
                 )}
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold text-heading">
                   {statusMessage || 'Ready to flash firmware bundle.'}
                 </span>
               </div>
-              <span className="text-sm font-bold font-mono text-cyan-400">{progressPercent}%</span>
+              <span className="text-sm font-bold font-mono text-cyan-600">{progressPercent}%</span>
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full bg-black/50 h-3 rounded-full overflow-hidden border border-white/10 p-0.5">
+            <div className="w-full bg-track h-1.5 rounded-full overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-300 ${
                   flashStatus === 'ERROR'
                     ? 'bg-red-500'
                     : flashStatus === 'SUCCESS'
-                    ? 'bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.8)]'
-                    : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 shadow-[0_0_12px_rgba(6,182,212,0.8)]'
+                    ? 'bg-green-400'
+                    : 'lof-progress'
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />
@@ -237,7 +237,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
           {/* Clean Install Option */}
           {!flashing && flashStatus !== 'SUCCESS' && (
             <div className="flex items-center justify-between px-2">
-              <label className="flex items-center gap-2 text-xs text-gray-300 select-none cursor-pointer hover:text-white">
+              <label className="flex items-center gap-2 text-xs text-ink-2 select-none cursor-pointer hover:text-heading">
                 <input 
                   type="checkbox"
                   checked={eraseAll}
@@ -251,16 +251,16 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
 
           {/* Flasher Terminal Output */}
           <div className="flex flex-col gap-2 flex-1 min-h-0">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+            <div className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center justify-between">
               <span>Flasher Log</span>
               {logs.length > 0 && <span className="font-mono text-[10px] text-gray-500">{logs.length} lines</span>}
             </div>
             <div 
               ref={logContainerRef}
-              className="flex-1 min-h-[12rem] bg-black/60 font-mono text-xs text-emerald-400 p-3 rounded-xl border border-white/5 overflow-y-auto break-all whitespace-pre-wrap select-text"
+              className="flex-1 min-h-[12rem] bg-[#0A1120] font-mono text-xs text-emerald-400 p-3 rounded-xl border border-line overflow-y-auto break-all whitespace-pre-wrap select-text"
             >
               {logs.length === 0 ? (
-                <span className="text-gray-600 italic">Logs will appear here once flashing begins...</span>
+                <span className="text-faint italic">Logs will appear here once flashing begins...</span>
               ) : (
                 logs.join('\n')
               )}
@@ -270,11 +270,11 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-white/10 bg-surface/30 flex flex-wrap items-center justify-between gap-3 w-full">
+        <div className="p-4 sm:p-5 border-t border-line bg-surface/30 flex flex-wrap items-center justify-between gap-3 w-full">
           <button 
             disabled={flashing}
             onClick={onClose}
-            className="px-5 py-2.5 rounded-full text-sm font-medium hover:bg-white/10 text-gray-300 hover:text-white transition-colors disabled:opacity-30"
+            className="px-5 py-2.5 rounded-full text-sm font-medium hover:bg-subtle text-ink-2 hover:text-heading transition-colors disabled:opacity-30"
           >
             {flashStatus === 'SUCCESS' ? 'Close Window' : 'Cancel'}
           </button>
@@ -282,7 +282,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
           {flashStatus === 'SUCCESS' ? (
             <button 
               onClick={onClose}
-              className="px-8 py-2.5 rounded-full text-sm font-bold bg-green-500 hover:bg-green-400 text-black transition-all shadow-[0_0_15px_rgba(34,197,94,0.4)] flex items-center gap-2"
+              className="lof-primary px-6 py-2.5 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2"
             >
               <CheckCircle2 size={16} />
               Done & Return to Dashboard
@@ -291,7 +291,7 @@ export function FirmwareFlasherModal({ isOpen, onClose, onDisconnectCurrent }) {
             <button 
               disabled={flashing}
               onClick={handleStartFlash}
-              className="px-8 py-2.5 rounded-full text-sm font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white transition-all shadow-lg hover:shadow-purple-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="lof-primary border px-8 py-2.5 rounded-lg text-sm font-bold text-white transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {flashing ? (
                 <>

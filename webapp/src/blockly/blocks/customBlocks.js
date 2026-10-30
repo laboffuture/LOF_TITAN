@@ -5,7 +5,6 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_start'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🚀")
           .appendField("TITAN")
           .appendField("Start");
       this.appendStatementInput("DO")
@@ -127,8 +126,8 @@ export function registerCustomBlocks() {
           ]), "MOTOR")
           .appendField("direction")
           .appendField(new Blockly.FieldDropdown([
-            ["Forward ⏩", "FORWARD"],
-            ["Backward ⏪", "BACKWARD"]
+            ["Forward", "FORWARD"],
+            ["Backward", "BACKWARD"]
           ]), "DIR")
           .appendField("speed")
           .appendField(new Blockly.FieldNumber(80, 0, 100), "SPEED")
@@ -156,8 +155,8 @@ export function registerCustomBlocks() {
           ]), "MOTOR")
           .appendField("direction")
           .appendField(new Blockly.FieldDropdown([
-            ["Forward ⏩", "FORWARD"],
-            ["Backward ⏪", "BACKWARD"]
+            ["Forward", "FORWARD"],
+            ["Backward", "BACKWARD"]
           ]), "DIR");
       this.appendValueInput("SPEED_INPUT")
           .setCheck("Number")
@@ -202,8 +201,8 @@ export function registerCustomBlocks() {
           ]), "PIN_B")
           .appendField("direction")
           .appendField(new Blockly.FieldDropdown([
-            ["Forward ⏩", "FORWARD"],
-            ["Backward ⏪", "BACKWARD"]
+            ["Forward", "FORWARD"],
+            ["Backward", "BACKWARD"]
           ]), "DIR")
           .appendField("speed")
           .appendField(new Blockly.FieldNumber(80, 0, 100), "SPEED")
@@ -222,12 +221,12 @@ export function registerCustomBlocks() {
       this.appendDummyInput()
           .appendField("Drive Rover")
           .appendField(new Blockly.FieldDropdown([
-            ["Forward ⬆️", "FORWARD"],
-            ["Backward ⬇️", "BACKWARD"],
-            ["Turn Left ⬅️", "LEFT"],
-            ["Turn Right ➡️", "RIGHT"],
-            ["Spin Left 🔄", "SPIN_LEFT"],
-            ["Spin Right 🔃", "SPIN_RIGHT"]
+            ["Forward", "FORWARD"],
+            ["Backward", "BACKWARD"],
+            ["Turn Left", "LEFT"],
+            ["Turn Right", "RIGHT"],
+            ["Spin Left", "SPIN_LEFT"],
+            ["Spin Right", "SPIN_RIGHT"]
           ]), "DIRECTION")
           .appendField("at speed")
           .appendField(new Blockly.FieldNumber(80, 0, 100), "SPEED")
@@ -411,7 +410,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_pulse_sensor_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("❤️ Initialize Pulse Sensor (MAX30100)")
+          .appendField("Initialize Pulse Sensor (MAX30100)")
           .appendField("(I2C SDA: 7, SCL: 8)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -424,7 +423,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_pulse_sensor_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("❤️ MAX30100 Pulse Sensor")
+          .appendField("MAX30100 Pulse Sensor")
           .appendField(new Blockly.FieldDropdown([
             ["Heart Rate (BPM)", "BPM"],
             ["Finger Placed? (True/False)", "FINGER"],
@@ -441,7 +440,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_pulse_finger_detected'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("❤️ Finger Placed on Pulse Sensor?");
+          .appendField("Finger Placed on Pulse Sensor?");
       this.setOutput(true, "Boolean");
       this.setStyle('machine_blocks');
       this.setTooltip("Returns True if finger is placed on MAX30100 pulse sensor, False otherwise");
@@ -452,7 +451,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_pulse_oled_ecg'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("❤️ OLED show Live ECG / Pulse Wave")
+          .appendField("OLED show Live ECG / Pulse Wave")
           .appendField("(MAX30100)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -466,7 +465,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_qmc5883l_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🧭 Initialize QMC5883L Compass (I2C SDA: 7, SCL: 8, Addr: 0x0D)");
+          .appendField("Initialize QMC5883L Compass (I2C SDA: 7, SCL: 8, Addr: 0x0D)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('machine_blocks');
@@ -478,7 +477,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_qmc5883l_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🧭 QMC5883L Compass")
+          .appendField("QMC5883L Compass")
           .appendField(new Blockly.FieldDropdown([
             ["Heading Angle (0 - 360°)", "HEADING"],
             ["Compass Direction (N, NE, E...)", "DIR"],
@@ -497,7 +496,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_qmc5883l_heading'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🧭 Compass Heading Angle (°)");
+          .appendField("Compass Heading Angle (°)");
       this.setOutput(true, "Number");
       this.setStyle('machine_blocks');
       this.setTooltip("Get 3-axis electronic compass heading angle between 0° and 360°");
@@ -508,7 +507,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_qmc5883l_direction'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🧭 Compass Cardinal Direction");
+          .appendField("Compass Cardinal Direction");
       this.setOutput(true, "String");
       this.setStyle('machine_blocks');
       this.setTooltip("Get current 8-point compass cardinal direction string ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')");
@@ -520,7 +519,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 Initialize MPU6050 Gyro & Accel")
+          .appendField("Initialize MPU6050 Gyro & Accel")
           .appendField("(I2C SDA: 7, SCL: 8, Addr: 0x68)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -533,7 +532,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_read_accel'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 MPU6050 Acceleration")
+          .appendField("MPU6050 Acceleration")
           .appendField(new Blockly.FieldDropdown([
             ["X-Axis (g)", "X"],
             ["Y-Axis (g)", "Y"],
@@ -550,7 +549,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_read_gyro'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 MPU6050 Gyroscope")
+          .appendField("MPU6050 Gyroscope")
           .appendField(new Blockly.FieldDropdown([
             ["X-Axis (Roll Rate °/s)", "X"],
             ["Y-Axis (Pitch Rate °/s)", "Y"],
@@ -566,7 +565,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_read_angle'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 MPU6050 Tilt Angle")
+          .appendField("MPU6050 Tilt Angle")
           .appendField(new Blockly.FieldDropdown([
             ["Pitch Angle (° Tilt Front/Back)", "PITCH"],
             ["Roll Angle (° Tilt Left/Right)", "ROLL"]
@@ -581,7 +580,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_read_temp'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 MPU6050 Temperature (°C)");
+          .appendField("MPU6050 Temperature (°C)");
       this.setOutput(true, "Number");
       this.setStyle('machine_blocks');
       this.setTooltip("Read MPU6050 internal on-chip die temperature in Celsius");
@@ -592,15 +591,15 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mpu6050_gesture'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📐 MPU6050 detects")
+          .appendField("MPU6050 detects")
           .appendField(new Blockly.FieldDropdown([
-            ["Shake / Impact 💥", "SHAKE"],
-            ["Tilt Left ⬅️", "TILT_LEFT"],
-            ["Tilt Right ➡️", "TILT_RIGHT"],
-            ["Tilt Forward ⬆️", "TILT_FORWARD"],
-            ["Tilt Backward ⬇️", "TILT_BACKWARD"],
-            ["Free Fall (Zero-G) 🪂", "FREE_FALL"],
-            ["Flat / Level ⚖️", "FLAT"]
+            ["Shake / Impact", "SHAKE"],
+            ["Tilt Left", "TILT_LEFT"],
+            ["Tilt Right", "TILT_RIGHT"],
+            ["Tilt Forward", "TILT_FORWARD"],
+            ["Tilt Backward", "TILT_BACKWARD"],
+            ["Free Fall (Zero-G)", "FREE_FALL"],
+            ["Flat / Level", "FLAT"]
           ]), "GESTURE");
       this.setOutput(true, "Boolean");
       this.setStyle('logic_blocks');
@@ -613,7 +612,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_amg8833_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ Initialize AMG8833 8x8 Thermal Camera (I2C SDA: 7, SCL: 8, Addr: 0x69)");
+          .appendField("Initialize AMG8833 8x8 Thermal Camera (I2C SDA: 7, SCL: 8, Addr: 0x69)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('machine_blocks');
@@ -625,7 +624,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_amg8833_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ AMG8833 Thermal Camera")
+          .appendField("AMG8833 Thermal Camera")
           .appendField(new Blockly.FieldDropdown([
             ["Max Temperature (°C)", "MAX"],
             ["Min Temperature (°C)", "MIN"],
@@ -644,7 +643,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_amg8833_read_pixel'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ AMG8833 Pixel Temp at Row")
+          .appendField("AMG8833 Pixel Temp at Row")
           .appendField(new Blockly.FieldNumber(1, 1, 8), "ROW")
           .appendField("Col")
           .appendField(new Blockly.FieldNumber(1, 1, 8), "COL")
@@ -659,7 +658,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_amg8833_heat_detected'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ Thermal Heat Detected? (Max Temp >")
+          .appendField("Thermal Heat Detected? (Max Temp >")
           .appendField(new Blockly.FieldNumber(30, 0, 100), "THRESH")
           .appendField("°C)");
       this.setOutput(true, "Boolean");
@@ -672,7 +671,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_amg8833_oled_heatmap'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ Display AMG8833 Thermal Heatmap on OLED Screen");
+          .appendField("Display AMG8833 Thermal Heatmap on OLED Screen");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('display_blocks');
@@ -685,7 +684,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 Initialize AS5600 Magnetic Encoder (I2C SDA: 7, SCL: 8, Addr: 0x36)");
+          .appendField("Initialize AS5600 Magnetic Encoder (I2C SDA: 7, SCL: 8, Addr: 0x36)");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('machine_blocks');
@@ -697,7 +696,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_read_angle'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 AS5600 Magnetic Encoder")
+          .appendField("AS5600 Magnetic Encoder")
           .appendField(new Blockly.FieldDropdown([
             ["Angle in Degrees (0 - 360°)", "DEG"],
             ["Raw 12-Bit Value (0 - 4095)", "RAW"],
@@ -713,7 +712,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_read_rotations'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 AS5600 Encoder")
+          .appendField("AS5600 Encoder")
           .appendField(new Blockly.FieldDropdown([
             ["Total Revolutions / Turns", "TURNS"],
             ["Total Cumulative Angle (°)", "CUMULATIVE_DEG"],
@@ -730,7 +729,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_reset_zero'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 AS5600 Set Current Position as Zero / Reset Turns");
+          .appendField("AS5600 Set Current Position as Zero / Reset Turns");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('machine_blocks');
@@ -742,7 +741,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_magnet_status'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 AS5600 Magnet")
+          .appendField("AS5600 Magnet")
           .appendField(new Blockly.FieldDropdown([
             ["Magnet Detected? (True / False)", "IS_DETECTED"],
             ["Magnet Status (Normal / Weak / Strong / Missing)", "STATUS_STR"],
@@ -759,7 +758,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_as5600_compare'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔄 AS5600")
+          .appendField("AS5600")
           .appendField(new Blockly.FieldDropdown([
             ["Angle (°)", "DEG"],
             ["Raw (0-4095)", "RAW"],
@@ -786,7 +785,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_motion_sensor_check'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🚶 Motion Sensor on Port")
+          .appendField("Motion Sensor on Port")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -806,7 +805,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mq135_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("☁️ MQ-135 Air Quality on Port")
+          .appendField("MQ-135 Air Quality on Port")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -831,7 +830,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mq135_quality_status'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("☁️ MQ-135 Air Quality Status on Port")
+          .appendField("MQ-135 Air Quality Status on Port")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -849,7 +848,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mq135_gas_detected'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("☁️ MQ-135 Gas / Smoke Detected? Port")
+          .appendField("MQ-135 Gas / Smoke Detected? Port")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -870,7 +869,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_mq135_calibrate'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("☁️ Calibrate MQ-135 Sensor Baseline (R0) on Port")
+          .appendField("Calibrate MQ-135 Sensor Baseline (R0) on Port")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -890,7 +889,6 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dht_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️")
           .appendField(new Blockly.FieldDropdown([
             ["DHT22 (AM2302)", "DHT22"],
             ["DHT11", "DHT11"]
@@ -922,7 +920,6 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dht_compare'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️")
           .appendField(new Blockly.FieldDropdown([
             ["DHT22 (AM2302)", "DHT22"],
             ["DHT11", "DHT11"]
@@ -959,7 +956,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_ds18b20_read'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ DS18B20 Temp Probe on")
+          .appendField("DS18B20 Temp Probe on")
           .appendField(new Blockly.FieldDropdown([
             ["Port S1 (GPIO 2)", "2"],
             ["Port S2 (GPIO 1)", "1"],
@@ -983,7 +980,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_ds18b20_compare'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🌡️ DS18B20 on")
+          .appendField("DS18B20 on")
           .appendField(new Blockly.FieldDropdown([
             ["Port S1 (GPIO 2)", "2"],
             ["Port S2 (GPIO 1)", "1"],
@@ -1013,7 +1010,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_print_sensor_monitor'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📊 Print")
+          .appendField("Print")
           .appendField(new Blockly.FieldDropdown([
             ["All Sensors Live Summary (S1-S5, Dist, Buttons)", "ALL"],
             ["DHT22 Temp & Humidity (S1)", "DHT22"],
@@ -1181,12 +1178,12 @@ export function registerCustomBlocks() {
       this.appendDummyInput()
           .appendField("Buzzer (GPIO 20) play melody")
           .appendField(new Blockly.FieldDropdown([
-            ["Star Wars Theme 🌌", "STAR_WARS"],
-            ["Super Mario 🍄", "MARIO"],
-            ["Happy Birthday 🎂", "HAPPY_BIRTHDAY"],
-            ["Mission Impossible 🕵️", "MISSION_IMPOSSIBLE"],
-            ["Cyberpunk Siren 🚨", "CYBERPUNK"],
-            ["Victory Fanfare 🏆", "VICTORY"]
+            ["Star Wars Theme", "STAR_WARS"],
+            ["Super Mario", "MARIO"],
+            ["Happy Birthday", "HAPPY_BIRTHDAY"],
+            ["Mission Impossible", "MISSION_IMPOSSIBLE"],
+            ["Cyberpunk Siren", "CYBERPUNK"],
+            ["Victory Fanfare", "VICTORY"]
           ]), "MELODY");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1201,12 +1198,12 @@ export function registerCustomBlocks() {
       this.appendDummyInput()
           .appendField("Buzzer (GPIO 20) sound effect")
           .appendField(new Blockly.FieldDropdown([
-            ["Laser Zap 🔫", "LASER"],
-            ["Jump ⬆️", "JUMP"],
-            ["Coin Collect 🪙", "COIN"],
-            ["Power Up ⚡", "POWERUP"],
-            ["Explosion 💥", "EXPLOSION"],
-            ["Warning Alert ⚠️", "ALERT"]
+            ["Laser Zap", "LASER"],
+            ["Jump", "JUMP"],
+            ["Coin Collect", "COIN"],
+            ["Power Up", "POWERUP"],
+            ["Explosion", "EXPLOSION"],
+            ["Warning Alert", "ALERT"]
           ]), "EFFECT");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1375,8 +1372,8 @@ export function registerCustomBlocks() {
           .appendField(new Blockly.FieldNumber(63, 0, 63), "Y2")
           .appendField("color")
           .appendField(new Blockly.FieldDropdown([
-            ["White ⚪", "1"],
-            ["Black ⚫", "0"]
+            ["White", "1"],
+            ["Black", "0"]
           ]), "COLOR");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1399,8 +1396,8 @@ export function registerCustomBlocks() {
           .appendField(new Blockly.FieldNumber(20, 1, 64), "H")
           .appendField("fill")
           .appendField(new Blockly.FieldDropdown([
-            ["Outline 🔲", "0"],
-            ["Filled ⬛", "1"]
+            ["Outline", "0"],
+            ["Filled", "1"]
           ]), "FILL");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1421,8 +1418,8 @@ export function registerCustomBlocks() {
           .appendField(new Blockly.FieldNumber(10, 1, 64), "R")
           .appendField("fill")
           .appendField(new Blockly.FieldDropdown([
-            ["Outline ⭕", "0"],
-            ["Filled 🔴", "1"]
+            ["Outline", "0"],
+            ["Filled", "1"]
           ]), "FILL");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1477,7 +1474,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 Initialize LCD 16x2 Display")
+          .appendField("Initialize LCD 16x2 Display")
           .appendField("Addr:")
           .appendField(new Blockly.FieldDropdown([
             ["0x27 (Default)", "0x27"],
@@ -1497,7 +1494,7 @@ export function registerCustomBlocks() {
     init: function() {
       this.appendValueInput("TEXT")
           .setCheck(null)
-          .appendField("📟 LCD 16x2 print");
+          .appendField("LCD 16x2 print");
       this.appendDummyInput()
           .appendField("at Col")
           .appendField(new Blockly.FieldNumber(0, 0, 15), "COL")
@@ -1518,7 +1515,7 @@ export function registerCustomBlocks() {
     init: function() {
       this.appendValueInput("LINE1")
           .setCheck(null)
-          .appendField("📟 LCD 16x2 Line 1");
+          .appendField("LCD 16x2 Line 1");
       this.appendValueInput("LINE2")
           .setCheck(null)
           .appendField("Line 2");
@@ -1533,7 +1530,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_clear'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 LCD 16x2 clear screen");
+          .appendField("LCD 16x2 clear screen");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setStyle('display_blocks');
@@ -1545,10 +1542,10 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_backlight'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 LCD 16x2 Backlight")
+          .appendField("LCD 16x2 Backlight")
           .appendField(new Blockly.FieldDropdown([
-            ["ON 💡", "1"],
-            ["OFF 🌑", "0"]
+            ["ON", "1"],
+            ["OFF", "0"]
           ]), "STATE");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1561,7 +1558,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_set_cursor'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 LCD 16x2 set cursor Col")
+          .appendField("LCD 16x2 set cursor Col")
           .appendField(new Blockly.FieldNumber(0, 0, 15), "COL")
           .appendField("Row")
           .appendField(new Blockly.FieldDropdown([
@@ -1579,10 +1576,10 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_scroll'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 LCD 16x2 scroll text")
+          .appendField("LCD 16x2 scroll text")
           .appendField(new Blockly.FieldDropdown([
-            ["Left ⬅️", "LEFT"],
-            ["Right ➡️", "RIGHT"]
+            ["Left", "LEFT"],
+            ["Right", "RIGHT"]
           ]), "DIR");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1595,7 +1592,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_lcd1602_show_sensor'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📟 LCD 16x2 show Sensor")
+          .appendField("LCD 16x2 show Sensor")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -1825,7 +1822,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎵 DFPlayer Mini Init")
+          .appendField("DFPlayer Mini Init")
           .appendField("TX")
           .appendField(new Blockly.FieldDropdown([
             ["GPIO 17 (Default TX)", "17"],
@@ -1861,7 +1858,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_play_track'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎵 DFPlayer play Track #")
+          .appendField("DFPlayer play Track #")
           .appendField(new Blockly.FieldNumber(1, 1, 2999), "TRACK");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1874,7 +1871,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_play_folder'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("📁 DFPlayer play Folder")
+          .appendField("DFPlayer play Folder")
           .appendField(new Blockly.FieldNumber(1, 1, 99), "FOLDER")
           .appendField("Track")
           .appendField(new Blockly.FieldNumber(1, 1, 255), "TRACK");
@@ -1889,7 +1886,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_play_mp3'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎵 DFPlayer play /MP3/ Track")
+          .appendField("DFPlayer play /MP3/ Track")
           .appendField(new Blockly.FieldNumber(1, 1, 9999), "TRACK");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1902,7 +1899,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_play_wait'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("⏳ DFPlayer play Track #")
+          .appendField("DFPlayer play Track #")
           .appendField(new Blockly.FieldNumber(1, 1, 2999), "TRACK")
           .appendField("and wait")
           .appendField(new Blockly.FieldNumber(3, 0.1, 3600), "SECONDS")
@@ -1918,16 +1915,16 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_control'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎵 DFPlayer")
+          .appendField("DFPlayer")
           .appendField(new Blockly.FieldDropdown([
-            ["Play / Resume ▶️", "PLAY"],
-            ["Pause ⏸️", "PAUSE"],
-            ["Stop ⏹️", "STOP"],
-            ["Next Track ⏭️", "NEXT"],
-            ["Previous Track ⏮️", "PREV"],
-            ["Volume Up 🔊+", "VOL_UP"],
-            ["Volume Down 🔉-", "VOL_DOWN"],
-            ["Reset Module 🔄", "RESET"]
+            ["Play / Resume", "PLAY"],
+            ["Pause", "PAUSE"],
+            ["Stop", "STOP"],
+            ["Next Track", "NEXT"],
+            ["Previous Track", "PREV"],
+            ["Volume Up", "VOL_UP"],
+            ["Volume Down", "VOL_DOWN"],
+            ["Reset Module", "RESET"]
           ]), "ACTION");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1940,7 +1937,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_set_volume'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔊 DFPlayer set Volume")
+          .appendField("DFPlayer set Volume")
           .appendField(new Blockly.FieldNumber(20, 0, 30), "VOLUME")
           .appendField("(0-30)");
       this.setPreviousStatement(true, null);
@@ -1954,10 +1951,10 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_volume_change'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔊 DFPlayer Volume")
+          .appendField("DFPlayer Volume")
           .appendField(new Blockly.FieldDropdown([
-            ["Increase (+1) 🔊+", "UP"],
-            ["Decrease (-1) 🔉-", "DOWN"]
+            ["Increase (+1)", "UP"],
+            ["Decrease (-1)", "DOWN"]
           ]), "DIR");
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
@@ -1972,7 +1969,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_set_eq'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎚️ DFPlayer Equalizer")
+          .appendField("DFPlayer Equalizer")
           .appendField(new Blockly.FieldDropdown([
             ["Normal", "0"],
             ["Pop", "1"],
@@ -1992,7 +1989,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_loop'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🔁 DFPlayer Loop Mode")
+          .appendField("DFPlayer Loop Mode")
           .appendField(new Blockly.FieldDropdown([
             ["Loop Current Track", "CURRENT"],
             ["Loop All Tracks", "ALL"],
@@ -2011,7 +2008,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_dfplayer_is_busy'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎵 DFPlayer is playing? BUSY Pin")
+          .appendField("DFPlayer is playing? BUSY Pin")
           .appendField(new Blockly.FieldDropdown([
             ["S1 (GPIO 2)", "2"],
             ["S2 (GPIO 1)", "1"],
@@ -2033,7 +2030,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_init'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Initialize Laser ToF Sensor (VL53L1X / VL53L0X)")
+          .appendField("Initialize Laser ToF Sensor (VL53L1X / VL53L0X)")
           .appendField("Offset:")
           .appendField(new Blockly.FieldNumber(0, -1000, 1000), "OFFSET")
           .appendField(new Blockly.FieldDropdown([
@@ -2051,7 +2048,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_set_offset'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Set Laser Distance Offset (VL53L1X) to")
+          .appendField("Set Laser Distance Offset (VL53L1X) to")
           .appendField(new Blockly.FieldNumber(0, -1000, 1000), "OFFSET")
           .appendField(new Blockly.FieldDropdown([
             ["mm", "MM"],
@@ -2068,7 +2065,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_read_distance'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Laser Distance (VL53L1X / ToF) in")
+          .appendField("Laser Distance (VL53L1X / ToF) in")
           .appendField(new Blockly.FieldDropdown([
             ["cm", "CM"],
             ["mm", "MM"],
@@ -2085,7 +2082,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_compare'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Laser Distance (VL53L0X)")
+          .appendField("Laser Distance (VL53L0X)")
           .appendField(new Blockly.FieldDropdown([
             ["< (Closer than)", "LT"],
             ["<= (At or closer)", "LTE"],
@@ -2110,7 +2107,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_target_in_range'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Laser Target Detected between")
+          .appendField("Laser Target Detected between")
           .appendField(new Blockly.FieldNumber(5, 0, 200), "MIN_VAL")
           .appendField("and")
           .appendField(new Blockly.FieldNumber(30, 0, 200), "MAX_VAL")
@@ -2129,7 +2126,7 @@ export function registerCustomBlocks() {
   Blockly.Blocks['titan_vl53l0x_set_mode'] = {
     init: function() {
       this.appendDummyInput()
-          .appendField("🎯 Set Laser Mode (VL53L0X)")
+          .appendField("Set Laser Mode (VL53L0X)")
           .appendField(new Blockly.FieldDropdown([
             ["Default / Balanced (33ms)", "BALANCED"],
             ["High Accuracy (200ms)", "HIGH_ACCURACY"],

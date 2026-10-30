@@ -769,7 +769,7 @@ export class TitanSimulatorEngine {
     try {
       const topBlocks = workspace.getTopBlocks(true);
       if (!topBlocks || topBlocks.length === 0) {
-        this.log("⚠️ No blocks found in workspace.");
+        this.log("No blocks found in workspace.");
         this.stop();
         return;
       }
@@ -1881,7 +1881,7 @@ export class TitanSimulatorEngine {
       const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
       return new AsyncFunction('sandbox', jsBody);
     } catch (e) {
-      this.log(`⚠️ Script transpiler notice: ${e.message}`);
+      this.log(`Script transpiler notice: ${e.message}`);
       console.error('Transpiler JS Code:\n', jsBody);
       throw e;
     }

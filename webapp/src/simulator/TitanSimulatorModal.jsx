@@ -142,7 +142,7 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
     <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
       
       {/* Simulator Modal Card - Light Theme */}
-      <div className={`relative flex flex-col bg-white border border-slate-200 rounded-3xl shadow-[0_20px_70px_rgba(0,0,0,0.25)] overflow-hidden transition-all duration-300 w-full ${
+      <div className={`relative flex flex-col bg-white border border-slate-200 rounded-xl shadow-[0_20px_70px_rgba(0,0,0,0.25)] overflow-hidden transition-all duration-300 w-full ${
         isFullScreen ? 'h-full max-w-full' : 'max-w-6xl h-[92vh]'
       }`}>
         
@@ -156,7 +156,7 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-heading font-black text-slate-900 tracking-wide">
+                <h2 className="text-base sm:text-lg font-heading font-[750] text-slate-900 tracking-wide">
                   LOF TITAN Virtual Lab
                 </h2>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 ${
@@ -182,7 +182,7 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
             {!titanSimulator.isRunning ? (
               <button
                 onClick={() => handleRun(editableCode)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200 text-xs sm:text-sm transform active:scale-95 cursor-pointer"
+                className="lof-primary border flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-white transition-all duration-200 text-xs sm:text-sm transform active:scale-95 cursor-pointer"
                 title="Run Simulation with current code"
               >
                 <Play size={15} fill="currentColor" />
@@ -414,7 +414,7 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
 
                       <button
                         onClick={() => handleRun(editableCode)}
-                        className="p-1 px-3.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+                        className="lof-primary border p-1 px-3.5 rounded-lg text-white font-bold text-[11px] flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                         title="Run this edited code in simulator"
                       >
                         <Play size={11} fill="currentColor" />

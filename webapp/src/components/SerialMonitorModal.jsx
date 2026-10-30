@@ -69,7 +69,7 @@ export function SerialMonitorModal({ isOpen, onClose, device }) {
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-heading font-extrabold text-lg tracking-wider text-slate-700">
+              <span className="font-heading font-[750] text-lg tracking-wider text-slate-700">
                 LOF TITAN
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
@@ -136,10 +136,10 @@ export function SerialMonitorModal({ isOpen, onClose, device }) {
         <div className="flex-1 p-2.5 sm:p-3 bg-slate-50 flex flex-col overflow-hidden">
           
           {/* Inner Recessed Terminal Box */}
-          <div className="flex-1 flex flex-col bg-[#060911] rounded-xl border border-slate-800 shadow-xs overflow-hidden relative">
+          <div className="flex-1 flex flex-col bg-[#0A1120] rounded-xl border border-slate-800 shadow-xs overflow-hidden relative">
             
             {/* Terminal Subheader Toolbar */}
-            <div className="h-10 px-4 bg-[#0B0F19] border-b border-slate-800 flex items-center justify-between shrink-0 text-xs">
+            <div className="h-10 px-4 bg-[#0A1120] border-b border-slate-800 flex items-center justify-between shrink-0 text-xs">
               <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
                 <span>Baud: 115200</span>
                 <span>•</span>
@@ -194,7 +194,7 @@ export function SerialMonitorModal({ isOpen, onClose, device }) {
             </div>
 
             {/* Terminal Command Input Bar */}
-            <form onSubmit={handleSend} className="p-3 bg-[#0F172A] border-t border-slate-800 flex items-center gap-2">
+            <form onSubmit={handleSend} className="p-3 bg-[#111A2D] border-t border-slate-800 flex items-center gap-2">
               <div className="flex-1 relative flex items-center">
                 <span className="absolute left-3 text-emerald-400 font-mono text-xs font-bold">&gt;</span>
                 <input
@@ -202,13 +202,13 @@ export function SerialMonitorModal({ isOpen, onClose, device }) {
                   value={serialInput}
                   onChange={(e) => setSerialInput(e.target.value)}
                   placeholder="Type command or MicroPython statement (e.g. print(hw.read_ultrasonic_distance(6,19)))..."
-                  className="w-full bg-[#060911] text-slate-100 text-xs pl-7 pr-3 py-2.5 rounded-xl border border-slate-700/80 focus:outline-none focus:border-emerald-500 font-mono"
+                  className="w-full bg-[#0A1120] text-slate-100 text-xs pl-7 pr-3 py-2.5 rounded-xl border border-slate-700/80 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
               <button
                 type="submit"
                 disabled={!serialInput.trim()}
-                className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                className="lof-primary border px-4 py-2.5 disabled:opacity-40 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
               >
                 <Send size={13} />
                 <span>Send</span>

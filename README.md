@@ -3,7 +3,7 @@
 [![Deploy Web Application to GitHub Pages](https://github.com/laboffuture/LOF_TITAN/actions/workflows/deploy.yml/badge.svg)](https://github.com/laboffuture/LOF_TITAN/actions/workflows/deploy.yml)
 [![Live Web App](https://img.shields.io/badge/Live_Dashboard-LOF_TITAN-blue?style=for-the-badge&logo=github)](https://laboffuture.github.io/LOF_TITAN/)
 
-🚀 **Live Web Bluetooth IDE & Dashboard:** [https://laboffuture.github.io/LOF_TITAN/](https://laboffuture.github.io/LOF_TITAN/)
+**Live Web Bluetooth IDE & Dashboard:** [https://laboffuture.github.io/LOF_TITAN/](https://laboffuture.github.io/LOF_TITAN/)
 
 Production-ready custom MicroPython firmware and Web Bluetooth IDE for the **LOF TITAN** board featuring an **ESP32-S3 N16R8** MCU (16 MB Flash, 8 MB Octal PSRAM).
 

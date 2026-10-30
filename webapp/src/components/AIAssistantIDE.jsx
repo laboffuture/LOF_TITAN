@@ -75,7 +75,7 @@ export function AIAssistantIDE({ isOpen, onClose, device, onUploadCode }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "👋 **Welcome to LOF TITAN AI Code Studio!**\n\nI know your board inside out — ESP32-S3 pin mappings, the 4-channel motor driver, push buttons (GPIO 39-42), sensors S1-S5, ultrasonic, OLED and buzzer.\n\nTell me what you want your TITAN build to do and I'll write the MicroPython for it — or pick a starter prompt below."
+      text: "**Welcome to LOF TITAN AI Code Studio!**\n\nI know your board inside out — ESP32-S3 pin mappings, the 4-channel motor driver, push buttons (GPIO 39-42), sensors S1-S5, ultrasonic, OLED and buzzer.\n\nTell me what you want your TITAN build to do and I'll write the MicroPython for it — or pick a starter prompt below."
     }
   ]);
 
@@ -215,7 +215,7 @@ if __name__ == '__main__':
         ...newMessages,
         {
           role: "assistant",
-          text: `⚠️ **AI Generation Error:** ${HINT[err.code] || err.message}`
+          text: `**AI Generation Error:** ${HINT[err.code] || err.message}`
         }
       ]);
     } finally {
@@ -317,9 +317,9 @@ if __name__ == '__main__':
             );
           } else {
             return (
-              <div key={idx} className="my-2.5 rounded-2xl bg-[#0B0F19] border border-slate-700/80 shadow-lg overflow-hidden">
+              <div key={idx} className="my-2.5 rounded-2xl bg-[#0A1120] border border-slate-700/80 shadow-lg overflow-hidden">
                 {/* Code Block Top Header with Quick Action Buttons */}
-                <div className="px-3.5 py-2 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+                <div className="px-3.5 py-2 bg-[#111A2D] border-b border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
                   <span className="font-mono text-cyan-400 font-bold flex items-center gap-1.5">
                     <FileCode size={14} className="text-cyan-400" />
                     <span>MicroPython Code (LOF TITAN)</span>
@@ -357,7 +357,7 @@ if __name__ == '__main__':
                         setShowSerialMonitor(true);
                         if (onUploadCode) onUploadCode(p.content);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[11px] font-bold shadow-md transition-all active:scale-95 cursor-pointer"
+                      className="lof-primary flex items-center gap-1.5 px-3 py-1 rounded-lg text-white text-[11px] font-bold shadow-md transition-all active:scale-95 cursor-pointer"
                       title="Upload and run directly on LOF TITAN board"
                     >
                       <Upload size={12} />
@@ -550,7 +550,7 @@ if __name__ == '__main__':
             {/* Run on TITAN (Upload) Button */}
             <button 
               onClick={handleUploadToTitan}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0"
+              className="lof-primary flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0"
               title="Upload and execute active MicroPython code on LOF TITAN"
             >
               <Upload size={13} />
@@ -569,10 +569,10 @@ if __name__ == '__main__':
         </div>
 
         {/* Content Area: Full Width Lunar Light AI Chat + Toggleable Slide-over Python Code Drawer */}
-        <div className="flex-1 flex overflow-hidden relative bg-[#F8FAFC]">
+        <div className="flex-1 flex overflow-hidden relative bg-subtle">
           
           {/* Main AI Chat Area */}
-          <div className="flex-1 flex flex-col relative overflow-hidden bg-[#F8FAFC]">
+          <div className="flex-1 flex flex-col relative overflow-hidden bg-subtle">
             
             {/* Quick Prompt Templates / Chips Bar */}
             <div className="p-3 border-b border-slate-200 bg-white/95 overflow-x-auto scrollbar-none flex gap-2 shrink-0 shadow-xs z-10">
@@ -615,7 +615,7 @@ if __name__ == '__main__':
 
                     <div className={`max-w-[88%] rounded-2xl p-4 overflow-hidden break-words ${
                       isUser 
-                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-tr-none shadow-md' 
+                        ? 'bg-navy text-white rounded-tr-none shadow-lof-sm' 
                         : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none shadow-xs'
                     }`}>
                       {isUser ? (
@@ -681,12 +681,12 @@ if __name__ == '__main__':
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
                   placeholder="Ask AI…"
-                  className="flex-1 bg-slate-50 text-slate-800 placeholder-slate-400 text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-sans"
+                  className="flex-1 bg-slate-50 text-slate-800 placeholder-slate-400 text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/30 transition-all font-sans"
                 />
                 <button
                   type="submit"
                   disabled={isLoading || !inputPrompt.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  className="lof-primary px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                 >
                   <Send size={14} />
                   <span className="hidden sm:inline">Send</span>
@@ -715,10 +715,10 @@ if __name__ == '__main__':
 
             {/* Integrated Serial Monitor Bottom Panel */}
             {showSerialMonitor && (
-              <div className="serial-panel h-56 bg-[#0B0F19] border-t border-slate-700/80 flex flex-col z-30 shadow-[0_-5px_25px_rgba(0,0,0,0.3)] animate-fade-in shrink-0">
+              <div className="serial-panel h-56 bg-[#0A1120] border-t border-slate-700/80 flex flex-col z-30 shadow-[0_-5px_25px_rgba(0,0,0,0.3)] animate-fade-in shrink-0">
                 
                 {/* Serial Header */}
-                <div className="px-4 py-2 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between">
+                <div className="px-4 py-2 bg-[#111A2D] border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Terminal size={15} className="text-emerald-400" />
                     <span className="text-xs font-bold text-slate-200">TITAN Serial REPL Monitor</span>
@@ -767,17 +767,17 @@ if __name__ == '__main__':
                 </div>
 
                 {/* Serial Command Form */}
-                <form onSubmit={handleSendSerial} className="p-2 bg-[#0F172A] border-t border-slate-800 flex gap-2">
+                <form onSubmit={handleSendSerial} className="p-2 bg-[#111A2D] border-t border-slate-800 flex gap-2">
                   <input
                     type="text"
                     value={serialInput}
                     onChange={(e) => setSerialInput(e.target.value)}
                     placeholder="Send command to TITAN REPL..."
-                    className="flex-1 bg-[#060911] text-slate-100 text-xs px-3 py-1.5 rounded-lg border border-slate-700/60 focus:outline-none focus:border-emerald-500 font-mono"
+                    className="flex-1 bg-[#0A1120] text-slate-100 text-xs px-3 py-1.5 rounded-lg border border-slate-700/60 focus:outline-none focus:border-emerald-500 font-mono"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    className="lof-primary px-3 py-1.5 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                   >
                     <Send size={12} />
                     <span>Send</span>
@@ -791,7 +791,7 @@ if __name__ == '__main__':
 
           {/* Right Slide-over Python Code Drawer (Toggleable hide/view like Block Code) */}
           {showPythonDrawer && (
-            <div className="absolute inset-0 w-full sm:static sm:w-[460px] bg-[#0F172A] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
+            <div className="absolute inset-0 w-full sm:static sm:w-[460px] bg-[#111A2D] text-slate-200 border-l border-slate-800 flex flex-col z-30 sm:z-20 animate-fade-in shadow-2xl shrink-0">
               
               {/* Drawer Header */}
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
@@ -826,7 +826,7 @@ if __name__ == '__main__':
               </div>
 
               {/* Editable Python Code Area */}
-              <div className="flex-1 relative bg-[#0B0F19] overflow-hidden">
+              <div className="flex-1 relative bg-[#0A1120] overflow-hidden">
                 <textarea
                   value={editorCode}
                   onChange={(e) => setEditorCode(e.target.value)}
@@ -839,7 +839,7 @@ if __name__ == '__main__':
               <div className="p-3 border-t border-slate-800 bg-slate-900/95 flex gap-2">
                 <button
                   onClick={handleUploadToTitan}
-                  className="flex-1 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95"
+                  className="lof-primary border flex-1 py-2 rounded-lg text-white text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Upload size={14} />
                   <span>Run on TITAN</span>
@@ -897,7 +897,7 @@ if __name__ == '__main__':
                 </button>
                 <button
                   onClick={handleSaveSettings}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white transition-all shadow-md active:scale-95"
+                  className="lof-primary border px-4 py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-95"
                 >
                   Save Settings
                 </button>
