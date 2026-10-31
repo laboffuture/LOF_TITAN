@@ -28884,9 +28884,8 @@ while True:
     duration: '90 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
-    // card falls back to a stand-in rather than borrowing another kit's banner.
-    // Add as lof-titan/banners/banner-measuring-the-cosmos when the art arrives.
+    heroImage: 'lof-titan/banners/banner-measuring-the-cosmos',
+    thumbnail: 'lof-titan/banners/banner-measuring-the-cosmos',
     tagline: 'Joystick-Aimed Planetary Measurement Station',
     codeFilename: 'measuring_the_cosmos.py',
     description:
@@ -28937,9 +28936,7 @@ while True:
         id: 'tof-sensor',
         shortName: 'ToF Sensor',
         name: 'Time-of-Flight Sensor',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/measuring-the-cosmos/tof-sensor',
-        image: '',
+        image: 'lof-titan/measuring-the-cosmos/tof-sensor',
         whatIsIt:
           'A distance sensor that uses light to estimate the distance to a nearby physical target.',
         howItWorks:
@@ -28954,9 +28951,7 @@ while True:
         id: 'joystick',
         shortName: 'Joystick',
         name: 'Joystick Module',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/measuring-the-cosmos/joystick',
-        image: '',
+        image: 'lof-titan/measuring-the-cosmos/joystick',
         whatIsIt:
           'A manual control interface that lets students rotate the sensor dish and select the desired target.',
         howItWorks:
@@ -29000,6 +28995,22 @@ while True:
           instruction:
             'Select a target and observe its corresponding distance in AU on the OLED screen.',
         },
+      },
+      {
+        id: 'servo-motor',
+        shortName: 'Servo Motor',
+        name: 'Servo Motor (Rotation Mechanism)',
+        image: 'lof-titan/measuring-the-cosmos/servo-motor',
+        // Pin mapping and the two-axis arrangement are taken from this kit's own
+        // firmware header (Pan on S1/GPIO 2, Tilt on S2/GPIO 1). The descriptive
+        // copy below was drafted in-house because the source content listed this
+        // component in the selector without a write-up - replace it with the
+        // official wording when that arrives.
+        pinMapping: 'S1 (GPIO 2) PAN | S2 (GPIO 1) TILT',
+        whatIsIt:
+          'The actuator that turns the sensor dish. The supplied part is a compact metal-geared MG90s servo. The firmware drives a pan servo for horizontal rotation and a tilt servo for vertical movement.',
+        howItWorks:
+          'The ESP32-S3 sends a timed control signal to each servo, which moves the dish to the commanded angle and holds it there. The firmware applies angle limits so the mechanism is not driven beyond its permitted range.',
       },
     ],
 
@@ -29144,16 +29155,14 @@ while True:
     outroCopy:
       'Build your stationary planetary measurement station, control its rotating sensor dish with a joystick, and explore the scale of the solar system. Align the ToF sensor with a target, obtain a distance measurement, and discover how physical measurements can be connected to astronomical distances expressed in AU. Use planetary reference information to explore the changing geometry of our solar system and discover how scientists measure the vast distances between celestial objects.',
 
-    // CONTENT PENDING: code (firmware), component artwork, and the labs' test
-    // scripts - each component carries its lab title and instruction, but the
-    // Launch button only renders once experiment.testCode exists.
+    // CONTENT PENDING: artwork for the base/dish, ESP32-S3 and OLED components,
+    // and the labs' test scripts - each lab carries its title and instruction,
+    // but the Launch button only renders once experiment.testCode exists.
     //
-    // MISSING FROM SOURCE: the component selector lists "Servo Motor or Rotation
-    // Mechanism" as a separate component, but no "what is it / how it works" text
-    // was supplied for it, so it is not listed here rather than inventing copy.
-    // Assembly step 5 and coding steps 1-2 all reference the actuator. The
-    // selector also splits Fixed Base and Rotating Sensor Dish into two entries
-    // while the write-up covers them as one, so they are a single component here.
+    // MISSING FROM SOURCE: the selector splits Fixed Base and Rotating Sensor
+    // Dish into two entries while the write-up covers them as one, so they are a
+    // single component here. The Servo Motor had no supplied write-up; its copy
+    // was drafted in-house (see the note on that component).
     //
     // EXTERNAL DEPENDENCY: coding step 7 and challenge 3 direct students to the
     // third-party Planets Today site for reference data. No URL was supplied and
