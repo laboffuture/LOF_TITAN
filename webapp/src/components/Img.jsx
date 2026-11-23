@@ -29,7 +29,11 @@ export function Img({
       width={width}
       height={height}
       loading={priority ? 'eager' : 'lazy'}
-      fetchPriority={priority ? 'high' : 'auto'}
+      // Lowercase on purpose. React 18 has no fetchPriority prop - the
+      // camelCase form trips "React does not recognize the `fetchPriority`
+      // prop" on every image. All-lowercase passes straight through as a plain
+      // attribute, which is what the browser reads. React 19 adds camelCase.
+      fetchpriority={priority ? 'high' : 'auto'}
       decoding="async"
       className={className}
       {...rest}
