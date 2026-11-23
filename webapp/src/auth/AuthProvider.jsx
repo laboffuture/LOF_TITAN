@@ -20,7 +20,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Ask the server who we are. A 401 just means signed out.
+  // Ask the server who we are. /auth/me answers 200 with user: null when nobody
+  // is signed in, so the signed-out case is a normal response here, not an
+  // error to catch.
   useEffect(() => {
     let cancelled = false;
 

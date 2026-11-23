@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { users } from '../db.js';
-import { issueSession, clearSession, publicUser, requireUser } from '../session.js';
+import { issueSession, clearSession, publicUser } from '../session.js';
 
 export const authRouter = Router();
 
@@ -74,6 +74,18 @@ authRouter.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-authRouter.get('/me', requireUser, (req, res) => {
+/**
+ * Who is signed in, if anyone.
+ *
+ * Deliberately NOT behind requireUser. "Nobody is signed in" is a valid answer
+ * to this question, not a failure, so it answers 200 with user: null instead of
+ * 401. The app calls this on every page load; a 401 made the browser log
+ * "Failed to load resource" on each one, which looked like a fault in an app
+ * whose normal state is signed out. loadUser has already resolved req.user, and
+ * publicUser(null) is null, so no extra lookup is needed here.
+ *
+ * Every route that genuinely needs a user still uses requireUser.
+ */
+authRouter.get('/me', (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
