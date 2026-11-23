@@ -32,7 +32,10 @@ import { titanSimulator } from './TitanSimulatorEngine';
 export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, sourceTitle }) {
   const [state, setState] = useState(titanSimulator.state);
   const [activeTab, setActiveTab] = useState('sensors'); // 'sensors' | 'console' | 'code' | 'gpio'
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  // Opens full screen. The simulator is a workspace - board, wiring and serial
+  // output all compete for room - so the windowed card was something you had to
+  // click past every time. The toggle still goes back to it.
+  const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [logs, setLogs] = useState([]);
@@ -138,16 +141,29 @@ export function TitanSimulatorModal({ isOpen, onClose, workspace, pythonCode, so
 
   const sourceBadge = sourceTitle || (workspace ? "Blockly Workspace" : pythonCode ? "MicroPython Code" : "Standby");
 
+  // Full screen means the whole viewport: inset-0 rather than starting below the
+  // app nav, and none of the dimmed-backdrop padding that previously kept a
+  // margin around the "full screen" state. Windowed mode is unchanged.
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
-      
+    <div className={`fixed z-[100] animate-in fade-in duration-200 ${
+      isFullScreen
+        ? 'inset-0 bg-canvas'
+        : 'inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4'
+    }`}>
+
       {/* Simulator Modal Card - Light Theme */}
-      <div className={`relative flex flex-col bg-white border border-slate-200 rounded-xl shadow-[0_20px_70px_rgba(0,0,0,0.25)] overflow-hidden transition-all duration-300 w-full ${
-        isFullScreen ? 'h-full max-w-full' : 'max-w-6xl h-[92vh]'
+      <div className={`relative flex flex-col bg-white overflow-hidden transition-all duration-300 w-full ${
+        isFullScreen
+          ? 'h-full max-w-full'
+          : 'max-w-6xl h-[92vh] border border-slate-200 rounded-xl shadow-[0_20px_70px_rgba(0,0,0,0.25)]'
       }`}>
         
         {/* ================= HEADER TOOLBAR (LIGHT THEME) ================= */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-50/90 border-b border-slate-200 shrink-0">
+        {/* Toolbar padding centres on a 90rem column, so on a wide monitor the
+            title and the controls sit either side of the same column the board
+            occupies instead of being flung to the screen edges. It collapses to
+            1rem once the window is narrower than that. */}
+        <div className="flex items-center justify-between px-[max(1rem,calc((100%-90rem)/2))] py-3.5 bg-slate-50/90 border-b border-slate-200 shrink-0">
           
           {/* Title & Status */}
           <div className="flex items-center gap-3">

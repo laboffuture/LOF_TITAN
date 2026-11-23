@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { RequireKit } from '../auth/RequireKit';
 import { Img } from './Img';
+import { LabBlockCanvas } from './LabBlockCanvas';
+import { labProgram } from '../blockly/labPrograms';
 import { cld } from '../lib/cld';
 import { HeroSky, PageWatermarks } from './SpaceArt';
 import { NavSlot } from './NavSlot';
@@ -62,6 +64,10 @@ export function ProjectStoreDetailModal({
 
   const [activeComponentTab, setActiveComponentTab] = useState(project.components?.[0]?.id || 'uv-sensor');
   const [activeExperimentModal, setActiveExperimentModal] = useState(null);
+  // Python generated from the lab's live block canvas. Empty until a canvas
+  // mounts and reports, which is why activeCode only prefers it when the lab
+  // actually has a block program to start from.
+  const [blockCode, setBlockCode] = useState('');
   const [experimentTab, setExperimentTab] = useState('blocks'); // 'blocks' | 'code'
   const [motorSpeed, setMotorSpeed] = useState(75);
   const [motorDirection, setMotorDirection] = useState('FORWARD');
@@ -544,16 +550,22 @@ export function ProjectStoreDetailModal({
 
                     </div>
 
-                    {/* Interactive lab. Only offered when the component actually has
-                        runnable code - otherwise the button opened an empty modal. */}
-                    {comp.experiment?.testCode && (
+                    {/* Interactive lab, offered on every component.
+                        It used to require comp.experiment.testCode, which is set
+                        on 4 of 85 components - so 21 of 22 kits had no lab at all.
+                        That gate existed because the lab was a static picture of
+                        blocks plus a canned script: with nothing to show it opened
+                        empty. The lab now mounts a real Blockly workspace, so a
+                        component with no authored script still gets a usable one -
+                        full toolbox, real blocks, real generated Python. */}
+                    {(
                       <div className="pt-5 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/70 via-sky-50/50 to-purple-50/70 p-5 rounded-2xl border">
                         <div className="space-y-1 text-center sm:text-left">
                           <span className="text-xs font-extrabold uppercase text-indigo-700 tracking-wider flex items-center gap-1.5 justify-center sm:justify-start">
                             Interactive Hardware Calibration Lab
                           </span>
                           <h4 className="font-bold text-base text-slate-900">
-                            {comp.experiment?.title || 'Live Sensor Experiment & Code Runner'}
+                            {comp.experiment?.title || `${comp.shortName || comp.name} Lab`}
                           </h4>
                         </div>
 
@@ -900,364 +912,122 @@ while True:
           return activeExperimentModal.experiment?.testCode || '';
         };
 
-        const activeCode = getDynamicCode();
+        // Seed program for this lab's canvas, if one is authored for it.
+        const blockProgram = labProgram(activeExperimentModal.id);
 
+        // When the lab has a block program, the canvas is the source of truth -
+        // what the student drags is what the Python tab shows and the footer
+        // uploads. Labs driven by their own controls (the motor sliders) have no
+        // block program, so they keep generating code the way they always did.
+        // Which source owns the code shown in the Python tab and uploaded by the
+        // footer. A lab that generates its own (the motor sliders, or a
+        // kit-authored test script) keeps doing so; otherwise the canvas owns it,
+        // which is what makes a lab useful on the 81 components that have no
+        // authored script.
+        const scriptedCode = getDynamicCode();
+        const activeCode =
+          blockProgram || !scriptedCode ? blockCode || scriptedCode : scriptedCode;
+
+        // A true full-screen view, not a dialog on a dimmed backdrop. inset-0
+        // on purpose: the other overlays start at --app-nav-h to keep the app
+        // header reachable, but this one is a workspace with its own header and
+        // action bar, and leaving that strip uncovered let the kit page behind
+        // it show through along the top edge.
         return (
-          <div className="fixed inset-x-0 bottom-0 top-[var(--app-nav-h,0px)] z-[140] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/40 animate-fade-in">
-            <div className="relative w-full max-w-3xl rounded-[32px] bg-canvas text-slate-800 border border-slate-200 shadow-[0_25px_70px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="fixed inset-0 z-[140] bg-canvas animate-fade-in">
+            <div className="relative h-full w-full bg-canvas text-slate-800 flex flex-col overflow-hidden">
               
-              {/* Top Modal Header (Lunar White Theme) */}
-              <div className="h-16 px-6 bg-white/95 backdrop-blur-md border-b border-slate-200 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <h3 className="font-heading font-extrabold text-base sm:text-lg text-slate-900">
-                      {activeExperimentModal.experiment?.title}
-                    </h3>
-                  </div>
-                </div>
+              {/* Top Modal Header (Lunar White Theme).
+                  Stacked and centred: the title and the toggle each get their
+                  own centred row, so neither drifts as the title length
+                  changes. The close button is lifted out of the flow and pinned
+                  top-right, and the title's px-12 reserves room so a long title
+                  truncates instead of running underneath it. Height is py-3
+                  rather than a fixed h-16, since this is now two rows. */}
+              <div className="relative px-6 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 flex flex-col items-center gap-2.5 shrink-0">
+                <button
+                  onClick={() => setActiveExperimentModal(null)}
+                  className="absolute right-3 top-3 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  title="Close Experiment"
+                >
+                  <X size={20} />
+                </button>
+
+                <h3 className="max-w-full truncate px-12 text-center font-heading font-extrabold text-base sm:text-lg text-slate-900">
+                  {activeExperimentModal.experiment?.title ||
+                    `${activeExperimentModal.shortName || activeExperimentModal.name} Lab`}
+                </h3>
                 
                 {/* Visual Blocks vs Code Toggle Pills */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center p-1 bg-slate-100 rounded-full border border-slate-200 text-xs font-bold">
-                    <button
-                      onClick={() => setExperimentTab('blocks')}
-                      className={`px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
-                        experimentTab === 'blocks'
-                          ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/80 font-black'
-                          : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      <Layers size={14} />
-                      <span>Visual Blocks</span>
-                    </button>
-                    <button
-                      onClick={() => setExperimentTab('code')}
-                      className={`px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
-                        experimentTab === 'code'
-                          ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/80 font-black'
-                          : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      <Code size={14} />
-                      <span>Python Code</span>
-                    </button>
-                  </div>
-
+                <div className="flex items-center p-1 bg-slate-100 rounded-full border border-slate-200 text-xs font-bold">
                   <button
-                    onClick={() => setActiveExperimentModal(null)}
-                    className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                    title="Close Experiment"
+                    onClick={() => setExperimentTab('blocks')}
+                    className={`px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
+                      experimentTab === 'blocks'
+                        ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/80 font-black'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
                   >
-                    <X size={20} />
+                    <Layers size={14} />
+                    <span>Visual Blocks</span>
+                  </button>
+                  <button
+                    onClick={() => setExperimentTab('code')}
+                    className={`px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
+                      experimentTab === 'code'
+                        ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/80 font-black'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <Code size={14} />
+                    <span>Python Code</span>
                   </button>
                 </div>
               </div>
 
-              {/* Scrollable Modal Body */}
-              <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
-                
+              {/* Scrollable body. The scroll container itself is full width, so
+                  the scrollbar sits at the screen edge instead of floating in
+                  the middle of the page - which is what a max-w on this element
+                  caused. The content column is centred by padding rather than a
+                  wrapper: px collapses to 1rem on a phone and otherwise splits
+                  the leftover space either side of a 72rem (max-w-6xl) column.
+                  min-h-0 lets this flex child shrink so it scrolls instead of
+                  pushing the header off-screen. */}
+              <div className="flex-1 min-h-0 w-full overflow-y-auto py-6 px-[max(1rem,calc((100%-72rem)/2))] space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+
                 {/* Protocol & Guide Card (Lunar White Theme) */}
                 <div className="p-4.5 rounded-2xl bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border border-indigo-100/90 space-y-1.5 shadow-2xs">
                   <span className="text-xs font-extrabold uppercase text-indigo-800 tracking-wider flex items-center gap-1.5">
                     Experiment Guide & Observation:
                   </span>
                   <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed font-normal">
-                    {activeExperimentModal.experiment?.instruction}
+                    {activeExperimentModal.experiment?.instruction ||
+                      `Build a program for the ${activeExperimentModal.shortName || activeExperimentModal.name} using the blocks, then upload it to your TITAN and watch the Serial Monitor. Drag blocks from the toolbox on the left - the Python tab shows exactly what will run.`}
                   </p>
                 </div>
 
-                {/* TAB 1: VISUAL BLOCKS INTERACTIVE VIEW (EXACT BLOCK STUDIO REPLICA) */}
+                {/* TAB 1: VISUAL BLOCKS - a live Blockly workspace, not a
+                    picture of one. This used to be ~290 lines of hand-written
+                    divs shaped like blocks: nothing could be dragged, edited or
+                    run. It now mounts the same blocks, theme, toolbox and Python
+                    generator as Block Studio, so editing here changes the script
+                    the Python tab shows and the footer uploads. */}
                 {experimentTab === 'blocks' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs font-extrabold uppercase text-slate-600 tracking-wider">
                         Block Studio Visual Workspace
                       </span>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        Drag to rearrange - the Python updates as you go
+                      </span>
                     </div>
 
-                    {/* Dotted Grid Blockly Canvas Container */}
-                    <div 
-                      className="p-6 sm:p-10 rounded-xl bg-subtle border-2 border-slate-200/90 shadow-sm overflow-x-auto select-none"
-                      style={{
-                        backgroundImage: 'radial-gradient(#94a3b8 1.5px, transparent 1.5px)',
-                        backgroundSize: '22px 22px'
-                      }}
-                    >
-                      <div className="inline-flex flex-col items-start min-w-[340px] drop-shadow-[0_8px_16px_rgba(0,0,0,0.12)]">
-                        
-                        {/* 1. TITAN Start Cap Block */}
-                        <div className="relative z-10 bg-[#6580D4] text-white px-5 py-3 rounded-tl-2xl rounded-tr-md rounded-bl-sm font-black text-sm flex items-center gap-2.5 shadow-sm border-t border-l border-r border-[#8199E8]">
-                          <Play size={14} className="fill-current" />
-                          <span className="tracking-wide">TITAN Start</span>
-                          {/* Bottom Puzzle Notch Tab */}
-                          <div className="absolute -bottom-2 left-6 w-4 h-2 bg-[#6580D4] rounded-b-md"></div>
-                        </div>
-
-                        {/* 2. Repeat While True C-Block */}
-                        <div className="relative flex flex-col bg-[#72B666] text-white rounded-tr-xl rounded-br-xl rounded-bl-md border-t border-r border-b border-[#8CD180] shadow-sm mt-0">
-                          
-                          {/* Repeat Header Row */}
-                          <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap">
-                            <span className="font-extrabold text-xs sm:text-sm tracking-wide">repeat</span>
-                            
-                            {/* While Dropdown Pill */}
-                            <div className="flex items-center gap-1 bg-[#569C48] px-2.5 py-1 rounded-lg text-xs font-bold shadow-inner cursor-pointer hover:bg-[#4E8F40] transition-colors border border-[#437D36]">
-                              <span>while</span>
-                              <ChevronDown size={14} className="text-emerald-100" />
-                            </div>
-
-                            {/* True Hexagonal Boolean Pill */}
-                            <div className="flex items-center gap-1 bg-[#4D6898] px-3 py-1 rounded-lg text-xs font-bold shadow-inner cursor-pointer hover:bg-[#435C87] transition-colors border border-[#384C70]">
-                              <span>true</span>
-                              <ChevronDown size={14} className="text-sky-200" />
-                            </div>
-                          </div>
-
-                          {/* C-Bracket Body */}
-                          <div className="flex items-stretch">
-                            {/* Left Green Spine with 'do' */}
-                            <div className="w-8 sm:w-10 bg-[#72B666] flex flex-col items-center pt-2 shrink-0">
-                              <span className="font-extrabold text-xs text-white">do</span>
-                            </div>
-
-                            {/* Inner Nested Blocks (UV Sensor vs DC Motor) */}
-                            <div className="flex-1 bg-subtle p-2.5 space-y-1.5 rounded-l-md border-l-2 border-[#569C48]/40 min-w-[280px]">
-                              
-                              {/* UV SENSOR BLOCKS */}
-                              {isUvSensor && (
-                                <>
-                                  {/* Print Sensor 1 Label */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <span className="text-teal-200 font-serif font-black">“</span>
-                                    <div className="bg-white text-slate-800 px-3 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      sensor 1
-                                    </div>
-                                    <span className="text-teal-200 font-serif font-black">”</span>
-                                  </div>
-
-                                  {/* Print Sensor 1 Value */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <div className="bg-[#5F6CD3] text-white px-2.5 py-1 rounded-md flex items-center gap-2 shadow-sm border border-[#7884E0]">
-                                      <span>Digital Sensor</span>
-                                      <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-mono font-bold flex items-center gap-1">
-                                        <span>S1 (GPIO 2)</span>
-                                        <ChevronDown size={12} />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Print Sensor 2 Label */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <span className="text-teal-200 font-serif font-black">“</span>
-                                    <div className="bg-white text-slate-800 px-3 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      sensor 2
-                                    </div>
-                                    <span className="text-teal-200 font-serif font-black">”</span>
-                                  </div>
-
-                                  {/* Print Sensor 2 Value */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <div className="bg-[#5F6CD3] text-white px-2.5 py-1 rounded-md flex items-center gap-2 shadow-sm border border-[#7884E0]">
-                                      <span>Digital Sensor</span>
-                                      <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-mono font-bold flex items-center gap-1">
-                                        <span>S2 (GPIO 1)</span>
-                                        <ChevronDown size={12} />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Print Sensor 3 Label */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <span className="text-teal-200 font-serif font-black">“</span>
-                                    <div className="bg-white text-slate-800 px-3 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      sensor 3
-                                    </div>
-                                    <span className="text-teal-200 font-serif font-black">”</span>
-                                  </div>
-
-                                  {/* Print Sensor 3 Value */}
-                                  <div className="bg-[#4AB0A1] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#5DC4B5]">
-                                    <span>print</span>
-                                    <div className="bg-[#5F6CD3] text-white px-2.5 py-1 rounded-md flex items-center gap-2 shadow-sm border border-[#7884E0]">
-                                      <span>Digital Sensor</span>
-                                      <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-mono font-bold flex items-center gap-1">
-                                        <span>S3 (GPIO 3)</span>
-                                        <ChevronDown size={12} />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Wait Milliseconds Block */}
-                                  <div className="bg-[#6580D4] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#8199E8]">
-                                    <span>Wait</span>
-                                    <div className="bg-white text-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      {uvInterval}
-                                    </div>
-                                    <div className="bg-[#4D6898] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>milliseconds</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-
-                              {/* DC MOTOR BLOCKS */}
-                              {isDcMotor && (
-                                <>
-                                  {/* Set Motor M1 Speed & Dir */}
-                                  <div className="bg-[#5F6CD3] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#7884E0] flex-wrap">
-                                    <span>Set Motor</span>
-                                    <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>M1 (GPIO 15,16)</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                    <span>Direction</span>
-                                    <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>{motorDirection}</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                    <span>Speed</span>
-                                    <div className="bg-white text-slate-800 px-2 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      {motorSpeed}%
-                                    </div>
-                                  </div>
-
-                                  {/* Set Motor M2 Speed & Dir */}
-                                  <div className="bg-[#5F6CD3] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#7884E0] flex-wrap">
-                                    <span>Set Motor</span>
-                                    <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>M2 (GPIO 13,14)</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                    <span>Direction</span>
-                                    <div className="bg-[#4B58B8] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>{motorDirection}</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                    <span>Speed</span>
-                                    <div className="bg-white text-slate-800 px-2 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      {motorSpeed}%
-                                    </div>
-                                  </div>
-
-                                  {/* Wait Stride Duration */}
-                                  <div className="bg-[#6580D4] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#8199E8]">
-                                    <span>Wait</span>
-                                    <div className="bg-white text-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-xs shadow-inner border border-slate-200">
-                                      {Math.round(motorDuration * 1000)}
-                                    </div>
-                                    <div className="bg-[#4D6898] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>milliseconds</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                  </div>
-
-                                  {/* Stop Motors Block */}
-                                  <div className="bg-[#E05454] text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm border border-[#EF7272]">
-                                    <span>Stop All Motors</span>
-                                    <div className="bg-[#B93838] px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                                      <span>M1 & M2 (Brake)</span>
-                                      <ChevronDown size={12} />
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-
-                            </div>
-                          </div>
-
-                          {/* Bottom C-Bracket Cap */}
-                          <div className="h-2.5 bg-[#72B666] rounded-br-xl rounded-bl-md"></div>
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {/* Interactive Parameter Sliders Toolbar (Lunar White Theme) */}
-                    <div className="p-4.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                        <span>Tune Block Parameters:</span>
-                      </div>
-
-                      {isDcMotor && (
-                        <div className="flex flex-wrap items-center gap-4 text-xs">
-                          {/* Direction Toggle */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500 font-bold">Dir:</span>
-                            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200">
-                              <button
-                                onClick={() => setMotorDirection('FORWARD')}
-                                className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all ${
-                                  motorDirection === 'FORWARD' ? 'bg-indigo-600 text-white shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                              >
-                                FWD
-                              </button>
-                              <button
-                                onClick={() => setMotorDirection('BACKWARD')}
-                                className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all ${
-                                  motorDirection === 'BACKWARD' ? 'bg-amber-600 text-white shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                              >
-                                BWD
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Speed Slider */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500 font-bold">Speed:</span>
-                            <input 
-                              type="range" 
-                              min="25" 
-                              max="100" 
-                              step="5"
-                              value={motorSpeed} 
-                              onChange={(e) => setMotorSpeed(Number(e.target.value))}
-                              className="w-24 accent-indigo-600 cursor-pointer"
-                            />
-                            <span className="font-mono text-indigo-700 font-extrabold px-2 py-0.5 bg-indigo-50 rounded-md border border-indigo-100">{motorSpeed}%</span>
-                          </div>
-
-                          {/* Duration Slider */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500 font-bold">Time:</span>
-                            <input 
-                              type="range" 
-                              min="0.5" 
-                              max="5.0" 
-                              step="0.5"
-                              value={motorDuration} 
-                              onChange={(e) => setMotorDuration(Number(e.target.value))}
-                              className="w-20 accent-blue-600 cursor-pointer"
-                            />
-                            <span className="font-mono text-blue-700 font-extrabold px-2 py-0.5 bg-blue-50 rounded-md border border-blue-100">{motorDuration}s</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {isUvSensor && (
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="text-slate-500 font-bold">Telemetry Rate (Delay):</span>
-                          <input 
-                            type="range" 
-                            min="50" 
-                            max="500" 
-                            step="25"
-                            value={uvInterval} 
-                            onChange={(e) => setUvInterval(Number(e.target.value))}
-                            className="w-32 accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-mono text-indigo-700 font-extrabold px-2.5 py-0.5 bg-indigo-50 rounded-md border border-indigo-100">{uvInterval} ms</span>
-                        </div>
-                      )}
-                    </div>
-
+                    <LabBlockCanvas
+                      program={blockProgram}
+                      onCodeChange={setBlockCode}
+                      className="h-[clamp(360px,52vh,620px)] rounded-xl border-2 border-slate-200/90 shadow-sm overflow-hidden"
+                    />
                   </div>
                 )}
 
@@ -1274,7 +1044,10 @@ while True:
                         <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
                       </button>
                     </div>
-                    <div className="p-5 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-64 scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
+                    {/* Same clamp as the block canvas, so switching tabs does
+                        not make the panel jump. max-h-64 cut most scripts off
+                        after about a dozen lines. */}
+                    <div className="p-5 font-mono text-xs sm:text-sm text-sky-200 overflow-x-auto max-h-[clamp(360px,52vh,620px)] scrollbar-thin scrollbar-thumb-slate-800 leading-relaxed">
                       <pre className="whitespace-pre">{activeCode}</pre>
                     </div>
                   </div>
@@ -1282,8 +1055,11 @@ while True:
 
               </div>
 
-              {/* Bottom Actions Footer (Lunar White Theme) */}
-              <div className="p-4 px-6 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              {/* Bottom Actions Footer (Lunar White Theme). The bar spans the
+                  screen, but its buttons use the same centred 72rem column as
+                  the body - otherwise they sit against the screen edges while
+                  the content is centred, which is what made this look unaligned. */}
+              <div className="py-4 px-[max(1rem,calc((100%-72rem)/2))] bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
