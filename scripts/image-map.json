@@ -18,6 +18,9 @@
   "banners/banner-lithogram.png": "lof-titan/banners/banner-lithogram",
   "banners/banner-measuring-the-cosmos.png": "lof-titan/banners/banner-measuring-the-cosmos",
   "lithogram/asteroid-models.png": "lof-titan/lithogram/asteroid-models",
+  "lithogram/hx711.png": "lof-titan/lithogram/hx711",
+  "lithogram/load-cell.png": "lof-titan/lithogram/load-cell",
+  "lithogram/water-displacement.png": "lof-titan/lithogram/water-displacement",
   "measuring-the-cosmos/joystick.png": "lof-titan/measuring-the-cosmos/joystick",
   "measuring-the-cosmos/servo-motor.png": "lof-titan/measuring-the-cosmos/servo-motor",
   "measuring-the-cosmos/tof-sensor.png": "lof-titan/measuring-the-cosmos/tof-sensor"

@@ -28651,9 +28651,7 @@ while True:
         id: 'load-cell',
         shortName: 'Load Cell',
         name: 'Load Cell',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lithogram/load-cell',
-        image: '',
+        image: 'lof-titan/lithogram/load-cell',
         whatIsIt:
           "A force-sensitive transducer used to measure the load applied to a platform. When calibrated, it provides a measurement of an object's mass under normal laboratory conditions.",
         howItWorks:
@@ -28668,9 +28666,7 @@ while True:
         id: 'hx711',
         shortName: 'HX711',
         name: 'HX711 Load Cell Amplifier',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lithogram/hx711',
-        image: '',
+        image: 'lof-titan/lithogram/hx711',
         whatIsIt:
           'A specialized interface for reading the very small electrical signals produced by a load cell.',
         howItWorks:
@@ -28685,9 +28681,7 @@ while True:
         id: 'water-displacement',
         shortName: 'Water Displacement',
         name: 'Water Displacement Setup',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lithogram/water-displacement',
-        image: '',
+        image: 'lof-titan/lithogram/water-displacement',
         whatIsIt:
           "A graduated container or measuring vessel used to estimate an asteroid model's volume by measuring the change in water level when the model is submerged.",
         howItWorks:
