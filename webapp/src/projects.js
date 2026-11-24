@@ -28696,9 +28696,7 @@ while True:
         id: 'esp32-s3',
         shortName: 'ESP32-S3 TITAN',
         name: 'ESP32-S3 TITAN',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lithogram/esp32-s3',
-        image: '',
+        image: 'lof-titan/lithogram/esp32-s3',
         whatIsIt:
           'The onboard computing unit that processes sensor readings, performs density calculations, and displays the experimental results.',
         howItWorks:
