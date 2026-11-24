@@ -28634,9 +28634,7 @@ while True:
         id: 'asteroid-models',
         shortName: 'Asteroid Models',
         name: 'Asteroid Models',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/lithogram/asteroid-models',
-        image: '',
+        image: 'lof-titan/lithogram/asteroid-models',
         whatIsIt:
           'Physical models representing different types of asteroids. The models are designed to help students investigate how objects with different masses and volumes can have different densities. For this activity, students explore three simplified asteroid categories: C-type, represented by a relatively low-density model; S-type, represented by a medium-density model; and M-type, represented by a relatively high-density model.',
         howItWorks:
