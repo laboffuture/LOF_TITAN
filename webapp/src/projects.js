@@ -28600,9 +28600,8 @@ while True:
     duration: '90 Mins',
     difficulty: 'Intermediate',
     age: '10+',
-    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
-    // card falls back to a stand-in rather than borrowing another kit's banner.
-    // Add as lof-titan/banners/banner-lithogram when the art arrives.
+    heroImage: 'lof-titan/banners/banner-lithogram',
+    thumbnail: 'lof-titan/banners/banner-lithogram',
     tagline: 'Asteroid Mass, Volume & Density Analysis',
     description:
       'Become a Junior Space Mission Engineer and investigate the mysteries of asteroids through hands-on experiments in density measurement, motion, and impact physics. Measure the mass and volume of asteroid models, compare their densities, and discover how scientists study space rocks to understand the origins of our solar system and protect Earth from potential impact hazards.',
