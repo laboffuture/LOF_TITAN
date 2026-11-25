@@ -28603,6 +28603,7 @@ while True:
     heroImage: 'lof-titan/banners/banner-lithogram',
     thumbnail: 'lof-titan/banners/banner-lithogram',
     tagline: 'Asteroid Mass, Volume & Density Analysis',
+    codeFilename: 'lithogram_asteroid_mass_calculator.py',
     description:
       'Become a Junior Space Mission Engineer and investigate the mysteries of asteroids through hands-on experiments in density measurement, motion, and impact physics. Measure the mass and volume of asteroid models, compare their densities, and discover how scientists study space rocks to understand the origins of our solar system and protect Earth from potential impact hazards.',
 
@@ -28860,6 +28861,2500 @@ while True:
     // baseline-vs-modified worksheet table with a closing question) and the
     // Final CTA banner. No kit schema field exists for either; both need a new
     // section in the detail view.
+
+    // MicroPython Main Script
+    code: `# LITHOGRAM - ASTEROID MASS CALCULATOR
+# LOF TITAN ESP32-S3 / MicroPython
+#
+# Sensors (LoF Titan PCB pinout):
+#   S1 / GPIO2  -> Analogue IR reflectance sensor AO
+#   S2 / GPIO1  -> Analogue LDR sensor AO
+#   Dedicated Ultrasonic Port:
+#       S1 / GPIO6  -> TRIG
+#       S2 / GPIO19 -> ECHO
+#   IMPORTANT: HC-SR04 Echo is normally 5 V.
+#              Use a resistor divider/level shifter before GPIO19.
+#
+# OLED:
+#   SDA GPIO7, SCL GPIO8, I2C address 0x3C, 128x64 SH1106
+#
+# Buttons:
+#   SW1 GPIO39 -> SELECT / ACQUIRE / MEASURE
+#   SW2 GPIO40 -> NEXT slide
+#   SW3 GPIO41 -> PREVIOUS slide / previous scan point
+#   SW4 GPIO42 -> RESET project to first slide
+#
+# Web:
+#   Wi-Fi AP: LITHOGRAM_ASTEROID
+#   Password: 12345678
+#   Open: http://192.168.4.1
+#
+# Educational model:
+# 1. LDR -> normalised Geometric Optical Albedo Index (0.00..1.00)
+# 2. IR  -> normalised Near-Infrared Reflectance Index (0.00..1.00)
+# 3. Optical + NIR position -> educational C / S / M spectral class
+# 4. Ultrasonic radial scan -> Cross-Sectional Transit Profile
+# 5. 16 points per plane create a polar topology outline.
+# 6. 1, 2 or 3 completed planes estimate volume.
+# 7. mass = estimated volume x assumed class density
+#
+# NOTE:
+# This is a STEM demonstration, not a scientific asteroid-identification instrument.
+
+from machine import Pin, ADC, I2C, time_pulse_us
+import network
+import socket
+import time
+import math
+
+try:
+    import ujson as json
+except ImportError:
+    import json
+
+try:
+    import framebuf
+except ImportError:
+    framebuf = None
+
+
+# ============================================================
+# USER CONFIGURATION
+# ============================================================
+
+PROJECT_NAME = "LITHOGRAM"
+
+# LOF TITAN pins - corrected from the Titan PCB pinout diagram
+IR_PIN = 2          # S1 signal
+LDR_PIN = 1         # S2 signal
+ULTRA_TRIG_PIN = 6  # Dedicated Ultrasonic port S1
+ULTRA_ECHO_PIN = 19 # Dedicated Ultrasonic port S2
+
+I2C_SDA = 7
+I2C_SCL = 8
+OLED_ADDR = 0x3C
+
+SW1_PIN = 39
+SW2_PIN = 40
+SW3_PIN = 41
+SW4_PIN = 42
+
+# Distance from ultrasonic sensor face/reference to rotating plate centre.
+CENTER_TO_SENSOR_CM = 7.2
+
+# Small correction if your ultrasonic sensor has a fixed offset.
+ULTRASONIC_OFFSET_CM = 0.0
+
+# Practical limits for the ultrasonic geometry.
+# The HC-SR04-style sensor becomes unreliable when the target is too close.
+MIN_RADIUS_CM = 0.20
+MAX_RADIUS_CM = 5.00
+
+# Valid sensor-to-asteroid surface distance.
+# With a 7.2 cm sensor-to-centre spacing, a 5.0 cm radius leaves 2.2 cm
+# between the sensor and asteroid surface.
+MIN_VALID_DISTANCE_CM = 2.0
+MAX_VALID_DISTANCE_CM = 7.0
+
+# Number of raw readings used for each point and how many complete
+# measurement attempts are allowed before reporting an error.
+ULTRASONIC_SAMPLES = 9
+ULTRASONIC_RETRIES = 3
+
+POINTS_PER_PLANE = 16
+ANGLE_STEP_DEG = 360.0 / POINTS_PER_PLANE
+
+# ------------------------------------------------------------
+# COMPOSITION / SPECTRO-PHOTOMETRIC CALIBRATION
+# ------------------------------------------------------------
+# User-measured C/S/M sample calibration (12-bit ADC counts):
+# C-Type: IR 110..150, LDR 600..900
+# S-Type: IR 95..110, LDR 500..600
+# M-Type: IR 20..35,  LDR 300..500
+#
+# The OLED IR acquisition screen continues to display the exact ADC
+# RAW value, not an index. These limits also control the internally
+# normalised educational graph/index values.
+
+IR_RAW_LOW = 20
+IR_RAW_HIGH = 150
+LDR_RAW_LOW = 300
+LDR_RAW_HIGH = 900
+
+C_IR_MIN = 110
+C_IR_MAX = 150
+C_LDR_MIN = 600
+C_LDR_MAX = 900
+
+S_IR_MIN = 95
+S_IR_MAX = 110
+S_LDR_MIN = 500
+S_LDR_MAX = 600
+
+M_IR_MIN = 20
+M_IR_MAX = 35
+M_LDR_MIN = 300
+M_LDR_MAX = 500
+
+# ------------------------------------------------------------
+# CLASSIFICATION BOUNDARIES
+# ------------------------------------------------------------
+# LDR is the main classifier; C/S IR bands meet at 110.
+# IR is used as supporting evidence/confidence.
+#
+# Shared LDR end-points need one deterministic decision:
+#   M: LDR < 500
+#   S: 500 <= LDR < 600
+#   C: LDR >= 600
+# Therefore LDR=500 selects S and LDR=600 selects C.
+# Outside-range readings still get the nearest class but with a
+# lower LDR confidence score, as in the original implementation.
+M_S_LDR_THRESHOLD = 500
+S_C_LDR_THRESHOLD = 600
+
+DENSITY_G_CM3 = {
+    "C": 1.40,
+    "S": 2.70,
+    "M": 5.00,
+}
+
+TYPE_DESCRIPTION = {
+    "C": "CARBONACEOUS",
+    "S": "SILICATE-RICH",
+    "M": "METALLIC",
+    "-": "UNCLASSIFIED",
+}
+
+OLED_TYPE_DESCRIPTION = {
+    "C": "CARBON",
+    "S": "SILICATE",
+    "M": "METALLIC",
+    "-": "UNKNOWN",
+}
+
+ADC_SATURATION_LIMIT = 4090
+COMPOSITION_SAMPLES = 31
+COMPOSITION_SAMPLE_DELAY_MS = 6
+# Slow, filtered preview only while viewing the IR slide before SW1 capture.
+# There is NO repeated serial printing and NO repeated OLED redraw at 500 ms.
+LIVE_IR_INTERVAL_MS = 1800
+LIVE_IR_SAMPLES = 15
+LIVE_IR_SAMPLE_DELAY_MS = 4
+IR_DISPLAY_DEADBAND = 12       # ignore small ADC jitter on the OLED
+IR_PREVIEW_FILTER_WEIGHT = 0.40  # smoother preview; SW1 captures real median
+
+AP_SSID = "LITHOGRAM_ASTEROID"
+AP_PASSWORD = "12345678"
+WEB_PORT = 80
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def clamp(v, lo, hi):
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
+    return v
+
+
+def average(values):
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+
+
+def safe_float(v, digits=2):
+    try:
+        return round(float(v), digits)
+    except Exception:
+        return 0.0
+
+
+def adc_read_raw(adc):
+    """
+    Return an approximately 12-bit raw ADC value (0..4095).
+
+    The user's measured IR/LDR calibration values are in this scale:
+        IR  about 20..90
+        LDR about 600..1200
+    """
+    try:
+        return adc.read()
+    except AttributeError:
+        # read_u16() is 0..65535, so convert it to about 0..4095.
+        return int(adc.read_u16() >> 4)
+
+
+def median(values):
+    if not values:
+        return 0
+
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+
+    if len(ordered) % 2:
+        return ordered[middle]
+
+    return int(
+        (
+            ordered[middle - 1]
+            +
+            ordered[middle]
+        )
+        / 2
+    )
+
+
+def inverse_percentage(raw, raw_low, raw_high):
+    """
+    Convert the measured raw value into 0.0..1.0.
+
+    For this kit:
+        raw_high -> 0% reflectivity
+        raw_low  -> 100% reflectivity
+
+    Example for the IR calibration:
+        IR 90 -> 0%
+        IR 20 -> 100%
+    """
+    span = raw_high - raw_low
+
+    if span == 0:
+        return 0.0
+
+    value = (
+        raw_high - raw
+    ) / span
+
+    return clamp(
+        value,
+        0.0,
+        1.0
+    )
+
+
+
+# ============================================================
+# MINIMAL SH1106 128x64 OLED DRIVER
+# ============================================================
+
+class SH1106_I2C:
+    def __init__(self, width, height, i2c, addr=0x3C):
+        if framebuf is None:
+            raise RuntimeError("framebuf unavailable")
+
+        self.width = width
+        self.height = height
+        self.pages = height // 8
+        self.i2c = i2c
+        self.addr = addr
+
+        self.buffer = bytearray(width * self.pages)
+        self.fb = framebuf.FrameBuffer(
+            self.buffer,
+            width,
+            height,
+            framebuf.MONO_VLSB
+        )
+
+        self.init_display()
+
+    def write_cmd(self, cmd):
+        self.i2c.writeto(self.addr, bytes((0x80, cmd)))
+
+    def init_display(self):
+        cmds = (
+            0xAE,
+            0xD5, 0x80,
+            0xA8, 0x3F,
+            0xD3, 0x00,
+            0x40,
+            0xAD, 0x8B,
+            0xA1,
+            0xC8,
+            0xDA, 0x12,
+            0x81, 0x7F,
+            0xD9, 0x22,
+            0xDB, 0x35,
+            0xA4,
+            0xA6,
+            0xAF
+        )
+
+        for c in cmds:
+            self.write_cmd(c)
+
+        self.fill(0)
+        self.show()
+
+    def fill(self, c):
+        self.fb.fill(c)
+
+    def text(self, s, x, y, c=1):
+        self.fb.text(str(s), x, y, c)
+
+    def pixel(self, x, y, c=1):
+        self.fb.pixel(x, y, c)
+
+    def line(self, x0, y0, x1, y1, c=1):
+        self.fb.line(x0, y0, x1, y1, c)
+
+    def rect(self, x, y, w, h, c=1):
+        self.fb.rect(x, y, w, h, c)
+
+    def fill_rect(self, x, y, w, h, c=1):
+        self.fb.fill_rect(x, y, w, h, c)
+
+    def show(self):
+        # SH1106 RAM is wider than the visible 128 px panel.
+        # Common 1.3-inch modules use a 2-column offset.
+        for page in range(self.pages):
+            self.write_cmd(0xB0 + page)
+            self.write_cmd(0x02)
+            self.write_cmd(0x10)
+
+            start = page * self.width
+            end = start + self.width
+            self.i2c.writeto(
+                self.addr,
+                b"\\x40" + self.buffer[start:end]
+            )
+
+
+# ============================================================
+# HARDWARE SETUP
+# ============================================================
+
+ir_adc = ADC(Pin(IR_PIN))
+ldr_adc = ADC(Pin(LDR_PIN))
+
+for adc in (ir_adc, ldr_adc):
+    try:
+        adc.atten(ADC.ATTN_11DB)
+    except Exception:
+        pass
+
+    try:
+        adc.width(ADC.WIDTH_12BIT)
+    except Exception:
+        pass
+
+trig = Pin(ULTRA_TRIG_PIN, Pin.OUT, value=0)
+echo = Pin(ULTRA_ECHO_PIN, Pin.IN)
+
+sw1 = Pin(SW1_PIN, Pin.IN, Pin.PULL_UP)
+sw2 = Pin(SW2_PIN, Pin.IN, Pin.PULL_UP)
+sw3 = Pin(SW3_PIN, Pin.IN, Pin.PULL_UP)
+sw4 = Pin(SW4_PIN, Pin.IN, Pin.PULL_UP)
+
+i2c = I2C(
+    0,
+    scl=Pin(I2C_SCL),
+    sda=Pin(I2C_SDA),
+    freq=400000
+)
+
+print("\\n==============================")
+print("LITHOGRAM ASTEROID MASS CALCULATOR")
+print("==============================")
+print("I2C scan:", i2c.scan())
+
+oled = None
+
+try:
+    if OLED_ADDR in i2c.scan():
+        oled = SH1106_I2C(128, 64, i2c, OLED_ADDR)
+        print("OLED ready at 0x%02X" % OLED_ADDR)
+    else:
+        print("WARNING: OLED not detected")
+except Exception as e:
+    print("OLED init error:", e)
+    oled = None
+
+
+# ============================================================
+# DISPLAY HELPERS
+# ============================================================
+
+BIG_FONT = {
+    "0": ["01110","10001","10011","10101","11001","10001","01110"],
+    "1": ["00100","01100","00100","00100","00100","00100","01110"],
+    "2": ["01110","10001","00001","00010","00100","01000","11111"],
+    "3": ["11110","00001","00001","01110","00001","00001","11110"],
+    "4": ["00010","00110","01010","10010","11111","00010","00010"],
+    "5": ["11111","10000","10000","11110","00001","00001","11110"],
+    "6": ["01110","10000","10000","11110","10001","10001","01110"],
+    "7": ["11111","00001","00010","00100","01000","01000","01000"],
+    "8": ["01110","10001","10001","01110","10001","10001","01110"],
+    "9": ["01110","10001","10001","01111","00001","00001","01110"],
+    ".": ["00000","00000","00000","00000","00000","00110","00110"],
+    "-": ["00000","00000","00000","11111","00000","00000","00000"],
+    "A": ["01110","10001","10001","11111","10001","10001","10001"],
+    "G": ["01110","10001","10000","10111","10001","10001","01110"],
+    "H": ["10001","10001","10001","11111","10001","10001","10001"],
+    "I": ["11111","00100","00100","00100","00100","00100","11111"],
+    "L": ["10000","10000","10000","10000","10000","10000","11111"],
+    "O": ["01110","10001","10001","10001","10001","10001","01110"],
+    "R": ["11110","10001","10001","11110","10100","10010","10001"],
+    "T": ["11111","00100","00100","00100","00100","00100","00100"],
+    "C": ["01111","10000","10000","10000","10000","10000","01111"],
+    "S": ["01111","10000","10000","01110","00001","00001","11110"],
+    "M": ["10001","11011","10101","10101","10001","10001","10001"],
+}
+
+
+def oled_safe(text, x, y, colour=1):
+    """
+    Safe 8x8 text renderer for the 128x64 OLED.
+
+    It automatically trims text to the number of characters that can fit
+    from the requested x-position to the right edge.
+
+    This guarantees that normal-size OLED text never runs outside the
+    1.3-inch 128x64 display.
+    """
+    if oled is None:
+        return
+
+    if x < 0:
+        x = 0
+
+    if y < 0 or y > 56:
+        return
+
+    max_chars = (128 - x) // 8
+
+    if max_chars <= 0:
+        return
+
+    oled.fb.text(
+        str(text)[:max_chars],
+        x,
+        y,
+        colour
+    )
+
+
+def oled_lines(lines):
+    """
+    Seven-line compact 128x64 layout.
+    Every line is restricted to 16 characters.
+    """
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    y = 0
+
+    for line in lines[:7]:
+        oled_safe(
+            str(line),
+            0,
+            y
+        )
+        y += 9
+
+    oled.show()
+
+
+def big_text_width(text, scale=2):
+    width = 0
+
+    for char in str(text):
+        if char in BIG_FONT:
+            width += 6 * scale
+        else:
+            width += 4 * scale
+
+    return width
+
+
+def draw_big_text(text, x, y, scale=2):
+    """
+    Custom large 5x7 font renderer.
+    Used only for short numeric values / single class letters.
+    """
+    if oled is None:
+        return
+
+    cursor = x
+
+    for char in str(text):
+        glyph = BIG_FONT.get(char)
+
+        if glyph is None:
+            cursor += 4 * scale
+            continue
+
+        for row, bits in enumerate(glyph):
+            for col, bit in enumerate(bits):
+                if bit == "1":
+                    px = cursor + col * scale
+                    py = y + row * scale
+
+                    # Hard clipping to the 128x64 display.
+                    if px < 128 and py < 64:
+                        oled.fill_rect(
+                            px,
+                            py,
+                            scale,
+                            scale,
+                            1
+                        )
+
+        cursor += 6 * scale
+
+
+def draw_big_centered(text, y, preferred_scale=3):
+    """
+    Centre a large value and automatically reduce its scale if required.
+    """
+    if oled is None:
+        return
+
+    text = str(text)
+    scale = preferred_scale
+
+    while scale > 1:
+        width = big_text_width(
+            text,
+            scale
+        )
+
+        if width <= 124:
+            break
+
+        scale -= 1
+
+    width = big_text_width(
+        text,
+        scale
+    )
+
+    x = max(
+        0,
+        (128 - width) // 2
+    )
+
+    draw_big_text(
+        text,
+        x,
+        y,
+        scale
+    )
+
+
+def draw_dotted_circle(cx, cy, radius):
+    if oled is None:
+        return
+
+    for deg in range(0, 360, 8):
+        angle = math.radians(
+            deg
+        )
+
+        x = int(
+            round(
+                cx
+                +
+                math.cos(angle)
+                *
+                radius
+            )
+        )
+
+        y = int(
+            round(
+                cy
+                +
+                math.sin(angle)
+                *
+                radius
+            )
+        )
+
+        if (
+            0 <= x < 128
+            and
+            0 <= y < 64
+        ):
+            oled.pixel(
+                x,
+                y,
+                1
+            )
+
+
+def draw_circle(
+    cx,
+    cy,
+    radius,
+    colour=1
+):
+    if oled is None:
+        return
+
+    x = radius
+    y = 0
+    err = 0
+
+    while x >= y:
+
+        points = (
+            (cx + x, cy + y),
+            (cx + y, cy + x),
+            (cx - y, cy + x),
+            (cx - x, cy + y),
+            (cx - x, cy - y),
+            (cx - y, cy - x),
+            (cx + y, cy - x),
+            (cx + x, cy - y)
+        )
+
+        for px, py in points:
+            if (
+                0 <= px < 128
+                and
+                0 <= py < 64
+            ):
+                oled.pixel(
+                    px,
+                    py,
+                    colour
+                )
+
+        y += 1
+
+        if err <= 0:
+            err += (
+                2 * y + 1
+            )
+
+        if err > 0:
+            x -= 1
+            err -= (
+                2 * x + 1
+            )
+
+
+def fill_circle(
+    cx,
+    cy,
+    radius,
+    colour=1
+):
+    if oled is None:
+        return
+
+    for yy in range(
+        -radius,
+        radius + 1
+    ):
+        span = int(
+            math.sqrt(
+                max(
+                    0,
+                    radius * radius
+                    -
+                    yy * yy
+                )
+            )
+        )
+
+        y = cy + yy
+
+        if 0 <= y < 64:
+            x0 = max(
+                0,
+                cx - span
+            )
+
+            x1 = min(
+                127,
+                cx + span
+            )
+
+            oled.line(
+                x0,
+                y,
+                x1,
+                y,
+                colour
+            )
+
+
+def boot_screen():
+    """
+    Power-on splash.
+    OLED shows only:
+        LITHOGRAM
+    """
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    draw_big_centered(
+        "LITHOGRAM",
+        22,
+        2
+    )
+
+    oled.show()
+
+
+def show_notice(lines=None, delay_ms=0):
+    """
+    Do not show extra OLED wording.
+    Keep the OLED restricted to the exact requested screens.
+    """
+    draw_current_slide()
+
+
+def draw_index_result(
+    title,
+    value,
+    raw_label,
+    raw_value
+):
+    """
+    Result screens contain only the requested text:
+        OPT ALBEDO IDX / IR REFL INDEX
+        large index
+        LDR:xxxx / IR:xx
+    """
+    if oled is None:
+        return
+
+    oled.fill(0)
+
+    oled_safe(
+        title,
+        0,
+        2
+    )
+
+    draw_big_centered(
+        "%.2f" % value,
+        19,
+        3
+    )
+
+    oled_safe(
+        "%s:%d" % (
+            raw_label,
+            raw_value
+        ),
+        0,
+        54
+    )
+
+    oled.show()
+
+
+def draw_topology_pattern(
+    plane_index
+):
+    """
+    Requested topology OLED layout only:
+
+        X-SECT TRANS P1
+
+        16 equally spaced circles on a dotted circle
+        M05/16
+        DEG:090
+        1:ACQ
+
+    Hollow = not measured
+    Filled = measured
+    Current mark = larger ring
+    """
+    if oled is None:
+        return
+
+    data = plane_scans[
+        plane_index
+    ]
+
+    count = plane_point_count(
+        plane_index
+    )
+
+    next_mark = first_unmeasured_mark(
+        plane_index
+    )
+
+    oled.fill(0)
+
+    oled_safe(
+        "X-SECT TRANS P%d" %
+        (
+            plane_index + 1
+        ),
+        0,
+        0
+    )
+
+    # Left-side 16-point circular scan pattern.
+    cx = 31
+    cy = 35
+    ring_r = 21
+
+    draw_dotted_circle(
+        cx,
+        cy,
+        ring_r
+    )
+
+    # Small central reference circle.
+    draw_circle(
+        cx,
+        cy,
+        5,
+        1
+    )
+
+    for index in range(
+        POINTS_PER_PLANE
+    ):
+        angle = math.radians(
+            index
+            *
+            ANGLE_STEP_DEG
+            -
+            90.0
+        )
+
+        mark_x = int(
+            round(
+                cx
+                +
+                math.cos(angle)
+                *
+                ring_r
+            )
+        )
+
+        mark_y = int(
+            round(
+                cy
+                +
+                math.sin(angle)
+                *
+                ring_r
+            )
+        )
+
+        if data[index] is not None:
+            fill_circle(
+                mark_x,
+                mark_y,
+                2,
+                1
+            )
+        else:
+            draw_circle(
+                mark_x,
+                mark_y,
+                2,
+                1
+            )
+
+        if (
+            index == next_mark
+            and
+            count < POINTS_PER_PLANE
+        ):
+            draw_circle(
+                mark_x,
+                mark_y,
+                4,
+                1
+            )
+
+    # Right-side requested telemetry only.
+    if count >= POINTS_PER_PLANE:
+        # Keep the same requested vocabulary; 16/16 indicates completion.
+        oled_safe(
+            "M16/16",
+            67,
+            17
+        )
+    else:
+        oled_safe(
+            "M%02d/16" %
+            (
+                next_mark + 1
+            ),
+            67,
+            17
+        )
+
+    angle_deg = (
+        0.0
+        if next_mark >= POINTS_PER_PLANE
+        else
+        next_mark * ANGLE_STEP_DEG
+    )
+
+    oled_safe(
+        "DEG:%03d" %
+        int(
+            round(
+                angle_deg
+            )
+        ),
+        67,
+        30
+    )
+
+    oled_safe(
+        "1:ACQ",
+        67,
+        43
+    )
+
+    oled.show()
+
+
+# ============================================================
+# COMPOSITION SENSOR FUNCTIONS
+# ============================================================
+
+def read_filtered_adc(adc, samples=COMPOSITION_SAMPLES):
+    values = []
+    for _ in range(samples):
+        values.append(adc_read_raw(adc))
+        time.sleep_ms(COMPOSITION_SAMPLE_DELAY_MS)
+    return int(median(values))
+
+
+def read_live_ir_raw():
+    readings = []
+    for _ in range(LIVE_IR_SAMPLES):
+        readings.append(adc_read_raw(ir_adc))
+        time.sleep_ms(LIVE_IR_SAMPLE_DELAY_MS)
+    return int(median(readings))
+
+
+def update_live_ir():
+    """Update a smoothed PREVIEW, not the SW1-captured measurement.
+
+    Reads a 15-sample median to reject single-sample spikes. An exponential
+    filter makes the preview less jumpy. SW1 still captures the actual ADC
+    median, displayed as an integer rather than the old 0.00 index.
+    """
+    global ir_live_raw, ir_live_error, ir_preview_filtered, ir_display_value
+    try:
+        new_raw = read_live_ir_raw()
+        ir_live_raw = new_raw
+        ir_live_error = ""
+
+        if ir_preview_filtered is None:
+            ir_preview_filtered = float(new_raw)
+        else:
+            ir_preview_filtered = (
+                (1.0 - IR_PREVIEW_FILTER_WEIGHT) * ir_preview_filtered
+                + IR_PREVIEW_FILTER_WEIGHT * new_raw
+            )
+
+        preview = int(round(ir_preview_filtered))
+        if (ir_display_value is None
+                or abs(preview - ir_display_value) >= IR_DISPLAY_DEADBAND
+                or new_raw >= ADC_SATURATION_LIMIT):
+            ir_display_value = preview
+
+        # Intentionally no print(): serial output stays quiet during preview.
+    except Exception as exc:
+        ir_live_error = str(exc)
+        # Keep the last valid preview; don't blank or flash the OLED.
+
+
+def read_geometric_optical_albedo():
+    raw = read_filtered_adc(ldr_adc)
+    if raw >= ADC_SATURATION_LIMIT:
+        return {"valid": False, "raw": raw, "index": 0.0, "error": "LDR ADC SATURATED"}
+    index = inverse_percentage(raw, LDR_RAW_LOW, LDR_RAW_HIGH)
+    print("\\nGEOMETRIC OPTICAL ALBEDO")
+    print("LDR raw      :", raw)
+    print("Albedo index :", round(index, 3))
+    return {"valid": True, "raw": raw, "index": index, "error": ""}
+
+
+def read_nir_reflectance():
+    raw = read_filtered_adc(ir_adc)
+    if raw >= ADC_SATURATION_LIMIT:
+        return {"valid": False, "raw": raw, "index": 0.0, "error": "IR ADC SATURATED"}
+    index = inverse_percentage(raw, IR_RAW_LOW, IR_RAW_HIGH)
+    print("\\nNEAR-INFRARED REFLECTANCE")
+    print("IR raw        :", raw)
+    # The legacy calibrated index is retained internally for the existing graph.
+    # On OLED/web the user sees the actual measured 12-bit ADC raw count.
+    return {"valid": True, "raw": raw, "index": index, "error": ""}
+
+
+def value_in_range(value, minimum, maximum):
+    return value >= minimum and value <= maximum
+
+
+def type_centroid(type_code):
+    if type_code == "C":
+        return ((C_IR_MIN + C_IR_MAX) / 2.0, (C_LDR_MIN + C_LDR_MAX) / 2.0)
+    if type_code == "S":
+        return ((S_IR_MIN + S_IR_MAX) / 2.0, (S_LDR_MIN + S_LDR_MAX) / 2.0)
+    return ((M_IR_MIN + M_IR_MAX) / 2.0, (M_LDR_MIN + M_LDR_MAX) / 2.0)
+
+
+def ir_match_score(ir_raw, minimum, maximum):
+    """
+    Return an IR-support score from 0.0 to 1.0.
+
+    IR is now used only to validate/support the LDR classification.
+    C and S IR ranges meet at the endpoint 110.
+    """
+    if minimum <= ir_raw <= maximum:
+        return 1.0
+
+    centre = (
+        minimum + maximum
+    ) / 2.0
+
+    half_width = max(
+        1.0,
+        (maximum - minimum) / 2.0
+    )
+
+    distance = abs(
+        ir_raw - centre
+    )
+
+    # Gradually reduce confidence outside the expected IR band.
+    score = 1.0 - (
+        distance
+        /
+        (half_width * 4.0)
+    )
+
+    return clamp(
+        score,
+        0.0,
+        1.0
+    )
+
+
+def classify_asteroid(ir_raw, ldr_raw):
+    """
+    Robust C / S / M classifier.
+
+    PRIMARY SENSOR:
+        LDR
+
+    SECONDARY SENSOR:
+        IR
+
+    Reason:
+        C and S IR ranges meet at 110:
+            C IR = 110..150
+            S IR = 95..110
+            M IR = 20..35
+
+        LDR range boundaries:
+            M LDR = 300..500
+            S LDR = 500..600
+            C LDR = 600..900
+
+    Deterministic boundaries at shared end-points:
+        LDR < 500        -> M
+        500..599         -> S
+        >= 600          -> C
+
+    IR never overrides the LDR-derived class; it modifies confidence.
+    """
+
+    # --------------------------------------------------------
+    # PRIMARY CLASSIFICATION FROM LDR
+    # --------------------------------------------------------
+
+    if ldr_raw < M_S_LDR_THRESHOLD:
+        asteroid_type = "M"
+        ir_score = ir_match_score(
+            ir_raw,
+            M_IR_MIN,
+            M_IR_MAX
+        )
+
+    elif ldr_raw < S_C_LDR_THRESHOLD:
+        asteroid_type = "S"
+        ir_score = ir_match_score(
+            ir_raw,
+            S_IR_MIN,
+            S_IR_MAX
+        )
+
+    else:
+        asteroid_type = "C"
+        ir_score = ir_match_score(
+            ir_raw,
+            C_IR_MIN,
+            C_IR_MAX
+        )
+
+    # --------------------------------------------------------
+    # LDR confidence
+    # --------------------------------------------------------
+    # Full confidence inside the measured class band.
+    # Slightly lower confidence inside the transition gap.
+    # --------------------------------------------------------
+
+    if asteroid_type == "M":
+
+        if M_LDR_MIN <= ldr_raw <= M_LDR_MAX:
+            ldr_score = 1.0
+            method = "LDR_M_WINDOW"
+        else:
+            # Outside the calibrated M window
+            ldr_score = 0.80
+            method = "LDR_M_ZONE"
+
+    elif asteroid_type == "S":
+
+        if S_LDR_MIN <= ldr_raw <= S_LDR_MAX:
+            ldr_score = 1.0
+            method = "LDR_S_WINDOW"
+        else:
+            # Outside the calibrated S window
+            ldr_score = 0.80
+            method = "LDR_S_ZONE"
+
+    else:
+
+        if C_LDR_MIN <= ldr_raw <= C_LDR_MAX:
+            ldr_score = 1.0
+            method = "LDR_C_WINDOW"
+        else:
+            # Outside the calibrated C window
+            ldr_score = 0.80
+            method = "LDR_C_ZONE"
+
+    # LDR is the decisive measurement.
+    # IR contributes only supporting confidence.
+    confidence = (
+        0.80 * ldr_score
+        +
+        0.20 * ir_score
+    )
+
+    confidence = clamp(
+        confidence,
+        0.0,
+        1.0
+    )
+
+    print("\\nCLASSIFICATION DECISION")
+    print("IR raw        :", ir_raw)
+    print("LDR raw       :", ldr_raw)
+    print("LDR class     :", asteroid_type)
+    print("IR support    :", round(ir_score, 3))
+    print("Confidence    :", round(confidence, 3))
+    print("Method        :", method)
+
+    return (
+        asteroid_type,
+        confidence,
+        method
+    )
+
+
+
+def update_composition_classification():
+    global composition_result
+    if not optical_result["valid"] or not nir_result["valid"]:
+        composition_result = {
+            "valid": False,
+            "type": "-",
+            "description": "UNCLASSIFIED",
+            "density": 0.0,
+            "confidence": 0.0,
+            "method": "-"
+        }
+        return composition_result
+
+    asteroid_type, confidence, method = classify_asteroid(nir_result["raw"], optical_result["raw"])
+    composition_result = {
+        "valid": True,
+        "type": asteroid_type,
+        "description": TYPE_DESCRIPTION[asteroid_type],
+        "density": DENSITY_G_CM3[asteroid_type],
+        "confidence": confidence,
+        "method": method
+    }
+
+    print("\\nCOMPOSITION CLASSIFICATION")
+    print("Optical index :", round(optical_result["index"], 3))
+    print("NIR index     :", round(nir_result["index"], 3))
+    print("Type          :", asteroid_type, TYPE_DESCRIPTION[asteroid_type])
+    print("Density       :", composition_result["density"], "g/cm3")
+    print("Method        :", method)
+    return composition_result
+
+
+def ultrasonic_once():
+    """
+    Take one ultrasonic reading.
+
+    Returns:
+        distance in cm, or None if no usable echo is received.
+    """
+
+    # Make sure TRIG starts LOW.
+    trig.value(0)
+    time.sleep_us(5)
+
+    # 10 us trigger pulse.
+    trig.value(1)
+    time.sleep_us(10)
+    trig.value(0)
+
+    try:
+        pulse = time_pulse_us(
+            echo,
+            1,
+            30000
+        )
+    except Exception:
+        return None
+
+    # MicroPython returns a negative value on timeout on some builds.
+    if pulse is None or pulse < 0:
+        return None
+
+    distance_cm = (
+        pulse * 0.0343 / 2.0
+    )
+
+    distance_cm += ULTRASONIC_OFFSET_CM
+
+    # Reject physically unreliable / impossible measurements.
+    if distance_cm < MIN_VALID_DISTANCE_CM:
+        return None
+
+    if distance_cm > MAX_VALID_DISTANCE_CM:
+        return None
+
+    return distance_cm
+
+
+def ultrasonic_median(samples=ULTRASONIC_SAMPLES):
+    """
+    Take several readings, reject missing echoes and extreme values,
+    then return a filtered median.
+
+    At least 3 valid readings are required.
+    """
+
+    values = []
+
+    for _ in range(samples):
+
+        distance = ultrasonic_once()
+
+        if distance is not None:
+            values.append(distance)
+
+        # HC-SR04 needs a short delay between pings.
+        time.sleep_ms(50)
+
+    # Do not trust only one or two echoes.
+    if len(values) < 3:
+        return None
+
+    values.sort()
+
+    # Remove one smallest and one largest value when enough samples exist.
+    # This helps reject occasional reflected/noisy echoes.
+    if len(values) >= 5:
+        values = values[1:-1]
+
+    count = len(values)
+    middle = count // 2
+
+    if count % 2:
+        return values[middle]
+
+    return (
+        values[middle - 1]
+        +
+        values[middle]
+    ) / 2.0
+
+
+def measure_radius():
+    """
+    Measure one asteroid radius point.
+
+    Instead of failing after one unstable echo, this performs several
+    complete filtered attempts before returning an error.
+    """
+
+    for attempt in range(ULTRASONIC_RETRIES):
+
+        surface_distance = ultrasonic_median(
+            ULTRASONIC_SAMPLES
+        )
+
+        if surface_distance is None:
+
+            print(
+                "Ultrasonic retry",
+                attempt + 1,
+                "/",
+                ULTRASONIC_RETRIES,
+                "- no stable echo"
+            )
+
+            time.sleep_ms(120)
+            continue
+
+        radius = (
+            CENTER_TO_SENSOR_CM
+            -
+            surface_distance
+        )
+
+        if (
+            radius >= MIN_RADIUS_CM
+            and
+            radius <= MAX_RADIUS_CM
+        ):
+            return radius, surface_distance
+
+        print(
+            "Ultrasonic retry",
+            attempt + 1,
+            "/",
+            ULTRASONIC_RETRIES,
+            "- invalid radius",
+            round(radius, 2),
+            "cm from distance",
+            round(surface_distance, 2),
+            "cm"
+        )
+
+        time.sleep_ms(120)
+
+    return None, None
+
+
+# ============================================================
+# GEOMETRY + MASS ESTIMATION
+# ============================================================
+
+def polygon_area_from_radii(radii):
+    if len(radii) != POINTS_PER_PLANE:
+        return 0.0
+
+    for r in radii:
+        if r is None or r <= 0:
+            return 0.0
+
+    delta = math.radians(ANGLE_STEP_DEG)
+    total = 0.0
+
+    for i in range(POINTS_PER_PLANE):
+        r1 = radii[i]
+        r2 = radii[(i + 1) % POINTS_PER_PLANE]
+        total += r1 * r2 * math.sin(delta)
+
+    return 0.5 * total
+
+
+def equivalent_diameter_from_area(area_cm2):
+    if area_cm2 <= 0:
+        return 0.0
+
+    return 2.0 * math.sqrt(area_cm2 / math.pi)
+
+
+def estimate_volume(areas):
+    clean = [a for a in areas if a is not None and a > 0]
+
+    if not clean:
+        return 0.0
+
+    # One plane: equivalent sphere.
+    if len(clean) == 1:
+        d = equivalent_diameter_from_area(clean[0])
+        return (math.pi / 6.0) * (d ** 3)
+
+    # Two planes: ellipsoid with estimated third diameter.
+    if len(clean) == 2:
+        d1 = equivalent_diameter_from_area(clean[0])
+        d2 = equivalent_diameter_from_area(clean[1])
+        d3 = math.sqrt(d1 * d2)
+        return (math.pi / 6.0) * d1 * d2 * d3
+
+    # Three approximately perpendicular centre-plane areas:
+    # V = 4/(3*sqrt(pi)) * sqrt(A1*A2*A3)
+    a1, a2, a3 = clean[0], clean[1], clean[2]
+
+    return (
+        4.0 / (3.0 * math.sqrt(math.pi))
+    ) * math.sqrt(a1 * a2 * a3)
+
+
+def completed_scan_planes():
+    return [plane[:] for plane in plane_scans if all(value is not None for value in plane)]
+
+
+def calculate_final_result():
+    global final_result
+    complete = completed_scan_planes()
+    areas = [polygon_area_from_radii(plane) for plane in complete]
+    volume = estimate_volume(areas)
+    density = composition_result.get("density", 0.0)
+    mass_g = volume * density
+    final_result = {
+        "areas_cm2": areas,
+        "volume_cm3": volume,
+        "density_g_cm3": density,
+        "mass_g": mass_g,
+        "mass_kg": mass_g / 1000.0,
+        "planes_used": len(complete),
+    }
+    print("\\nTOPOLOGY / MASS SOLUTION")
+    print("Completed planes :", len(complete))
+    print("Plane areas      :", [round(a, 2) for a in areas])
+    print("Volume           :", round(volume, 2), "cm3")
+    print("Density          :", round(density, 2), "g/cm3")
+    print("Mass             :", round(mass_g, 2), "g")
+    return final_result
+
+
+# ============================================================
+# SLIDE / CONTROL STATE MACHINE
+# ============================================================
+
+SLIDE_OPTICAL = 0
+SLIDE_NIR = 1
+SLIDE_CLASS = 2
+SLIDE_TOPOLOGY_1 = 3
+SLIDE_TOPOLOGY_2 = 4
+SLIDE_TOPOLOGY_3 = 5
+SLIDE_MASS = 6
+
+SLIDE_NAMES = (
+    "GEOMETRIC OPTICAL ALBEDO",
+    "NEAR-INFRARED REFLECTANCE",
+    "SPECTRAL CLASS",
+    "CROSS-SECTIONAL TRANSIT P1",
+    "CROSS-SECTIONAL TRANSIT P2",
+    "CROSS-SECTIONAL TRANSIT P3",
+    "MASS SOLUTION",
+)
+
+slide_index = SLIDE_OPTICAL
+
+optical_result = {"valid": False, "raw": 0, "index": 0.0, "error": ""}
+nir_result = {"valid": False, "raw": 0, "index": 0.0, "error": ""}
+ir_live_raw = None
+ir_live_error = ""
+ir_preview_filtered = None
+ir_display_value = None
+ir_oled_last_signature = None
+composition_result = {
+    "valid": False,
+    "type": "-",
+    "description": "UNCLASSIFIED",
+    "density": 0.0,
+    "confidence": 0.0,
+    "method": "-"
+}
+
+plane_scans = [
+    [None] * POINTS_PER_PLANE,
+    [None] * POINTS_PER_PLANE,
+    [None] * POINTS_PER_PLANE,
+]
+
+last_surface_distance = None
+last_radius = None
+final_result = {
+    "areas_cm2": [],
+    "volume_cm3": 0.0,
+    "density_g_cm3": 0.0,
+    "mass_g": 0.0,
+    "mass_kg": 0.0,
+    "planes_used": 0,
+}
+
+
+def plane_point_count(plane_index):
+    return sum(1 for value in plane_scans[plane_index] if value is not None)
+
+
+def first_unmeasured_mark(plane_index):
+    for index, value in enumerate(plane_scans[plane_index]):
+        if value is None:
+            return index
+    return POINTS_PER_PLANE
+
+
+def plane_complete(plane_index):
+    return plane_point_count(plane_index) == POINTS_PER_PLANE
+
+
+def reset_project():
+    global slide_index, optical_result, nir_result, composition_result
+    global plane_scans, last_surface_distance, last_radius, final_result
+    global ir_live_raw, ir_live_error, ir_preview_filtered, ir_display_value
+    global ir_oled_last_signature
+    ir_live_raw = None
+    ir_live_error = ""
+    ir_preview_filtered = None
+    ir_display_value = None
+    ir_oled_last_signature = None
+    slide_index = SLIDE_OPTICAL
+    optical_result = {"valid": False, "raw": 0, "index": 0.0, "error": ""}
+    nir_result = {"valid": False, "raw": 0, "index": 0.0, "error": ""}
+    composition_result = {
+        "valid": False,
+        "type": "-",
+        "description": "UNCLASSIFIED",
+        "density": 0.0,
+        "confidence": 0.0,
+        "method": "-"
+    }
+    plane_scans = [
+        [None] * POINTS_PER_PLANE,
+        [None] * POINTS_PER_PLANE,
+        [None] * POINTS_PER_PLANE,
+    ]
+    last_surface_distance = None
+    last_radius = None
+    final_result = {
+        "areas_cm2": [],
+        "volume_cm3": 0.0,
+        "density_g_cm3": 0.0,
+        "mass_g": 0.0,
+        "mass_kg": 0.0,
+        "planes_used": 0,
+    }
+    draw_current_slide()
+
+
+def draw_optical_slide():
+    """
+    Requested OLED text only:
+
+        GEOM OPT ALBEDO
+
+        INDEX 0.00-1.00
+
+        LDR PHOTOMETRY
+    """
+    if optical_result["valid"]:
+        draw_index_result(
+            "OPT ALBEDO IDX",
+            optical_result["index"],
+            "LDR",
+            optical_result["raw"]
+        )
+        return
+
+    oled_lines([
+        "GEOM OPT ALBEDO",
+        "",
+        "INDEX 0.00-1.00",
+        "",
+        "LDR PHOTOMETRY"
+    ])
+
+
+def draw_nir_slide():
+    """One OLED flush per *meaningful* value change; IR is the 12-bit ADC.
+
+    Before pressing SW1: show a slow, smoothed live preview.
+    After pressing SW1: freeze the exact acquired median until re-acquired.
+    We no longer show the old 0.00 normalised index as the headline value.
+    """
+    global ir_oled_last_signature
+
+    if oled is None:
+        return
+
+    captured = bool(nir_result["valid"])
+    if captured:
+        display_value = nir_result["raw"]
+        bottom_line = ""  # Leave the bottom of the captured IR screen blank
+        middle_line = "CAPTURED ADC RAW"
+    elif nir_result["raw"] >= ADC_SATURATION_LIMIT:
+        display_value = nir_result["raw"]
+        bottom_line = "SATURATED: RETRY"
+        middle_line = "ADC RAW: MAX"
+    else:
+        display_value = ir_display_value
+        bottom_line = "SW1: CAPTURE"
+        middle_line = "FILTERED PREVIEW"
+
+    signature = (display_value, middle_line, bottom_line)
+    if ir_oled_last_signature == signature:
+        return
+
+    oled.fill(0)
+    oled_safe("IR REFLECTANCE", 0, 1)
+    oled_safe(middle_line, 0, 12)
+
+    if display_value is None:
+        draw_big_centered("-", 26, 3)
+    else:
+        draw_big_centered(str(display_value), 26, 3)
+
+    oled_safe(bottom_line, 0, 57)
+    oled.show()             # Exactly ONE OLED write, not two per update.
+    ir_oled_last_signature = signature
+
+
+def draw_class_slide():
+    """
+    Spectral Class slide for 1.3-inch 128x64 OLED.
+
+    The C / S / M class letter is centred on the display.
+
+    Layout:
+
+        SPECTRAL CLASS
+
+             S
+
+        S-TYPE SILICATE
+        Density: 2.70
+        g/cm3
+    """
+    if not composition_result["valid"]:
+        oled_lines([
+            "SPECTRAL CLASS"
+        ])
+        return
+
+    if oled is None:
+        return
+
+    asteroid_type = composition_result["type"]
+
+    oled.fill(0)
+
+    # Title
+    oled_safe(
+        "SPECTRAL CLASS",
+        0,
+        0
+    )
+
+    # Large C / S / M letter exactly centred horizontally.
+    class_scale = 4
+    class_width = big_text_width(
+        asteroid_type,
+        class_scale
+    )
+
+    class_x = max(
+        0,
+        (128 - class_width) // 2
+    )
+
+    draw_big_text(
+        asteroid_type,
+        class_x,
+        10,
+        class_scale
+    )
+
+    # Type + composition on one line.
+    oled_safe(
+        "%s-TYPE %s" % (
+            asteroid_type,
+            OLED_TYPE_DESCRIPTION[
+                asteroid_type
+            ]
+        ),
+        0,
+        39
+    )
+
+    # Density information
+    oled_safe(
+        "Density: %.2f" %
+        composition_result[
+            "density"
+        ],
+        0,
+        48
+    )
+
+    oled_safe(
+        "g/cm3",
+        0,
+        56
+    )
+
+    oled.show()
+
+
+def draw_mass_slide():
+    """
+    Requested final OLED text only:
+
+        MASS ESTIMATE
+        263.45 gram
+        DENSITY EST
+        5.00 g/cm3
+        ASTEROID TYPE
+        M-TYPE
+
+    All values are dynamic.
+    """
+    if final_result["planes_used"] == 0:
+        oled_lines([
+            "MASS ESTIMATE"
+        ])
+        return
+
+    if oled is None:
+        return
+
+    mass = final_result["mass_g"]
+    density = final_result["density_g_cm3"]
+    asteroid_type = composition_result["type"]
+
+    mass_line = "%.2f gram" % mass
+
+    if len(mass_line) > 16:
+        mass_line = "%.1f gram" % mass
+
+    if len(mass_line) > 16:
+        mass_line = "%.0f gram" % mass
+
+    oled.fill(0)
+
+    oled_safe(
+        "MASS ESTIMATE",
+        0,
+        0
+    )
+
+    oled_safe(
+        mass_line,
+        0,
+        10
+    )
+
+    oled_safe(
+        "DENSITY EST",
+        0,
+        20
+    )
+
+    oled_safe(
+        "%.2f g/cm3" %
+        density,
+        0,
+        30
+    )
+
+    oled_safe(
+        "ASTEROID TYPE",
+        0,
+        40
+    )
+
+    oled_safe(
+        "%s-TYPE" %
+        asteroid_type,
+        0,
+        50
+    )
+
+    oled.show()
+
+
+def draw_current_slide():
+    global ir_oled_last_signature
+    if slide_index != SLIDE_NIR:
+        ir_oled_last_signature = None  # force render when returning to IR page
+    if slide_index == SLIDE_OPTICAL:
+        draw_optical_slide()
+    elif slide_index == SLIDE_NIR:
+        draw_nir_slide()
+    elif slide_index == SLIDE_CLASS:
+        draw_class_slide()
+    elif slide_index in (SLIDE_TOPOLOGY_1, SLIDE_TOPOLOGY_2, SLIDE_TOPOLOGY_3):
+        draw_topology_pattern(slide_index - SLIDE_TOPOLOGY_1)
+    elif slide_index == SLIDE_MASS:
+        draw_mass_slide()
+
+
+def acquire_optical():
+    global optical_result
+
+    optical_result = (
+        read_geometric_optical_albedo()
+    )
+
+    # No extra OLED error/acquisition messages.
+    # On invalid data, remain on the same requested slide.
+    if not optical_result["valid"]:
+        print(
+            "Optical measurement error:",
+            optical_result["error"]
+        )
+        draw_current_slide()
+        return
+
+    update_composition_classification()
+    draw_current_slide()
+
+
+def acquire_nir():
+    global nir_result
+
+    nir_result = (
+        read_nir_reflectance()
+    )
+
+    # No extra OLED error/acquisition messages.
+    if not nir_result["valid"]:
+        print(
+            "IR measurement error:",
+            nir_result["error"]
+        )
+        draw_current_slide()
+        return
+
+    update_composition_classification()
+    draw_current_slide()
+
+
+def capture_topology_point(plane_index):
+    global last_surface_distance
+    global last_radius
+
+    mark = first_unmeasured_mark(
+        plane_index
+    )
+
+    if mark >= POINTS_PER_PLANE:
+        draw_current_slide()
+        return
+
+    # Keep the requested topology screen visible while measuring.
+    radius, surface = (
+        measure_radius()
+    )
+
+    last_surface_distance = surface
+    last_radius = radius
+
+    if radius is None:
+        print(
+            "Ultrasonic acquisition failed at plane",
+            plane_index + 1,
+            "mark",
+            mark + 1
+        )
+        draw_current_slide()
+        return
+
+    plane_scans[
+        plane_index
+    ][mark] = radius
+
+    print(
+        "Topology P%d | Mark %02d | DEG %.1f | Echo %.2f cm | Radius %.2f cm"
+        %
+        (
+            plane_index + 1,
+            mark + 1,
+            mark * ANGLE_STEP_DEG,
+            surface,
+            radius
+        )
+    )
+
+    calculate_final_result()
+    draw_current_slide()
+
+
+def undo_topology_point(plane_index):
+    points = plane_point_count(plane_index)
+    if points <= 0:
+        return False
+    index = points - 1
+    while index >= 0 and plane_scans[plane_index][index] is None:
+        index -= 1
+    if index >= 0:
+        plane_scans[plane_index][index] = None
+        calculate_final_result()
+        draw_current_slide()
+        return True
+    return False
+
+
+def action_sw1():
+    if slide_index == SLIDE_OPTICAL:
+        acquire_optical()
+    elif slide_index == SLIDE_NIR:
+        acquire_nir()
+    elif slide_index == SLIDE_CLASS:
+        update_composition_classification()
+        draw_current_slide()
+    elif slide_index in (SLIDE_TOPOLOGY_1, SLIDE_TOPOLOGY_2, SLIDE_TOPOLOGY_3):
+        capture_topology_point(slide_index - SLIDE_TOPOLOGY_1)
+    elif slide_index == SLIDE_MASS:
+        calculate_final_result()
+        draw_current_slide()
+
+
+def action_sw2():
+    global slide_index
+    if slide_index == SLIDE_OPTICAL:
+        if not optical_result["valid"]:
+            draw_current_slide()
+            return
+        slide_index = SLIDE_NIR
+    elif slide_index == SLIDE_NIR:
+        if not nir_result["valid"]:
+            draw_current_slide()
+            return
+        update_composition_classification()
+        slide_index = SLIDE_CLASS
+    elif slide_index == SLIDE_CLASS:
+        if not composition_result["valid"]:
+            draw_current_slide()
+            return
+        slide_index = SLIDE_TOPOLOGY_1
+    elif slide_index == SLIDE_TOPOLOGY_1:
+        if not plane_complete(0):
+            draw_current_slide()
+            return
+        slide_index = SLIDE_TOPOLOGY_2
+    elif slide_index == SLIDE_TOPOLOGY_2:
+        points = plane_point_count(1)
+        if points != 0 and not plane_complete(1):
+            draw_current_slide()
+            return
+        slide_index = SLIDE_TOPOLOGY_3
+    elif slide_index == SLIDE_TOPOLOGY_3:
+        points = plane_point_count(2)
+        if points != 0 and not plane_complete(2):
+            draw_current_slide()
+            return
+        calculate_final_result()
+        if final_result["planes_used"] == 0:
+            draw_current_slide()
+            return
+        slide_index = SLIDE_MASS
+    draw_current_slide()
+
+
+def action_sw3():
+    global slide_index
+    if slide_index in (SLIDE_TOPOLOGY_1, SLIDE_TOPOLOGY_2, SLIDE_TOPOLOGY_3):
+        plane_index = slide_index - SLIDE_TOPOLOGY_1
+        points = plane_point_count(plane_index)
+        if points > 0 and points < POINTS_PER_PLANE:
+            if undo_topology_point(plane_index):
+                return
+    if slide_index > SLIDE_OPTICAL:
+        slide_index -= 1
+    draw_current_slide()
+
+
+def action_sw4():
+    reset_project()
+
+
+# ============================================================
+# BUTTON DEBOUNCER
+# ============================================================
+
+class Button:
+    def __init__(self, pin, debounce_ms=45):
+        self.pin = pin
+        self.debounce_ms = debounce_ms
+        self.last_raw = self.pin.value()
+        self.stable = self.last_raw
+        self.last_change = time.ticks_ms()
+
+    def pressed(self):
+        now = time.ticks_ms()
+        raw = self.pin.value()
+
+        if raw != self.last_raw:
+            self.last_raw = raw
+            self.last_change = now
+
+        if time.ticks_diff(now, self.last_change) >= self.debounce_ms:
+            if raw != self.stable:
+                self.stable = raw
+
+                if self.stable == 0:
+                    return True
+
+        return False
+
+
+button1 = Button(sw1)
+button2 = Button(sw2)
+button3 = Button(sw3)
+button4 = Button(sw4)
+
+
+# ============================================================
+# WEB DATA
+# ============================================================
+
+def raw_to_index(raw, low, high):
+    return inverse_percentage(raw, low, high)
+
+
+def reference_zone(ir_min, ir_max, ldr_min, ldr_max):
+    nir_a = raw_to_index(ir_min, IR_RAW_LOW, IR_RAW_HIGH)
+    nir_b = raw_to_index(ir_max, IR_RAW_LOW, IR_RAW_HIGH)
+    opt_a = raw_to_index(ldr_min, LDR_RAW_LOW, LDR_RAW_HIGH)
+    opt_b = raw_to_index(ldr_max, LDR_RAW_LOW, LDR_RAW_HIGH)
+    return {
+        "x_min": min(opt_a, opt_b),
+        "x_max": max(opt_a, opt_b),
+        "y_min": min(nir_a, nir_b),
+        "y_max": max(nir_a, nir_b),
+    }
+
+
+def json_safe_planes():
+    return [[None if radius is None else round(radius, 3) for radius in plane] for plane in plane_scans]
+
+
+def status_dict():
+    if slide_index in (SLIDE_TOPOLOGY_1, SLIDE_TOPOLOGY_2, SLIDE_TOPOLOGY_3):
+        current_plane = slide_index - SLIDE_TOPOLOGY_1
+    else:
+        current_plane = -1
+
+    current_mark = 0
+    current_angle = 0.0
+    if current_plane >= 0:
+        current_mark = first_unmeasured_mark(current_plane)
+        current_angle = current_mark * ANGLE_STEP_DEG if current_mark < POINTS_PER_PLANE else 360.0
+
+    return {
+        "project": PROJECT_NAME,
+        "slide": slide_index,
+        "slide_name": SLIDE_NAMES[slide_index],
+        "optical_valid": optical_result["valid"],
+        "optical_raw": optical_result["raw"],
+        "optical_index": safe_float(optical_result["index"], 3),
+        "nir_valid": nir_result["valid"],
+        "nir_raw": nir_result["raw"],
+        "nir_index": safe_float(nir_result["index"], 3),
+        "ir_live_raw": ir_live_raw,
+        "ir_display_value": ir_display_value,
+        "ir_live_error": ir_live_error,
+        "ir_live_saturated": (ir_live_raw is not None and ir_live_raw >= ADC_SATURATION_LIMIT),
+        "composition_valid": composition_result["valid"],
+        "asteroid_type": composition_result["type"],
+        "type_description": composition_result["description"],
+        "density_g_cm3": safe_float(composition_result["density"], 2),
+        "classification_confidence": safe_float(composition_result["confidence"] * 100.0, 1),
+        "classification_method": composition_result["method"],
+        "reference_zones": {
+            "C": reference_zone(C_IR_MIN, C_IR_MAX, C_LDR_MIN, C_LDR_MAX),
+            "S": reference_zone(S_IR_MIN, S_IR_MAX, S_LDR_MIN, S_LDR_MAX),
+            "M": reference_zone(M_IR_MIN, M_IR_MAX, M_LDR_MIN, M_LDR_MAX),
+        },
+        "current_plane": current_plane,
+        "current_mark": current_mark,
+        "current_angle_deg": safe_float(current_angle, 1),
+        "plane_counts": [plane_point_count(0), plane_point_count(1), plane_point_count(2)],
+        "scan_planes": json_safe_planes(),
+        "last_surface_cm": None if last_surface_distance is None else safe_float(last_surface_distance, 3),
+        "last_radius_cm": None if last_radius is None else safe_float(last_radius, 3),
+        "center_to_sensor_cm": CENTER_TO_SENSOR_CM,
+        "areas_cm2": [safe_float(value, 3) for value in final_result["areas_cm2"]],
+        "planes_used": final_result["planes_used"],
+        "volume_cm3": safe_float(final_result["volume_cm3"], 2),
+        "mass_g": safe_float(final_result["mass_g"], 2),
+        "mass_kg": safe_float(final_result["mass_kg"], 4),
+    }
+
+
+# ============================================================
+# WEB DASHBOARD
+# ============================================================
+
+HTML = r'''<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Lithogram Spectro-Geometric Analyzer</title>
+<style>
+:root{--bg:#050914;--panel:#0b1425;--line:#223552;--text:#eef6ff;--muted:#8fa6c5;--cyan:#58dcff;--amber:#ffd56a;--magenta:#ff7db8;--green:#79f2b4}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 25% 0%,#102442 0,#050914 40%);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+header{padding:18px 20px 14px;border-bottom:1px solid var(--line);background:rgba(5,9,20,.9);position:sticky;top:0;z-index:10}
+.brand{font-size:24px;font-weight:800;letter-spacing:.04em}.subtitle{margin-top:4px;color:var(--muted);font-size:12px}
+.shell{max-width:1180px;margin:auto;padding:14px}.statusbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:linear-gradient(135deg,#0d1729,#101f37);border:1px solid var(--line);border-radius:16px;margin-bottom:12px}
+.stage small{display:block;color:var(--muted);font-size:10px;letter-spacing:.12em}.stage strong{font-size:15px}.controls{display:flex;flex-wrap:wrap;gap:7px}
+button{border:1px solid #324968;background:#111f36;color:var(--text);padding:9px 11px;border-radius:10px;cursor:pointer;font-weight:700}button:hover{background:#172b49}
+.tabs{display:flex;gap:8px;margin-bottom:12px}.tab{flex:1;font-size:13px;padding:12px}.tab.active{background:#eaf6ff;color:#07101e}.tabpane{display:none}.tabpane.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}.card{background:linear-gradient(145deg,rgba(17,31,54,.96),rgba(8,17,31,.96));border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:0 14px 35px rgba(0,0,0,.18)}
+.span4{grid-column:span 4}.span5{grid-column:span 5}.span7{grid-column:span 7}.span8{grid-column:span 8}.span12{grid-column:span 12}.eyebrow{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.13em}.big{font-size:42px;line-height:1;font-weight:850;margin-top:8px}.medium{font-size:22px;font-weight:800;margin-top:8px}.unit{font-size:12px;color:var(--muted);font-weight:500}.raw{margin-top:9px;color:var(--muted);font-size:12px}
+.classbox{display:flex;align-items:center;gap:16px;margin-top:8px}.classletter{width:76px;height:76px;display:grid;place-items:center;border-radius:18px;border:1px solid #31517a;background:#091425;font-size:48px;font-weight:900}.muted{color:var(--muted)}
+canvas{width:100%;background:#050b15;border:1px solid #1d304d;border-radius:14px}#compositionCanvas{aspect-ratio:1.45/1}#topologyCanvas{aspect-ratio:1/1}.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-top:9px}.dot{width:9px;height:9px;display:inline-block;border-radius:50%;margin-right:4px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:7px 6px;border-bottom:1px solid #1d304d;text-align:right}th:first-child,td:first-child{text-align:left}.progress{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.pbox{border:1px solid #263d5d;border-radius:12px;padding:10px;background:#081221}.pbox strong{display:block;font-size:20px}.note{font-size:11px;line-height:1.5;color:var(--muted)}
+@media(max-width:820px){.span4,.span5,.span7,.span8,.span12{grid-column:span 12}.statusbar{align-items:flex-start;flex-direction:column}.big{font-size:36px}}
+</style>
+</head>
+<body>
+<header><div class="brand">LITHOGRAM</div><div class="subtitle">Asteroid Spectro-Geometric Composition & Topology Analyzer</div></header>
+<div class="shell">
+<div class="statusbar"><div class="stage"><small>ACTIVE INSTRUMENT SLIDE</small><strong id="stageName">Connecting…</strong></div><div class="controls"><button onclick="act('sw1')">SW1 · Select / Acquire</button><button onclick="act('sw2')">SW2 · Next</button><button onclick="act('sw3')">SW3 · Previous</button><button onclick="act('sw4')">SW4 · Reset</button></div></div>
+<div class="tabs"><button class="tab active" id="tabComposition" onclick="showTab('composition')">COMPOSITION MAP</button><button class="tab" id="tabTopology" onclick="showTab('topology')">TOPOLOGY SCAN</button></div>
+<section id="composition" class="tabpane active"><div class="grid">
+<div class="card span4"><div class="eyebrow">Geometric Optical Albedo</div><div class="big" id="opticalIndex">--</div><div class="unit">normalised photometric index · 0.00–1.00</div><div class="raw" id="ldrRaw">LDR raw: --</div></div>
+<div class="card span4"><div class="eyebrow">Near-Infrared Reflectance</div><div class="big" id="nirIndex">--</div><div class="unit">IR sensor ADC value · 0–4095 (not reflectance %)</div><div class="raw" id="irRaw">IR acquired: --</div><div class="raw" id="irLive">IR filtered preview: --</div></div>
+<div class="card span4"><div class="eyebrow">Spectral Class Estimate</div><div class="classbox"><div class="classletter" id="typeLetter">-</div><div><div class="medium" id="typeName">Unclassified</div><div class="raw" id="density">Bulk density: --</div><div class="raw" id="confidence">Confidence: --</div></div></div></div>
+<div class="card span8"><div class="eyebrow">Optical Reflectance vs Near-IR Reflectance</div><canvas id="compositionCanvas" width="760" height="520"></canvas><div class="legend"><span><i class="dot" style="background:#58dcff"></i>C-type zone</span><span><i class="dot" style="background:#ffd56a"></i>S-type zone</span><span><i class="dot" style="background:#ff7db8"></i>M-type zone</span><span><i class="dot" style="background:#79f2b4"></i>current sample</span></div></div>
+<div class="card span4"><div class="eyebrow">Composition Interpretation</div><div class="medium" id="compositionSummary">Awaiting optical and NIR acquisition</div><p class="note">The plotted indices are normalised classroom proxies derived from calibrated LDR and IR response. The C/S/M result is an educational analogue of asteroid spectral classification, not a professional spectroscopic determination.</p></div>
+</div></section>
+<section id="topology" class="tabpane"><div class="grid">
+<div class="card span7"><div class="eyebrow">Cross-Sectional Transit Profile</div><canvas id="topologyCanvas" width="680" height="680"></canvas><div class="progress"><div class="pbox"><span class="eyebrow">Plane 1</span><strong id="p1">0/16</strong></div><div class="pbox"><span class="eyebrow">Plane 2</span><strong id="p2">0/16</strong></div><div class="pbox"><span class="eyebrow">Plane 3</span><strong id="p3">0/16</strong></div></div></div>
+<div class="card span5"><div class="eyebrow">Topology / Mass Solution</div><div class="big" id="massValue">--</div><div class="unit">estimated mass · grams</div><div class="medium" id="volumeValue">Volume: --</div><div class="raw" id="planesUsed">Completed planes: 0</div><div class="raw" id="echoValue">Latest ultrasonic echo: --</div><div class="raw" id="radiusValue">Derived radial point: --</div><p class="note">Each profile uses 16 equally spaced azimuth marks at 22.5°. Radius = 7.2 cm minus the filtered ultrasonic surface distance. Completed cross-sections are converted into an approximate volume, then multiplied by the assumed density of the estimated spectral class.</p></div>
+<div class="card span12"><div class="eyebrow">Radial Scan Telemetry</div><div id="scanTable"></div></div>
+</div></section>
+</div>
+<script>
+let latest=null;let currentTab="composition";const planeColours=["#58dcff","#ffd56a","#ff7db8"];
+function showTab(name){currentTab=name;document.querySelectorAll('.tabpane').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));document.getElementById(name).classList.add('active');document.getElementById(name==='composition'?'tabComposition':'tabTopology').classList.add('active');if(latest){drawComposition(latest);drawTopology(latest)}}
+function fmt(value,digits=2){if(value===null||value===undefined||Number.isNaN(Number(value)))return '--';return Number(value).toFixed(digits)}
+async function act(action){try{await fetch('/action?a='+action,{cache:'no-store'});setTimeout(refresh,120)}catch(e){}}
+function drawComposition(d){const canvas=document.getElementById('compositionCanvas'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,left=72,right=24,top=30,bottom=62,pw=w-left-right,ph=h-top-bottom;ctx.clearRect(0,0,w,h);ctx.fillStyle='#050b15';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#203451';ctx.lineWidth=1;for(let i=0;i<=5;i++){const t=i/5,x=left+t*pw,y=top+(1-t)*ph;ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,top+ph);ctx.stroke();ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(left+pw,y);ctx.stroke();ctx.fillStyle='#849ab8';ctx.font='12px Arial';ctx.fillText(t.toFixed(1),x-9,top+ph+21);ctx.fillText(t.toFixed(1),35,y+4)}ctx.fillStyle='#a8bbd5';ctx.font='13px Arial';ctx.fillText('Geometric Optical Albedo Index',left+pw/2-96,h-16);ctx.save();ctx.translate(15,top+ph/2+74);ctx.rotate(-Math.PI/2);ctx.fillText('Near-Infrared Reflectance Index',0,0);ctx.restore();const zones=d.reference_zones||{};[["C",zones.C,"#58dcff"],["S",zones.S,"#ffd56a"],["M",zones.M,"#ff7db8"]].forEach(([name,z,color])=>{if(!z)return;const x1=left+z.x_min*pw,x2=left+z.x_max*pw,y1=top+(1-z.y_max)*ph,y2=top+(1-z.y_min)*ph;ctx.globalAlpha=.17;ctx.fillStyle=color;ctx.fillRect(x1,y1,x2-x1,y2-y1);ctx.globalAlpha=.9;ctx.strokeStyle=color;ctx.strokeRect(x1,y1,x2-x1,y2-y1);ctx.fillStyle=color;ctx.font='bold 15px Arial';ctx.fillText(name,x1+6,y1+18);ctx.globalAlpha=1});if(d.optical_valid&&d.nir_valid){const x=left+Number(d.optical_index)*pw,y=top+(1-Number(d.nir_index))*ph;ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fillStyle='#79f2b4';ctx.fill();ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.strokeStyle='#79f2b4';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#dffff0';ctx.font='bold 13px Arial';ctx.fillText('CURRENT',x+18,y-8)}}
+function drawTopology(d){const canvas=document.getElementById('topologyCanvas'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,outer=Math.min(w,h)*.40,maxR=Number(d.center_to_sensor_cm)||7.2,scale=outer/maxR;ctx.clearRect(0,0,w,h);ctx.fillStyle='#050b15';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#213653';ctx.lineWidth=1;for(let ring=1;ring<=4;ring++){ctx.beginPath();ctx.arc(cx,cy,outer*ring/4,0,Math.PI*2);ctx.stroke()}for(let i=0;i<16;i++){const a=i*Math.PI*2/16-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*outer,cy+Math.sin(a)*outer);ctx.stroke();const mx=cx+Math.cos(a)*outer,my=cy+Math.sin(a)*outer;let acquired=false,cp=Number(d.current_plane);if(cp>=0&&d.scan_planes&&d.scan_planes[cp]&&d.scan_planes[cp][i]!=null)acquired=true;ctx.beginPath();ctx.arc(mx,my,acquired?6:4,0,Math.PI*2);if(acquired){ctx.fillStyle='#79f2b4';ctx.fill()}else{ctx.strokeStyle='#7890ad';ctx.stroke()}}(d.scan_planes||[]).forEach((plane,p)=>{const valid=(plane||[]).filter(v=>v!=null);if(!valid.length)return;ctx.beginPath();let started=false;for(let i=0;i<16;i++){const r=plane[i];if(r==null)continue;const a=i*Math.PI*2/16-Math.PI/2,x=cx+Math.cos(a)*Number(r)*scale,y=cy+Math.sin(a)*Number(r)*scale;if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y)}if(valid.length===16)ctx.closePath();ctx.strokeStyle=planeColours[p%planeColours.length];ctx.lineWidth=4;ctx.stroke();if(valid.length===16){ctx.globalAlpha=.10;ctx.fillStyle=planeColours[p%planeColours.length];ctx.fill();ctx.globalAlpha=1}for(let i=0;i<16;i++){const r=plane[i];if(r==null)continue;const a=i*Math.PI*2/16-Math.PI/2,x=cx+Math.cos(a)*Number(r)*scale,y=cy+Math.sin(a)*Number(r)*scale;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle=planeColours[p%planeColours.length];ctx.fill()}});ctx.fillStyle='#8398b5';ctx.font='13px Arial';ctx.fillText('0°',cx-8,22);ctx.fillText('90°',w-48,cy-5);ctx.fillText('180°',cx-19,h-14);ctx.fillText('270°',12,cy-5)}
+function buildTable(d){const planes=d.scan_planes||[];let html='<table><thead><tr><th>Mark</th><th>Azimuth</th><th>Plane 1</th><th>Plane 2</th><th>Plane 3</th></tr></thead><tbody>';for(let i=0;i<16;i++){html+='<tr><td>'+(i+1)+'</td><td>'+(i*22.5).toFixed(1)+'°</td>';for(let p=0;p<3;p++){const value=planes[p]?planes[p][i]:null;html+='<td>'+(value==null?'--':Number(value).toFixed(2)+' cm')+'</td>'}html+='</tr>'}html+='</tbody></table>';document.getElementById('scanTable').innerHTML=html}
+async function refresh(){try{const response=await fetch('/data?x='+Date.now(),{cache:'no-store'}),d=await response.json();latest=d;document.getElementById('stageName').textContent=d.slide_name;document.getElementById('opticalIndex').textContent=d.optical_valid?fmt(d.optical_index,2):'--';document.getElementById('nirIndex').textContent=d.nir_valid?d.nir_raw:(d.ir_display_value==null?'--':d.ir_display_value);document.getElementById('ldrRaw').textContent='LDR raw: '+(d.optical_valid?d.optical_raw:'--');document.getElementById('irRaw').textContent='IR acquired: '+(d.nir_valid?d.nir_raw:'--');document.getElementById('irLive').textContent='IR filtered preview: '+(d.ir_display_value==null?'--':d.ir_display_value)+(d.ir_live_saturated?' (ADC SATURATED)':'');document.getElementById('typeLetter').textContent=d.asteroid_type||'-';document.getElementById('typeName').textContent=d.type_description||'Unclassified';document.getElementById('density').textContent=d.composition_valid?'Bulk density: '+fmt(d.density_g_cm3,2)+' g/cm³':'Bulk density: --';document.getElementById('confidence').textContent=d.composition_valid?'Classification confidence: '+fmt(d.classification_confidence,0)+'% · '+d.classification_method:'Confidence: --';document.getElementById('compositionSummary').textContent=d.composition_valid?d.asteroid_type+'-TYPE · '+d.type_description:'Awaiting optical and NIR acquisition';const counts=d.plane_counts||[0,0,0];document.getElementById('p1').textContent=counts[0]+'/16';document.getElementById('p2').textContent=counts[1]+'/16';document.getElementById('p3').textContent=counts[2]+'/16';document.getElementById('massValue').textContent=d.planes_used>0?fmt(d.mass_g,1):'--';document.getElementById('volumeValue').textContent=d.planes_used>0?'Volume: '+fmt(d.volume_cm3,1)+' cm³':'Volume: --';document.getElementById('planesUsed').textContent='Completed planes: '+d.planes_used;document.getElementById('echoValue').textContent='Latest ultrasonic echo: '+(d.last_surface_cm==null?'--':fmt(d.last_surface_cm,2)+' cm');document.getElementById('radiusValue').textContent='Derived radial point: '+(d.last_radius_cm==null?'--':fmt(d.last_radius_cm,2)+' cm');drawComposition(d);drawTopology(d);buildTable(d)}catch(error){document.getElementById('stageName').textContent='Reconnecting to Lithogram…'}}
+setInterval(refresh,700);refresh();
+</script>
+</body>
+</html>
+'''
+
+
+# ============================================================
+# WI-FI + HTTP SERVER
+# ============================================================
+
+def start_access_point():
+    ap = network.WLAN(network.AP_IF)
+    ap.active(True)
+
+    try:
+        ap.config(
+            essid=AP_SSID,
+            password=AP_PASSWORD,
+            authmode=network.AUTH_WPA_WPA2_PSK
+        )
+    except Exception:
+        ap.config(
+            essid=AP_SSID,
+            password=AP_PASSWORD
+        )
+
+    start = time.ticks_ms()
+
+    while not ap.active():
+        if time.ticks_diff(time.ticks_ms(), start) > 5000:
+            break
+
+        time.sleep_ms(100)
+
+    print("\\nWi-Fi AP")
+    print("SSID :", AP_SSID)
+    print("PASS :", AP_PASSWORD)
+    print("IP   :", ap.ifconfig()[0])
+
+    return ap
+
+
+def start_http_server():
+    addr = socket.getaddrinfo(
+        "0.0.0.0",
+        WEB_PORT
+    )[0][-1]
+
+    s = socket.socket()
+
+    try:
+        s.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_REUSEADDR,
+            1
+        )
+    except Exception:
+        pass
+
+    s.bind(addr)
+    s.listen(2)
+    s.setblocking(False)
+
+    print("Web server: http://192.168.4.1")
+
+    return s
+
+
+def send_response(
+    client,
+    body,
+    content_type="text/plain",
+    status="200 OK"
+):
+    if isinstance(body, str):
+        body = body.encode()
+
+    header = (
+        "HTTP/1.1 %s\\r\\n"
+        "Content-Type: %s\\r\\n"
+        "Content-Length: %d\\r\\n"
+        "Connection: close\\r\\n"
+        "Cache-Control: no-store\\r\\n"
+        "\\r\\n"
+        % (
+            status,
+            content_type,
+            len(body)
+        )
+    ).encode()
+
+    try:
+        client.send(header)
+
+        step = 1024
+
+        for i in range(0, len(body), step):
+            client.send(
+                body[i:i + step]
+            )
+
+    except Exception as e:
+        print("Send error:", e)
+
+
+def parse_path(req):
+    try:
+        first = req.split(
+            b"\\r\\n",
+            1
+        )[0].decode()
+
+        parts = first.split(" ")
+
+        if len(parts) >= 2:
+            return parts[1]
+
+    except Exception:
+        pass
+
+    return "/"
+
+
+def get_query_value(path, key):
+    qpos = path.find("?")
+
+    if qpos < 0:
+        return None
+
+    query = path[qpos + 1:]
+
+    for item in query.split("&"):
+        if "=" in item:
+            k, v = item.split("=", 1)
+
+            if k == key:
+                return v
+
+    return None
+
+
+def handle_web_client(server):
+    try:
+        client, _ = server.accept()
+    except OSError:
+        return
+
+    try:
+        try:
+            client.settimeout(0.25)
+        except Exception:
+            pass
+
+        req = client.recv(1200)
+        path = parse_path(req)
+
+        if path.startswith("/data"):
+            body = json.dumps(
+                status_dict()
+            )
+
+            send_response(
+                client,
+                body,
+                "application/json"
+            )
+
+        elif path.startswith("/action"):
+            a = get_query_value(
+                path,
+                "a"
+            )
+
+            if a == "sw1":
+                action_sw1()
+
+            elif a == "sw2":
+                action_sw2()
+
+            elif a == "sw3":
+                action_sw3()
+
+            elif a == "sw4":
+                action_sw4()
+
+            send_response(
+                client,
+                json.dumps({
+                    "ok": True,
+                    "slide": slide_index
+                }),
+                "application/json"
+            )
+
+        elif path == "/favicon.ico":
+            send_response(
+                client,
+                b"",
+                "image/x-icon"
+            )
+
+        else:
+            send_response(
+                client,
+                HTML,
+                "text/html; charset=utf-8"
+            )
+
+    except Exception as e:
+        print("Client error:", e)
+
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
+# ============================================================
+# STARTUP
+# ============================================================
+
+boot_screen()
+time.sleep(2)
+
+access_point = start_access_point()
+draw_current_slide()
+
+server = None
+try:
+    server = start_http_server()
+except Exception as exc:
+    print("HTTP server start error:", exc)
+    print("If EADDRINUSE appears, stop the old program or reset the board.")
+
+
+# ============================================================
+# MAIN LOOP
+# ============================================================
+
+print("\\nREADY")
+print("==============================")
+print("LITHOGRAM SPECTRO-GEOMETRIC ANALYZER")
+print("==============================")
+print("PIN MAP:")
+print("S1 IR AO    -> GPIO2")
+print("S2 LDR AO   -> GPIO1")
+print("ULTRA TRIG  -> GPIO6")
+print("ULTRA ECHO  -> GPIO19")
+print("I2C SDA     -> GPIO7")
+print("I2C SCL     -> GPIO8")
+print("OLED         -> SH1106 128x64 / 1.3 inch")
+print()
+print("CONTROLS:")
+print("SW1 GPIO39  -> SELECT / ACQUIRE")
+print("SW2 GPIO40  -> NEXT SLIDE")
+print("SW3 GPIO41  -> PREVIOUS / UNDO")
+print("SW4 GPIO42  -> RESET")
+print()
+print("COMPOSITION CALIBRATION:")
+print("C: IR %d-%d   LDR %d-%d" % (C_IR_MIN, C_IR_MAX, C_LDR_MIN, C_LDR_MAX))
+print("S: IR %d-%d   LDR %d-%d" % (S_IR_MIN, S_IR_MAX, S_LDR_MIN, S_LDR_MAX))
+print("M: IR %d-%d   LDR %d-%d" % (M_IR_MIN, M_IR_MAX, M_LDR_MIN, M_LDR_MAX))
+print("LDR CLASS BOUNDARIES:")
+print("M  : LDR < %d" % M_S_LDR_THRESHOLD)
+print("S  : LDR %d to %d" % (
+    M_S_LDR_THRESHOLD,
+    S_C_LDR_THRESHOLD - 1
+))
+print("C  : LDR >= %d" % S_C_LDR_THRESHOLD)
+print()
+print("TOPOLOGY:")
+print("16 marks x 22.5 degrees")
+print("Sensor-to-centre = %.1f cm" % CENTER_TO_SENSOR_CM)
+print("==============================\\n")
+
+last_ir_live_time = time.ticks_ms() - LIVE_IR_INTERVAL_MS
+
+while True:
+    try:
+        now = time.ticks_ms()
+        # Only preview before SW1 capture and while the IR slide is visible.
+        # Redraw only when the filtered number changes significantly.
+        if (slide_index == SLIDE_NIR and not nir_result["valid"]
+                and time.ticks_diff(now, last_ir_live_time) >= LIVE_IR_INTERVAL_MS):
+            last_ir_live_time = now
+            previous = ir_display_value
+            update_live_ir()
+            if ir_display_value != previous:
+                draw_nir_slide()
+
+        if button1.pressed():
+            action_sw1()
+        if button2.pressed():
+            action_sw2()
+        if button3.pressed():
+            action_sw3()
+        if button4.pressed():
+            action_sw4()
+        if server is not None:
+            handle_web_client(server)
+        time.sleep_ms(20)
+    except KeyboardInterrupt:
+        print("Stopped by user")
+        break
+    except Exception as exc:
+        print("MAIN LOOP ERROR:", exc)
+        time.sleep_ms(200)
+`,
   },
   {
     id: 'measuring-the-cosmos',
