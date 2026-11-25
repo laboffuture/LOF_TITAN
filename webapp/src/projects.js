@@ -28749,45 +28749,6 @@ while True:
       },
     ],
 
-    codingTitle: 'Coding and Control',
-    coding: [
-      {
-        step: 1,
-        title: 'Load Cell Initialization',
-        desc: 'Initialize the HX711 interface and configure the load-cell calibration factor. Read multiple samples and average them to reduce short-term measurement fluctuations.',
-      },
-      {
-        step: 2,
-        title: 'Mass Measurement',
-        desc: 'Tare the weighing platform before placing an asteroid model on it. Read the sensor output and convert the calibrated measurement into mass, expressed in grams or kilograms.',
-      },
-      {
-        step: 3,
-        title: 'Water Displacement Measurement',
-        desc: "Record the initial water volume and the final water volume after safely immersing the asteroid model. Calculate the object's volume from the difference between the two measurements. The volume can be entered manually through the serial monitor or a user interface unless a separate automated volume-measurement sensor is available.",
-      },
-      {
-        step: 4,
-        title: 'Density Calculation',
-        desc: 'Calculate density using the measured mass and volume: Density = Mass ÷ Volume. For mass in grams and volume in cubic centimetres, density is expressed in g/cm³. If the water displacement measurement is unreliable, the firmware should flag the result rather than report a misleading density value.',
-      },
-      {
-        step: 5,
-        title: 'Asteroid Classification',
-        desc: "Compare the calculated density with predefined experimental thresholds for the activity's low-, medium-, and high-density models. Display the resulting category alongside the measured values. The categories represent the prepared classroom models, not a definitive identification of actual asteroid composition.",
-      },
-      {
-        step: 6,
-        title: 'Display & Data Logging',
-        desc: 'Display the measured mass, initial water volume, final water volume, calculated object volume, calculated density, and experimental density category. If data logging is supported, save each measurement for later comparison.',
-      },
-      {
-        step: 7,
-        title: 'Full System Test',
-        desc: 'Measure each asteroid model multiple times. Compare repeated measurements and investigate any unexpected variation in mass, volume, or density.',
-      },
-    ],
-
     faqTitle: 'FAQ & Troubleshooting',
     faq: [
       {
