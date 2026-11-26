@@ -39,6 +39,14 @@ const motor = (which, dir, speed) => ({
   fields: { MOTOR: which, DIR: dir, SPEED: speed },
 });
 
+/**
+ * Ultrasonic distance. No PIN field: the block is wired to the dedicated
+ * ultrasonic port (Trig 6, Echo 19), so UNIT is all there is to choose.
+ */
+const readUltrasonic = (unit = 'CM') => ({
+  block: { type: 'titan_ultrasonic_distance', fields: { UNIT: unit } },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -194,6 +202,19 @@ export const LAB_PROGRAMS = {
     'flame sensor test code',
     boolTrue(),
     [print(readDigital('2')), wait(1, 'SECONDS')],
+  ),
+
+  // Heat Seek Rover, Ultrasonic Obstacle Scanner. From the Block Studio export:
+  // print the distance in centimetres once a second.
+  //
+  // This one supersedes experiment.testCode like its sibling does, but here it
+  // is like for like: the old script drove the same trig 6 / echo 19 port and
+  // printed centimetres, just hand-rolling the pulse timing instead of calling
+  // hw.read_ultrasonic_distance.
+  'obstacle-scanner': exportedLoopProgram(
+    'ultrasonic sensor',
+    boolTrue(),
+    [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
   ),
 };
 
