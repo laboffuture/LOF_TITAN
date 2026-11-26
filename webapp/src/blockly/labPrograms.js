@@ -216,8 +216,37 @@ export const LAB_PROGRAMS = {
     boolTrue(),
     [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
   ),
+
+  // Terrain Trek's BO motor: M1 forward at 80% for a second, then backward,
+  // looping - the same export used for Water Hunt's rover chassis.
+  //
+  // Kit-scoped on purpose. 'bo-motor' is also a component of
+  // bluetooth-navigator, lost-bots-navigation and cosmic-grip, and a bare key
+  // would seed this program into all four labs.
+  'terrain-trek/bo-motor': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
 };
 
-export function labProgram(componentId) {
-  return LAB_PROGRAMS[componentId] || null;
+/**
+ * The starting program for one kit's component lab, or null for an empty canvas.
+ *
+ * Keys are looked up most specific first:
+ *   'terrain-trek/bo-motor'  - this component in this kit only
+ *   'bo-motor'               - this component in every kit that has it
+ *
+ * The kit-scoped form matters because component ids repeat across the
+ * catalogue: 17 kits have an 'esp32-s3', 9 have an 'oled-display', and 4 share
+ * 'bo-motor'. A bare key would put one starting program in all of them, which
+ * is wrong whenever the kits wire the same part differently.
+ */
+export function labProgram(kitId, componentId) {
+  return LAB_PROGRAMS[`${kitId}/${componentId}`] || LAB_PROGRAMS[componentId] || null;
 }

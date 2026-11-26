@@ -913,7 +913,9 @@ while True:
         };
 
         // Seed program for this lab's canvas, if one is authored for it.
-        const blockProgram = labProgram(activeExperimentModal.id);
+        // Kit id as well as component id: the same component id appears in many
+        // kits, so a seed can be scoped to one kit's wiring.
+        const blockProgram = labProgram(project.id, activeExperimentModal.id);
 
         // When the lab has a block program, the canvas is the source of truth -
         // what the student drags is what the Python tab shows and the footer
