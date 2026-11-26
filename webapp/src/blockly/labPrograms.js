@@ -23,6 +23,25 @@ const readDigital = (pin) => ({
   block: { type: 'titan_sensor_read_digital', fields: { PIN: pin } },
 });
 
+/** Analog sensor read, for sensors that report a range rather than on/off. */
+const readAnalog = (pin) => ({
+  block: { type: 'titan_sensor_read_analog', fields: { PIN: pin } },
+});
+
+/** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
+const boolTrue = () => ({
+  block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
+});
+
+/** The header block Block Studio exports; the generator turns it into the
+ *  comment banner at the top of the generated Python. */
+const projectInfo = (description, author = 'User') => ({
+  type: 'project_info',
+  x: 36,
+  y: 36,
+  fields: { AUTHOR: author, DESCRIPTION: description },
+});
+
 const print = (value) => ({ type: 'titan_print', inputs: { TEXT: value } });
 
 const wait = (time, unit = 'MILLIS') => ({
@@ -64,6 +83,34 @@ const loopProgram = (steps) => ({
   },
 });
 
+/**
+ * A workspace shaped like a Block Studio export: a project-info header plus
+ * TITAN Start -> repeat while <condition> -> steps. Use this when the program
+ * came from an actual .lofproject export, so the lab reproduces it exactly.
+ */
+const exportedLoopProgram = (description, condition, steps) => ({
+  blocks: {
+    languageVersion: 0,
+    blocks: [
+      projectInfo(description),
+      {
+        type: 'titan_start',
+        x: 468,
+        y: 108,
+        inputs: {
+          DO: {
+            block: {
+              type: 'titan_repeat_while',
+              fields: { MODE: 'WHILE' },
+              inputs: { BOOL: condition, DO: { block: chain(steps) } },
+            },
+          },
+        },
+      },
+    ],
+  },
+});
+
 /** Keyed by the component id the lab was opened from. */
 export const LAB_PROGRAMS = {
   // Reads the three sensor ports in turn and prints each value, so a student can
@@ -77,6 +124,16 @@ export const LAB_PROGRAMS = {
     print(readDigital('3')),
     wait(150),
   ]),
+
+  // Water Hunt on Mars. Taken from the Block Studio export of the capacitive
+  // soil moisture sensor test: read the analog value on S1 once a second and
+  // print it, so a student can watch the reading move between a dry and a
+  // moist sample. Analog, not digital - this sensor reports a range.
+  'moisture-sensor': exportedLoopProgram(
+    'capacitive soil moisture sensor test code',
+    boolTrue(),
+    [print(readAnalog('2')), wait(1, 'SECONDS')],
+  ),
 };
 
 export function labProgram(componentId) {
