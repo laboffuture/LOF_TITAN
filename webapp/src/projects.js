@@ -24899,9 +24899,8 @@ while True:
     duration: '90 Mins',
     difficulty: 'Advanced',
     age: '10+',
-    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
-    // card falls back to a stand-in rather than borrowing another kit's banner.
-    // Add as lof-titan/banners/banner-water-hunt-mars when the art arrives.
+    heroImage: 'lof-titan/banners/banner-water-hunt-mars',
+    thumbnail: 'lof-titan/banners/banner-water-hunt-mars',
     tagline: 'Soil Moisture Mapping Across a Simulated Martian Landscape',
     codeFilename: 'water_hunt_on_mars.py',
     description:
