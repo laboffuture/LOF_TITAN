@@ -24757,9 +24757,8 @@ while True:
     // are, the card falls back to its defaults and this kit will not appear
     // under those filter facets.
     age: '10+',
-    // ARTWORK PENDING. heroImage and thumbnail are deliberately absent so the
-    // card falls back to a stand-in rather than borrowing another kit's banner.
-    // Add as lof-titan/banners/banner-cosmic-grip when the art arrives.
+    heroImage: 'lof-titan/banners/banner-cosmic-grip',
+    thumbnail: 'lof-titan/banners/banner-cosmic-grip',
     tagline: 'Wi-Fi Rover with an Integrated Robotic Arm and Record/Playback',
     description:
       'Build a Wi-Fi-controlled rover with an integrated robotic arm using a single ESP32 S3. The ESP32 S3 manages the web-based rover controls and robotic-arm commands, while the PCA 9685 Servo Driver PCB controls the individual arm servos. The system also supports record and playback, allowing students to save robotic-arm positions and repeat movement sequences.',
