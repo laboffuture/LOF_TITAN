@@ -179,6 +179,22 @@ export const LAB_PROGRAMS = {
       wait(1, 'SECONDS'),
     ],
   ),
+
+  // Heat Seek Rover, IR Flame Phototransistor Sensor. From the Block Studio
+  // export: a digital read on S1 printed once a second - a simple starting
+  // point a student can extend.
+  //
+  // This component also carries experiment.testCode, a richer script that
+  // reads BOTH flame sensors as analog values (S1 GPIO 2 and S2 GPIO 1) and
+  // prints them side by side every 200 ms. Because a lab with a block program
+  // takes ownership of the generated Python, that script no longer drives this
+  // lab - it stays in projects.js but is unused. Remove it, or build it out in
+  // blocks, when you want the two-sensor version back.
+  'flame-sensor': exportedLoopProgram(
+    'flame sensor test code',
+    boolTrue(),
+    [print(readDigital('2')), wait(1, 'SECONDS')],
+  ),
 };
 
 export function labProgram(componentId) {
