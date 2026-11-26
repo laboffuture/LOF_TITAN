@@ -28,6 +28,11 @@ const readAnalog = (pin) => ({
   block: { type: 'titan_sensor_read_analog', fields: { PIN: pin } },
 });
 
+/** DS18B20 probe read. VAL picks the unit: TEMP_C, TEMP_F or TEMP_K. */
+const readDs18b20 = (pin, val = 'TEMP_C') => ({
+  block: { type: 'titan_ds18b20_read', fields: { PIN: pin, VAL: val } },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -133,6 +138,20 @@ export const LAB_PROGRAMS = {
     'capacitive soil moisture sensor test code',
     boolTrue(),
     [print(readAnalog('2')), wait(1, 'SECONDS')],
+  ),
+
+  // Water Hunt on Mars, from the Block Studio export of the DS18B20 probe
+  // test: print the probe temperature in Celsius once a second. The generator
+  // emits the OneWire scan, the 750 ms conversion wait and the cached-reading
+  // pool, so this one block carries a good deal of driver code with it.
+  //
+  // NOTE: anti-icing-systems also has a DS18B20, but under the component id
+  // 'ds18b20-sensor', so it does NOT pick this up. Add that key too if the
+  // same starting program suits it.
+  'ds18b20': exportedLoopProgram(
+    'DS18B20 temp probe test code',
+    boolTrue(),
+    [print(readDs18b20('2', 'TEMP_C')), wait(1, 'SECONDS')],
   ),
 };
 
