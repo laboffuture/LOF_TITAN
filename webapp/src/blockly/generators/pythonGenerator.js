@@ -2307,6 +2307,15 @@ def _mqtt_subscribe(topic):
 export function generateTitanWorkspaceCode(workspace) {
   if (!workspace) return '';
 
+  // Blockly requires init() before any blockToCode call - it builds nameDB_ and
+  // clears definitions_. The titan_start path below calls blockToCode directly
+  // instead of going through workspaceToCode (which inits internally), so
+  // without this every generation logged "CodeGenerator init was not called
+  // before blockToCode was called" and reused whatever state the previous run
+  // left behind. Barely visible when code was only generated on a button press;
+  // a flood once the lab canvas began regenerating on every workspace change.
+  pythonGenerator.init(workspace);
+
   const topBlocks = workspace.getTopBlocks(true);
   const titanStartBlock = topBlocks.find(b => b.type === 'titan_start');
   const projectInfoBlock = topBlocks.find(b => b.type === 'project_info');
@@ -2431,6 +2440,12 @@ def _get_pwm(pin, freq=1000):
     finalCode += '\n' + procCode.trim() + '\n';
   }
   finalCode += '\n' + bodyCode.trim() + '\n';
+
+  // Pair the init() above so nameDB_ is reset between generations. The code
+  // finish() would hand back has Blockly's own definitions_ prepended, which
+  // this function assembles itself from the driver detection above - so its
+  // return value is deliberately discarded and finalCode is used as built.
+  pythonGenerator.finish('');
 
   return finalCode;
 }
