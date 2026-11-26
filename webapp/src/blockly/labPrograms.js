@@ -33,6 +33,12 @@ const readDs18b20 = (pin, val = 'TEMP_C') => ({
   block: { type: 'titan_ds18b20_read', fields: { PIN: pin, VAL: val } },
 });
 
+/** Drive one motor. MOTOR is M1..M4, DIR FORWARD or BACKWARD, SPEED a percent. */
+const motor = (which, dir, speed) => ({
+  type: 'titan_motor_control',
+  fields: { MOTOR: which, DIR: dir, SPEED: speed },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -152,6 +158,26 @@ export const LAB_PROGRAMS = {
     'DS18B20 temp probe test code',
     boolTrue(),
     [print(readDs18b20('2', 'TEMP_C')), wait(1, 'SECONDS')],
+  ),
+
+  // Water Hunt on Mars, from the Block Studio export of the motor test: drive
+  // M1 forward at 80% for a second, then backward for a second, forever - the
+  // standard way to prove the drive wiring and direction before trusting the
+  // rover to follow a route.
+  //
+  // Keyed to rover-chassis because that is the drive platform and the id is
+  // unique to this kit. The other motor components (bo-motor, which four kits
+  // share, and tb6612fng-motor-driver, which four share) are deliberately not
+  // keyed here - one seed would appear in every kit using that id.
+  'rover-chassis': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
   ),
 };
 
