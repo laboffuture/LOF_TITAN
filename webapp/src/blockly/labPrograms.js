@@ -252,6 +252,16 @@ export const LAB_PROGRAMS = {
       wait(1, 'SECONDS'),
     ],
   ),
+
+  // Anti-Icing Systems' DS18B20. The same probe as water-hunt-mars/ds18b20 and
+  // the same export, but a separate key: this kit calls the component
+  // 'ds18b20-sensor', so the other entry never reached it. Reading the probe
+  // once a second is the first step before the heater pad is driven from it.
+  'anti-icing-systems/ds18b20-sensor': exportedLoopProgram(
+    'DS18B20 temp probe test code',
+    boolTrue(),
+    [print(readDs18b20('2', 'TEMP_C')), wait(1, 'SECONDS')],
+  ),
 };
 
 /**
