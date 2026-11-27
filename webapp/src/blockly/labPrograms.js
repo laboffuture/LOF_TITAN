@@ -33,6 +33,15 @@ const readDs18b20 = (pin, val = 'TEMP_C') => ({
   block: { type: 'titan_ds18b20_read', fields: { PIN: pin, VAL: val } },
 });
 
+/**
+ * MQ-135 air quality read. PIN is the sensor port GPIO as a string - S1='2',
+ * S2='1', S3='3', S4='4', S5='5' - and VAL picks what the driver returns:
+ * PPM (air quality), CO2, SMOKE, RAW (0-4095 ADC) or VOLT.
+ */
+const readMq135 = (pin, val = 'PPM') => ({
+  block: { type: 'titan_mq135_read', fields: { PIN: pin, VAL: val } },
+});
+
 /** Drive one motor. MOTOR is M1..M4, DIR FORWARD or BACKWARD, SPEED a percent. */
 const motor = (which, dir, speed) => ({
   type: 'titan_motor_control',
@@ -534,6 +543,21 @@ export const LAB_PROGRAMS = {
       motor('M1', 'BACKWARD', 80),
       wait(1, 'SECONDS'),
     ],
+  ),
+
+  // Automating Lost Bot's Cooling System, from the Block Studio export titled
+  // "mq135 test code": read air quality in PPM on S1 and print it once a
+  // second, so a student can watch the number climb when something is burned
+  // or breathed near the sensor.
+  //
+  // Keyed to dht22-temperature-sensor deliberately, on the user's instruction,
+  // even though the blocks are the MQ-135's. This kit also has a separate
+  // 'mq135-gas-sensor' component, which has no seed yet - if a DHT22 export
+  // arrives later it replaces this one, and this program moves across.
+  'lostbot-cooling/dht22-temperature-sensor': exportedLoopProgram(
+    'mq135 test code',
+    boolTrue(),
+    [print(readMq135('2', 'PPM')), wait(1, 'SECONDS')],
   ),
 };
 
