@@ -559,6 +559,16 @@ export const LAB_PROGRAMS = {
     boolTrue(),
     [print(readMq135('2', 'PPM')), wait(1, 'SECONDS')],
   ),
+
+  // The same export in the lab it was written for. The component id is unique
+  // to this kit, but the key stays kit-scoped like the rest of the recent
+  // entries, so a second kit adding an MQ-135 on a different port does not
+  // inherit this one.
+  'lostbot-cooling/mq135-gas-sensor': exportedLoopProgram(
+    'mq135 test code',
+    boolTrue(),
+    [print(readMq135('2', 'PPM')), wait(1, 'SECONDS')],
+  ),
 };
 
 /**
