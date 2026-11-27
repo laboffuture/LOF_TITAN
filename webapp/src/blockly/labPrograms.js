@@ -365,6 +365,24 @@ export const LAB_PROGRAMS = {
   // the 1.3-inch one and that is the controller to init here. Worth checking
   // the firmware rather than assuming: SSD1306 on an SH1106 leaves the screen
   // blank, and the two are told apart only by the init sequence.
+  // Magnet Security Rover's N20 gear motors: M1 forward at 80% for a second,
+  // then backward, looping - the same export the other drive labs use.
+  //
+  // Seeded on the motors rather than this kit's tb6612fng-motor-driver, which
+  // stays empty: that id is shared with bluetooth-navigator,
+  // lost-bots-navigation and stability-scout, and n20-gear-motors is unique
+  // to this kit.
+  'magnet-security-rover/n20-gear-motors': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
+
   'aquanova/oled-display': exportedProgram(
     'oled test code',
     [oledInit('SH1106')],
