@@ -354,6 +354,15 @@ export const LAB_PROGRAMS = {
     [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
   ),
 
+  // AquaNova's PIR motion sensor: print the digital state on S1 once a second.
+  // A PIR reports presence as a plain high/low, so the digital read is the
+  // whole story - 1 while motion is seen, 0 once it settles.
+  'aquanova/pir-motion-sensor': exportedLoopProgram(
+    'pir sensor',
+    boolTrue(),
+    [print(readDigital('2')), wait(1, 'SECONDS')],
+  ),
+
   'anti-icing-systems/silicone-heater-pad': exportedLoopProgram(
     'motor test code',
     boolTrue(),
