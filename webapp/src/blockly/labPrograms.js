@@ -382,6 +382,23 @@ export const LAB_PROGRAMS = {
   // Kit-scoped: 'tb6612fng-motor-driver' is also a component of
   // bluetooth-navigator, lost-bots-navigation and stability-scout, whose labs
   // stay empty until each is asked for.
+  // Stability Scout's driver and metal-geared motors, merged into one
+  // component: the standard drive test, M1 forward at 80% for a second then
+  // backward. Completes this kit.
+  //
+  // Kit-scoped - magnet-security-rover, bluetooth-navigator and
+  // lost-bots-navigation each have their own tb6612fng-motor-driver entry.
+  'stability-scout/tb6612fng-motor-driver': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
+
   // Stability Scout's IR obstacle sensor: print the digital state on S1 once a
   // second. These modules output a plain high/low once their onboard pot sets
   // the trip distance, so a digital read is the whole signal - 1 with nothing
