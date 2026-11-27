@@ -382,6 +382,20 @@ export const LAB_PROGRAMS = {
   // Kit-scoped: 'tb6612fng-motor-driver' is also a component of
   // bluetooth-navigator, lost-bots-navigation and stability-scout, whose labs
   // stay empty until each is asked for.
+  // Lost Bot's Navigation's BO motor: the standard drive test, M1 forward at
+  // 80% for a second then backward. Kit-scoped - bluetooth-navigator and
+  // cosmic-grip have a bo-motor too and keep empty canvases.
+  'lost-bots-navigation/bo-motor': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
+
   // Lost Bot's Navigation, VL53L0X laser ToF: bring the sensor up with no
   // offset, then print the distance in centimetres once a second.
   //
