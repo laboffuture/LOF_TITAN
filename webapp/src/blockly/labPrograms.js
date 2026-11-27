@@ -248,13 +248,15 @@ export const LAB_PROGRAMS = {
     [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
   ),
 
-  // Terrain Trek's BO motor: M1 forward at 80% for a second, then backward,
-  // looping - the same export used for Water Hunt's rover chassis.
+  // Terrain Trek's motor driver: M1 forward at 80% for a second, then
+  // backward, looping - the same export used for Water Hunt's rover chassis.
+  // The driver board is what actually switches the BO motors, and since the
+  // separate BO Motor component was removed this entry covers both parts.
   //
-  // Kit-scoped on purpose. 'bo-motor' is also a component of
-  // bluetooth-navigator, lost-bots-navigation and cosmic-grip, and a bare key
-  // would seed this program into all four labs.
-  'terrain-trek/bo-motor': exportedLoopProgram(
+  // Kit-scoped on purpose: 'motor-driver' is unique to this kit, but the
+  // related 'bo-motor' and 'tb6612fng-motor-driver' ids are each shared by
+  // several kits, where a bare key would seed every one of them.
+  'terrain-trek/motor-driver': exportedLoopProgram(
     'motor test code',
     boolTrue(),
     [
