@@ -13625,22 +13625,20 @@ while True:
       },
       {
         id: 'tb6612fng-motor-driver',
-        shortName: 'TB6612FNG',
-        name: 'TB6612FNG Motor Driver',
-        image: 'v1788958472/lof-titan/stability-scout/tb6612fng-motor-driver',
-        pinMapping: 'MOTOR CONTROL INTERFACE',
-        whatIsIt: 'An electronic motor driver used to control the speed and direction of the rover’s geared motors.',
-        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can maintain normal speed, reduce speed, stop, or change movement when required.'
+        shortName: 'TB6612FNG + BO Motors',
+        name: 'TB6612FNG Motor Driver + BO Metal Geared Motors',
+        // The driver and the motors it powers, kept as one entry: neither is
+        // useful without the other, and the lab tests them together.
+        images: [
+          'v1788958472/lof-titan/stability-scout/tb6612fng-motor-driver',
+          'v1788958311/lof-titan/stability-scout/bo-metal-geared-motor',
+        ],
+        pinMapping: 'MOTOR CONTROL INTERFACE | 2-PIN RMC MOTOR CONNECTION',
+        whatIsIt:
+          'The motor driver and the metal-geared DC motors it powers. The driver sets the speed and direction the ESP32-S3 asks for, and the metal gearbox trades motor speed for the torque needed to drive the rover wheels.',
+        howItWorks:
+          'The ESP32-S3 sends control signals to the TB6612FNG, which switches power through to the motors. The internal metal gears reduce speed and increase torque, so the rover can hold a steady pace, slow, stop or change movement across different surfaces.',
       },
-      {
-        id: 'bo-metal-geared-motor',
-        shortName: 'BO Metal Motor',
-        name: 'BO Metal Geared Motor',
-        image: 'v1788958311/lof-titan/stability-scout/bo-metal-geared-motor',
-        pinMapping: '2-PIN RMC MOTOR CONNECTION',
-        whatIsIt: 'A compact DC motor with a metal gearbox that provides controlled rotational speed and higher torque for driving the rover wheels.',
-        howItWorks: 'Electrical power from the motor driver rotates the motor. The internal metal gears reduce the speed and increase torque, helping the rover move steadily across different surfaces.'
-      }
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
