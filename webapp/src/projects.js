@@ -3367,23 +3367,6 @@ if __name__ == '__main__':
 
     components: [
       {
-        id: 'bo-motor',
-        shortName: 'BO Motor',
-        name: 'BO Motor 60 RPM',
-        image: 'lof-titan/terrain-trek/bo-motor',
-        whatIsIt:
-          'A small geared DC motor — one behind each of the rover’s four wheels. "BO" is the plastic-gearbox type used across hobby robotics: a fast, weak motor with a gear train bolted on the front that trades that speed for the turning force a wheel actually needs.',
-        howItWorks:
-          'Current through the motor spins it quickly but weakly; the gearbox steps that down to about 60 revolutions per minute at the output shaft and multiplies the torque in the same proportion. That torque is what carries a 65 mm wheel up a ramp instead of stalling against it. Each motor takes its power from the TB6612FNG, so the driver sets how fast it turns and which way. Material: BO Motor 60 RPM per wheel, 65 mm Robot Wheel (Grade B).',
-        // The lab renders only once experiment.testCode exists. Title and
-        // instruction are here so the script can be dropped in later.
-        experiment: {
-          title: 'Torque vs Speed on a Ramp',
-          instruction:
-            'Drive the rover up the same ramp at several PWM settings and find the point where the wheels stop climbing and start stalling — the practical limit of the gearbox.',
-        },
-      },
-      {
         id: 'motor-driver',
         shortName: 'TB6612FNG + BO Motors',
         name: 'TB6612FNG Motor Driver + BO Motors',
