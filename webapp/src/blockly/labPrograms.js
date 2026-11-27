@@ -68,6 +68,17 @@ const readGyro = (axis = 'X') => ({
   block: { type: 'titan_mpu6050_read_gyro', fields: { AXIS: axis } },
 });
 
+/** Bring up the laser ToF sensor. OFFSET trims the reading in UNIT units. */
+const vl53Init = (offset = 0, unit = 'MM') => ({
+  type: 'titan_vl53l0x_init',
+  fields: { OFFSET: offset, UNIT: unit },
+});
+
+/** Laser ToF distance, in CM, MM, INCHES or M. */
+const readVl53 = (unit = 'CM') => ({
+  block: { type: 'titan_vl53l0x_read_distance', fields: { UNIT: unit } },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -371,6 +382,23 @@ export const LAB_PROGRAMS = {
   // Kit-scoped: 'tb6612fng-motor-driver' is also a component of
   // bluetooth-navigator, lost-bots-navigation and stability-scout, whose labs
   // stay empty until each is asked for.
+  // Lost Bot's Navigation, VL53L0X laser ToF: bring the sensor up with no
+  // offset, then print the distance in centimetres once a second.
+  //
+  // The export that supplied this was titled "Lost bot's cooling system", but
+  // that kit (lostbot-cooling) has no ToF sensor - MQ135, DHT22, OLED and a DC
+  // fan. The two kit names are easy to confuse; the VL53L0X is in Navigation.
+  //
+  // measuring-the-cosmos has a 'tof-sensor' component too, left unseeded: its
+  // lab is about converting a measured distance to astronomical units, so it
+  // wants more than a bare read.
+  'lost-bots-navigation/vl53l0x-tof-sensor': exportedProgram(
+    "Lost bot's cooling system",
+    [vl53Init(0, 'MM')],
+    boolTrue(),
+    [print(readVl53('CM')), wait(1, 'SECONDS')],
+  ),
+
   'magnet-security-rover/tb6612fng-motor-driver': exportedLoopProgram(
     'motor test code',
     boolTrue(),
