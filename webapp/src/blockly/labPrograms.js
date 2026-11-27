@@ -382,6 +382,17 @@ export const LAB_PROGRAMS = {
   // Kit-scoped: 'tb6612fng-motor-driver' is also a component of
   // bluetooth-navigator, lost-bots-navigation and stability-scout, whose labs
   // stay empty until each is asked for.
+  // Stability Scout's IR obstacle sensor: print the digital state on S1 once a
+  // second. These modules output a plain high/low once their onboard pot sets
+  // the trip distance, so a digital read is the whole signal - 1 with nothing
+  // ahead, 0 when something is inside the threshold, or the reverse depending
+  // on the module.
+  'stability-scout/ir-obstacle-sensor': exportedLoopProgram(
+    'lr sensor',
+    boolTrue(),
+    [print(readDigital('2')), wait(1, 'SECONDS')],
+  ),
+
   // Stability Scout's MPU6050. Same sensor and same export as Terrain Trek's,
   // but this kit calls the component 'mpu6050-gyroscope', so it needs its own
   // key - the same split as the two DS18B20 components.
