@@ -32,15 +32,15 @@
          disagrees opens a second connection instead of being reused. -->
   <link rel="preconnect" href="https://res.cloudinary.com">
 
-  <!-- The first carousel slide is the LCP element, but it lives inside the JS
-         bundle, so the browser cannot discover it until ~400KB of JS parses.
-         imagesrcset/imagesizes must mirror <Img> exactly or the preload misses
-         and the image is fetched twice. -->
-  <link rel="preload" as="image" fetchpriority="high" imagesizes="100vw"
-    imagesrcset="
-        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_480/lof-titan/banners/banner-axes3 480w,
-        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_960/lof-titan/banners/banner-axes3 960w,
-        https://res.cloudinary.com/ggibudzr/image/upload/f_auto,q_auto,c_lfill,w_1440/lof-titan/banners/banner-axes3 1440w">
+  <!-- The first carousel slide is deliberately NOT given an image resource
+       hint here. It helped the dashboard, where that slide is the LCP element
+       and lives inside the JS bundle - but this one HTML file serves every
+       route, so the browser also fetched the 1440w variant (219KB) on kit
+       pages, tool pages and LMS-embedded kits, discarded it unused, and logged
+       "preloaded but not used" each time. One route's faster paint was not
+       worth that download on all the others. The preconnect above keeps the
+       Cloudinary connection warm everywhere, which is the part that
+       generalises. If the dashboard LCP needs attention again, measure first. -->
 </head>
 
 <body class="min-h-screen antialiased">
