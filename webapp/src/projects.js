@@ -3370,7 +3370,12 @@ if __name__ == '__main__':
         id: 'motor-driver',
         shortName: 'TB6612FNG + BO Motors',
         name: 'TB6612FNG Motor Driver + BO Motors',
-        image: 'lof-titan/terrain-trek/motor-driver',
+        // Two parts in one entry, so two photos: the driver board and the
+        // motors it turns.
+        images: [
+          'lof-titan/terrain-trek/motor-driver',
+          'lof-titan/terrain-trek/bo-motors',
+        ],
         whatIsIt:
           'The motor driver takes low-power logic signals from the ESP32-S3 and switches the higher current the BO motors need to turn the wheels.',
         howItWorks:

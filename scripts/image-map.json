@@ -26,5 +26,7 @@
   "lithogram/water-displacement.png": "lof-titan/lithogram/water-displacement",
   "measuring-the-cosmos/joystick.png": "lof-titan/measuring-the-cosmos/joystick",
   "measuring-the-cosmos/servo-motor.png": "lof-titan/measuring-the-cosmos/servo-motor",
-  "measuring-the-cosmos/tof-sensor.png": "lof-titan/measuring-the-cosmos/tof-sensor"
+  "measuring-the-cosmos/tof-sensor.png": "lof-titan/measuring-the-cosmos/tof-sensor",
+  "terrain-trek/bo-motors.png": "lof-titan/terrain-trek/bo-motors",
+  "terrain-trek/motor-driver.png": "lof-titan/terrain-trek/motor-driver"
 }

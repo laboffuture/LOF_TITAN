@@ -480,6 +480,16 @@ export function ProjectStoreDetailModal({
                 const comp = project.components?.find(c => c.id === activeComponentTab) || project.components?.[0];
                 if (!comp) return null;
 
+                // A component can carry several photos - "TB6612FNG Motor Driver
+                // + BO Motors" is two parts in one entry. `images` takes an
+                // array; `image` stays supported, so the components with a
+                // single photo need no change.
+                const compImages = comp.images?.length
+                  ? comp.images
+                  : comp.image
+                    ? [comp.image]
+                    : [];
+
                 return (
                   <div className="md:col-span-8 lg:col-span-9 p-6 sm:p-8 rounded-xl bg-white border border-slate-200/90 shadow-md space-y-6">
                     
@@ -490,20 +500,29 @@ export function ProjectStoreDetailModal({
                           neither, so customers never see an empty panel. In dev it
                           stays, showing the exact Cloudinary id to upload against -
                           that is the slot to fill when artwork arrives. */}
-                      {(comp.image || comp.pinMapping || import.meta.env.DEV) && (
+                      {(compImages.length || comp.pinMapping || import.meta.env.DEV) && (
                         <div className="sm:col-span-5 space-y-4">
-                          {comp.image ? (
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shadow-inner">
-                              <Img
-                                id={comp.image}
-                                alt={comp.name}
-                                sizes="(min-width: 640px) 40vw, 90vw"
-                                className="w-full h-auto max-h-72 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
-                                onError={(e) => {
-                                  e.target.srcset = '';
-                                  e.target.src = cld('lof-titan/banners/banner-invisible-diy');
-                                }}
-                              />
+                          {compImages.length ? (
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-inner flex flex-wrap items-center justify-center gap-3">
+                              {compImages.map((imageId) => (
+                                <Img
+                                  key={imageId}
+                                  id={imageId}
+                                  alt={comp.name}
+                                  // Two photos share the panel, so each asks for
+                                  // about half the width it would alone.
+                                  sizes={
+                                    compImages.length > 1
+                                      ? '(min-width: 640px) 20vw, 45vw'
+                                      : '(min-width: 640px) 40vw, 90vw'
+                                  }
+                                  className={`${compImages.length > 1 ? 'w-[calc(50%-0.375rem)] max-h-48' : 'w-full max-h-72'} h-auto object-contain rounded-lg transition-transform duration-300 hover:scale-105`}
+                                  onError={(e) => {
+                                    e.target.srcset = '';
+                                    e.target.src = cld('lof-titan/banners/banner-invisible-diy');
+                                  }}
+                                />
+                              ))}
                             </div>
                           ) : import.meta.env.DEV ? (
                             <div className="p-6 min-h-[12rem] rounded-2xl bg-slate-50 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-center">
@@ -528,7 +547,7 @@ export function ProjectStoreDetailModal({
                       )}
 
                       {/* Hardware Theory & Working Principles */}
-                      <div className={`${comp.image || comp.pinMapping || import.meta.env.DEV ? 'sm:col-span-7' : 'sm:col-span-12'} space-y-5`}>
+                      <div className={`${compImages.length || comp.pinMapping || import.meta.env.DEV ? 'sm:col-span-7' : 'sm:col-span-12'} space-y-5`}>
                         <div>
                           <h3 className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 leading-tight">
                             {comp.name}
