@@ -3455,7 +3455,7 @@ if __name__ == '__main__':
       },
       {
         id: 'hc-sr04',
-        shortName: 'HC-SR04',
+        shortName: 'HC-SR04 Ultrasonic Sensor',
         name: 'HC-SR04 Ultrasonic Sensor',
         image: 'lof-titan/terrain-trek/hc-sr04',
         whatIsIt:
