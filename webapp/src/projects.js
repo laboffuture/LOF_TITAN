@@ -3409,21 +3409,6 @@ if __name__ == '__main__':
         },
       },
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/terrain-trek/esp32-s3',
-        whatIsIt:
-          "The rover's onboard computer — it reads every sensor, drives the motors, and runs the wireless link that lets a student steer the rover from a phone or controller.",
-        howItWorks:
-          'Sensor readings and drive commands share one control loop, so the code has to fit motor control, sensor polling and wireless communication together without one blocking the others.',
-        experiment: {
-          title: 'Control Range & Response Test',
-          instruction:
-            'Drive at increasing distance from the controller and note where commands start to lag or drop.',
-        },
-      },
-      {
         id: 'motor-driver',
         shortName: 'TB6612FNG + BO Motors',
         name: 'TB6612FNG Motor Driver + BO Motors',
