@@ -382,6 +382,20 @@ export const LAB_PROGRAMS = {
   // Kit-scoped: 'tb6612fng-motor-driver' is also a component of
   // bluetooth-navigator, lost-bots-navigation and stability-scout, whose labs
   // stay empty until each is asked for.
+  // Navigation Radar's ultrasonic sensor - the third and last of the trig/echo
+  // sensors, after heat-seek-rover's scanner and terrain-trek's HC-SR04. All
+  // three run off the dedicated ultrasonic port the block is wired to, so the
+  // same export covers them.
+  //
+  // This kit sweeps the sensor to build a radar picture; printing a plain
+  // distance once a second is the step before that, proving the sensor reads
+  // before any sweep logic is added.
+  'navigation-radar/ultrasonic-sensor': exportedLoopProgram(
+    'ultrasonic sensor',
+    boolTrue(),
+    [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
+  ),
+
   // Stability Scout's driver and metal-geared motors, merged into one
   // component: the standard drive test, M1 forward at 80% for a second then
   // backward. Completes this kit.
