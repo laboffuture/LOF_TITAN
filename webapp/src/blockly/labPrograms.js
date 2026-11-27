@@ -569,6 +569,16 @@ export const LAB_PROGRAMS = {
     boolTrue(),
     [print(readMq135('2', 'PPM')), wait(1, 'SECONDS')],
   ),
+
+  // Same OLED test as AquaNova's, and the same 1.3-inch SH1106 panel: init
+  // once inside TITAN Start, then redraw "lof" at the top-left every second.
+  // Kit-scoped because nine kits share the 'oled-display' id.
+  'lostbot-cooling/oled-display': exportedProgram(
+    'oled test code',
+    [oledInit('SH1106')],
+    boolTrue(),
+    [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
+  ),
 };
 
 /**
