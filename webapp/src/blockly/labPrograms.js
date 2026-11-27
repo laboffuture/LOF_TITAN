@@ -357,6 +357,15 @@ export const LAB_PROGRAMS = {
   // AquaNova's PIR motion sensor: print the digital state on S1 once a second.
   // A PIR reports presence as a plain high/low, so the digital read is the
   // whole story - 1 while motion is seen, 0 once it settles.
+  // AquaNova's water sensor: print the analog value on S1 once a second.
+  // Analog rather than digital - the sensor reports how far up the probe the
+  // water reaches, not just wet or dry, so the number moves as the level does.
+  'aquanova/water-sensor': exportedLoopProgram(
+    'water sensor test code',
+    boolTrue(),
+    [print(readAnalog('2')), wait(1, 'SECONDS')],
+  ),
+
   'aquanova/pir-motion-sensor': exportedLoopProgram(
     'pir sensor',
     boolTrue(),
