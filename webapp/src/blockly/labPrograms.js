@@ -233,6 +233,25 @@ export const LAB_PROGRAMS = {
       wait(1, 'SECONDS'),
     ],
   ),
+
+  // Invisible Line Patrol's dual DC motors, completing that kit. Same export
+  // again: M1 forward at 80% for a second, then backward, looping.
+  //
+  // This lab had a getDynamicCode branch building parameterised Python from
+  // motorSpeed / motorDirection / motorDuration. The controls that once drove
+  // those values were removed in the UI rewrite, so it was generating from
+  // constants nobody could change. The canvas owns the code now, which leaves
+  // the isDcMotor branch in ProjectStoreDetailModal dead.
+  'invisible-line/dc-motor': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
 };
 
 /**
