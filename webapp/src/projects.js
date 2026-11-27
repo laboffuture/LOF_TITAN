@@ -2178,14 +2178,6 @@ if __name__ == '__main__':
         howItWorks: 'A magnet rotates above the sensor along with the anemometer. The sensor tracks the changing angle, allowing the system to calculate rotational speed.'
       },
       {
-        id: 'esp32-s3',
-        image: 'v1788330132/lof-titan/anemometer/esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        whatIsIt: 'The ESP32-S3 is the main controller of the anemometer.',
-        howItWorks: 'It reads the rotation data, calculates the rotational speed, converts it into a calibrated wind-speed value, and sends the result to the display.'
-      },
-      {
         id: 'oled-display',
         image: 'v1788330365/lof-titan/anemometer/oled-display',
         shortName: 'OLED Display',
