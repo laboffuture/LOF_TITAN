@@ -60,6 +60,14 @@ const oledPrint = (textBlock, x = 0, y = 0, size = '1') => ({
   inputs: { TEXT: textBlock },
 });
 
+/** Wake the MPU6050. No fields - the block is fixed to I2C SDA 7 / SCL 8, 0x68. */
+const mpuInit = () => ({ type: 'titan_mpu6050_init' });
+
+/** Read one gyroscope axis: X, Y or Z. */
+const readGyro = (axis = 'X') => ({
+  block: { type: 'titan_mpu6050_read_gyro', fields: { AXIS: axis } },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -324,6 +332,20 @@ export const LAB_PROGRAMS = {
   // scanner. Both run off the dedicated ultrasonic port (Trig 6, Echo 19),
   // which the block is wired to, so the program carries across unchanged.
   // navigation-radar's ultrasonic sensor is the remaining one of this type.
+  // Terrain Trek's MPU6050. Like the OLED seeds this has setup: the sensor is
+  // woken once inside TITAN Start, then the loop prints the X gyro rate every
+  // second - enough to see the number move when the rover is turned.
+  //
+  // stability-scout and navigation-radar carry the same sensor under different
+  // component ids (mpu6050-gyroscope, imu-sensor), so they are not covered by
+  // this key.
+  'terrain-trek/mpu6050': exportedProgram(
+    'MPU6050 test code',
+    [mpuInit()],
+    boolTrue(),
+    [print(readGyro('X')), wait(1, 'SECONDS')],
+  ),
+
   'terrain-trek/hc-sr04': exportedLoopProgram(
     'ultrasonic sensor',
     boolTrue(),
