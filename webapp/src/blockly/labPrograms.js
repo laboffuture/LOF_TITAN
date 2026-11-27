@@ -320,6 +320,16 @@ export const LAB_PROGRAMS = {
   //
   // FORWARD/BACKWARD are the block's direction labels; for a heater pad only
   // the duty matters, so treat the second step as "off" rather than reverse.
+  // Terrain Trek's HC-SR04, the same export as heat-seek-rover's obstacle
+  // scanner. Both run off the dedicated ultrasonic port (Trig 6, Echo 19),
+  // which the block is wired to, so the program carries across unchanged.
+  // navigation-radar's ultrasonic sensor is the remaining one of this type.
+  'terrain-trek/hc-sr04': exportedLoopProgram(
+    'ultrasonic sensor',
+    boolTrue(),
+    [print(readUltrasonic('CM')), wait(1, 'SECONDS')],
+  ),
+
   'anti-icing-systems/silicone-heater-pad': exportedLoopProgram(
     'motor test code',
     boolTrue(),
