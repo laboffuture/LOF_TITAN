@@ -1310,15 +1310,6 @@ while True:
         whatIsIt: 'A compact OLED screen used to display expressions, symbols, and the current operating state of the DJ Bot.',
         howItWorks: 'The ESP32-S3 sends display information to the OLED through I2C communication. The OLED activates individual pixels to show the programmed facial expressions and feedback.'
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/heartbeat/esp32-s3',
-        pinMapping: 'GPIO | I2C | UART | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Heartbeat DJ Bot.',
-        howItWorks: 'The ESP32-S3 reads the MAX30102 sensor, manages timer-based mode changes, controls the OLED expressions, and sends commands to the DFPlayer to select the required audio.'
-      }
     ],
 
     // Assembly Steps
@@ -2709,14 +2700,6 @@ if __name__ == '__main__':
     },
 
     components: [
-      {
-        id: 'lof-titan-esp32s3',
-        shortName: 'LOF TITAN',
-        name: 'LOF TITAN (ESP32-S3)',
-        image: 'v1788499373/lof-titan/anti-icing-systems/lof-titan-esp32s3',
-        whatIsIt: 'The main controller of the anti-icing system.',
-        howItWorks: 'It reads the temperature, controls the heating response, and updates the display.'
-      },
       {
         id: 'oled-display',
         shortName: 'OLED Display',
@@ -6058,15 +6041,6 @@ except Exception as e:
     // with the visual column hidden in production and a dev-only placeholder.
     components: [
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/axes3/esp32-s3',
-        pinMapping: 'I2C | SERVO CONTROL | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Axes 3 robotic arm.',
-        howItWorks: 'The ESP32-S3 sends movement commands to the PCA9685 servo driver, allowing the robotic arm to rotate, lift, lower, grip, and place objects according to the programmed sequence.'
-      },
-      {
         id: 'pca9685-servo-driver',
         shortName: 'PCA9685 Driver',
         name: 'PCA9685 Servo Driver',
@@ -6205,15 +6179,6 @@ except Exception as e:
         whatIsIt: 'Compact geared DC motors used to drive the wheels of the Magnet Security Rover.',
         howItWorks: 'Electrical power from the motor driver rotates the motors. Their internal gears reduce speed and increase torque, helping the rover move and turn in a controlled manner.'
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'v1788957167/lof-titan/magnet-security-rover/esp32-s3',
-        pinMapping: 'GPIO | I2C | MOTOR CONTROL',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Magnet Security Rover.',
-        howItWorks: 'The ESP32-S3 reads heading data from the magnetometer and thermal data from the AMG8833, compares them with programmed conditions, and controls the rover\'s motors and alert responses.'
-      }
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
@@ -7064,15 +7029,6 @@ if __name__ == '__main__':
         whatIsIt: 'A compact OLED screen used to display spectral readings, graphs, labels, and comparison results.',
         howItWorks: 'The ESP32-S3 sends processed spectrum data to the OLED through I2C communication. The OLED activates individual pixels to display the required information.'
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/star-spectrum-decoder/esp32-s3',
-        pinMapping: 'GPIO | I2C | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Star Spectrum Decoder.',
-        howItWorks: 'The ESP32-S3 collects spectral data from the AS7341, processes and compares the readings, controls the LEDs, and sends the results to the OLED display.'
-      }
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
@@ -9082,15 +9038,6 @@ except Exception as e:
         howItWorks: 'Moving the joystick changes its X-axis and Y-axis values. The ESP32-S3 interprets these values as forward, backward, left, or right commands and sends the required movement instruction wirelessly.'
       },
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'v1788948210/lof-titan/bluetooth-navigator/esp32-s3',
-        pinMapping: 'BLUETOOTH | GPIO | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that manages wireless communication and rover movement.',
-        howItWorks: 'The ESP32-S3 reads or receives the movement command through Bluetooth, interprets the required direction, and sends control signals to the motor driver.'
-      },
-      {
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
@@ -10658,15 +10605,6 @@ while True:
         howItWorks: 'The VL53L0X uses Time-of-Flight technology to send infrared light towards an object and measure the time taken for the reflected light to return. The ESP32-S3 uses this distance information to make navigation decisions.'
       },
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'v1788949904/lof-titan/lost-bots-navigation/esp32-s3',
-        pinMapping: 'GPIO | I2C | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the autonomous rover.',
-        howItWorks: 'The ESP32-S3 reads distance data from the VL53L0X, compares it with programmed safety limits, and decides whether the rover should continue, slow down, stop, reverse, or turn.'
-      },
-      {
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
@@ -11205,15 +11143,6 @@ if __name__ == '__main__':
         whatIsIt: 'A compact OLED screen used to display text, symbols, system status, and other project feedback.',
         howItWorks: 'The ESP32-S3 sends information to the OLED through I2C communication. The OLED activates individual pixels to display the programmed information.'
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/cosmic-pulse-tracker/esp32-s3',
-        pinMapping: 'USB TYPE-C | GPIO | I2C',
-        whatIsIt: 'A programmable microcontroller that acts as the main brain of the project.',
-        howItWorks: 'It executes the uploaded program, processes input signals, communicates with connected modules, and controls the project\'s outputs according to the programmed logic.'
-      }
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
@@ -13709,15 +13638,6 @@ while True:
         howItWorks: 'The sensor emits infrared light and detects the reflected light from nearby objects. The ESP32-S3 uses the sensor output to decide when the rover should stop or respond to an obstacle.'
       },
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'v1788958469/lof-titan/stability-scout/esp32-s3',
-        pinMapping: 'GPIO | I2C | USB TYPE-C',
-        whatIsIt: 'A programmable microcontroller that acts as the main controller of the Stability Scout.',
-        howItWorks: 'The ESP32-S3 reads stability data from the MPU6050 and obstacle information from the IR sensor. It compares these inputs with programmed thresholds and controls the rover’s motor speed and movement.'
-      },
-      {
         id: 'tb6612fng-motor-driver',
         shortName: 'TB6612FNG',
         name: 'TB6612FNG Motor Driver',
@@ -15541,15 +15461,6 @@ main()
         whatIsIt: 'A motion sensor used to detect orientation and heading changes.',
         howItWorks:
           'It measures movement and rotation to help track the direction of the navigation system.',
-      },
-      {
-        id: 'esp32-s3',
-        shortName: 'LOF TITAN',
-        name: 'LOF TITAN (ESP32-S3)',
-        image: 'lof-titan/navigation-radar/esp32-s3',
-        whatIsIt: 'The main controller of the Navigation Radar System.',
-        howItWorks:
-          'It processes distance and orientation data and uses it to provide navigation and obstacle information.',
       },
     ],
 
@@ -19766,15 +19677,6 @@ if __name__ == '__main__':
         howItWorks:
           'It supplies electrical power to the controller, buttons, and OLED display.',
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'LOF TITAN',
-        name: 'LOF TITAN (ESP32-S3)',
-        image: 'lof-titan/emergency-messenger/esp32-s3',
-        whatIsIt: 'The main controller of the Emergency Messenger System.',
-        howItWorks:
-          'It reads the button inputs, manages the message selection, and sends the required information to the OLED display.',
-      },
     ],
 
     assemblyTitle: 'Emergency Messenger Assembly & Integration',
@@ -21326,17 +21228,6 @@ while True:
     },
 
     components: [
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3',
-        name: 'ESP32-S3',
-        image: 'lof-titan/axes6/esp32-s3',
-        pinMapping: 'I2C | SERVO CONTROL | USB TYPE-C',
-        whatIsIt:
-          'A programmable microcontroller that acts as the main controller of the Axes 6 robotic arm.',
-        howItWorks:
-          'The ESP32-S3 sends movement commands to the PCA9685 through I2C communication. These commands determine the required position of each servo motor and coordinate the six-axis movement of the robotic arm.',
-      },
       {
         id: 'pca9685-servo-driver',
         shortName: 'PCA9685',
@@ -24769,19 +24660,6 @@ while True:
 
     components: [
       {
-        id: 'esp32-s3',
-        shortName: 'ESP32 S3',
-        name: 'ESP32 S3',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/cosmic-grip/esp32-s3',
-        image: '',
-        pinMapping: 'Wi-Fi | GPIO | I2C | MOTOR & ARM CONTROL',
-        whatIsIt:
-          'A programmable microcontroller that acts as the main controller for the complete Cosmic Grip system.',
-        howItWorks:
-          'The ESP32 S3 hosts the web-based control interface, receives rover and robotic-arm commands, controls rover movement, and communicates with the PCA 9685 Servo Driver PCB to position the arm servos.',
-      },
-      {
         id: 'pca9685-servo-driver',
         shortName: 'PCA 9685',
         name: 'PCA 9685 Servo Driver PCB',
@@ -24923,23 +24801,6 @@ while True:
           title: 'Terrain Exploration & Sampling Test',
           instruction:
             'Drive the rover across different terrain zones and compare the measurements collected at each location.',
-        },
-      },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3 TITAN',
-        name: 'ESP32-S3 TITAN',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/water-hunt-mars/esp32-s3',
-        image: '',
-        whatIsIt:
-          "The rover's onboard computing unit. It reads sensor measurements, processes the collected data, and coordinates data transmission or logging.",
-        howItWorks:
-          'The ESP32-S3 reads the moisture sensor and temperature sensor at regular intervals. The firmware associates each reading with a sampling location, allowing students to build a moisture distribution map.',
-        experiment: {
-          title: 'Sensor Readings & Telemetry Test',
-          instruction:
-            'Monitor live sensor readings and investigate how measurements change as the rover moves between terrain zones.',
         },
       },
       {
@@ -28668,21 +28529,6 @@ while True:
             'Measure the volume of each asteroid model and compare the results with its mass.',
         },
       },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3 TITAN',
-        name: 'ESP32-S3 TITAN',
-        image: 'lof-titan/lithogram/esp32-s3',
-        whatIsIt:
-          'The onboard computing unit that processes sensor readings, performs density calculations, and displays the experimental results.',
-        howItWorks:
-          'The ESP32-S3 receives digital measurements from the HX711, applies calibration, and calculates density using the measured mass and volume. The firmware can display mass, volume, density, and the corresponding experimental classification on an LCD or OLED display.',
-        experiment: {
-          title: 'Automated Asteroid Analysis',
-          instruction:
-            'Connect the mass-measurement system, enter the displaced volume, and calculate density automatically.',
-        },
-      },
     ],
 
     assemblyTitle: 'Mechanical Assembly & Circuit Building',
@@ -31380,23 +31226,6 @@ while True:
           title: 'Direction, Rotation & Target Selection',
           instruction:
             'Practice aligning the sensor with different targets and compare the results of repeated measurements.',
-        },
-      },
-      {
-        id: 'esp32-s3',
-        shortName: 'ESP32-S3 TITAN',
-        name: 'ESP32-S3 TITAN',
-        // Upload artwork, then set this to the Cloudinary public id:
-        //   image: 'lof-titan/measuring-the-cosmos/esp32-s3',
-        image: '',
-        whatIsIt:
-          'The central controller that coordinates the joystick, rotation mechanism, ToF sensor, and OLED display.',
-        howItWorks:
-          'The ESP32-S3 reads joystick inputs, controls the dish rotation, acquires distance measurements, and updates the display. The firmware can associate a selected target with a predefined astronomical distance or convert a physical model distance into AU using a configured scale factor.',
-        experiment: {
-          title: 'Physical Distance to Astronomical Scale',
-          instruction:
-            'Explore how a measured distance can be converted into a scaled representation of astronomical distances.',
         },
       },
       {
