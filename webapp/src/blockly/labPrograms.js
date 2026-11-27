@@ -312,6 +312,24 @@ export const LAB_PROGRAMS = {
     boolTrue(),
     [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
   ),
+
+  // Anti-Icing Systems' 12V silicone heater pad, completing that kit. The pad
+  // is driven from a motor channel, so the motor-control block is what switches
+  // it: a second on at 80%, a second off, which is enough to confirm the
+  // channel and the wiring before any thermostat logic is written.
+  //
+  // FORWARD/BACKWARD are the block's direction labels; for a heater pad only
+  // the duty matters, so treat the second step as "off" rather than reverse.
+  'anti-icing-systems/silicone-heater-pad': exportedLoopProgram(
+    'motor test code',
+    boolTrue(),
+    [
+      motor('M1', 'FORWARD', 80),
+      wait(1, 'SECONDS'),
+      motor('M1', 'BACKWARD', 80),
+      wait(1, 'SECONDS'),
+    ],
+  ),
 };
 
 /**
