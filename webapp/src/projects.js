@@ -19119,17 +19119,6 @@ if __name__ == "__main__":
         howItWorks:
           'The controller processes the sensor readings and sends the required information to the OLED, allowing the current condition of the cooling system to be monitored visually.',
       },
-      {
-        id: 'dc-fan',
-        shortName: 'DC Fan',
-        name: 'DC Fan',
-        image: 'lof-titan/lostbot-cooling/dc-fan',
-        pinMapping: 'PWM SPEED CONTROL',
-        whatIsIt:
-          'A motor-driven fan used to provide airflow and cool the robot when the detected temperature rises.',
-        howItWorks:
-          'The fan receives a controlled electrical signal that adjusts its speed. Using PWM, the system can run the fan slowly at lower temperatures and increase its speed as the temperature rises.',
-      },
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
