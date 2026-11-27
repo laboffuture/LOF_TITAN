@@ -47,6 +47,19 @@ const readUltrasonic = (unit = 'CM') => ({
   block: { type: 'titan_ultrasonic_distance', fields: { UNIT: unit } },
 });
 
+/** Initialise the OLED. SH1106 is the 1.3-inch panel, SSD1306 the 0.96-inch. */
+const oledInit = (type = 'SH1106') => ({
+  type: 'titan_oled_init',
+  fields: { TYPE: type },
+});
+
+/** Draw text on the OLED at X,Y. SIZE is a dropdown, so it is a string. */
+const oledPrint = (textBlock, x = 0, y = 0, size = '1') => ({
+  type: 'titan_oled_print',
+  fields: { X: x, Y: y, SIZE: size },
+  inputs: { TEXT: textBlock },
+});
+
 /** Blockly's built-in boolean literal, when a loop wants an explicit condition. */
 const boolTrue = () => ({
   block: { type: 'logic_boolean', fields: { BOOL: 'TRUE' } },
@@ -102,12 +115,24 @@ const loopProgram = (steps) => ({
   },
 });
 
+/** A repeat-while statement block, chainable like any other. */
+const loopBlock = (condition, steps) => ({
+  type: 'titan_repeat_while',
+  fields: { MODE: 'WHILE' },
+  inputs: { BOOL: condition, DO: { block: chain(steps) } },
+});
+
 /**
  * A workspace shaped like a Block Studio export: a project-info header plus
- * TITAN Start -> repeat while <condition> -> steps. Use this when the program
- * came from an actual .lofproject export, so the lab reproduces it exactly.
+ * TITAN Start -> setup statements -> repeat while <condition> -> steps. Use
+ * this when the program came from an actual .lofproject export, so the lab
+ * reproduces it exactly.
+ *
+ * `setup` is for the one-off statements an export runs before its loop - an
+ * OLED init, say - which have to sit inside TITAN Start ahead of the loop
+ * rather than inside it.
  */
-const exportedLoopProgram = (description, condition, steps) => ({
+const exportedProgram = (description, setup, condition, steps) => ({
   blocks: {
     languageVersion: 0,
     blocks: [
@@ -117,18 +142,16 @@ const exportedLoopProgram = (description, condition, steps) => ({
         x: 468,
         y: 108,
         inputs: {
-          DO: {
-            block: {
-              type: 'titan_repeat_while',
-              fields: { MODE: 'WHILE' },
-              inputs: { BOOL: condition, DO: { block: chain(steps) } },
-            },
-          },
+          DO: { block: chain([...setup, loopBlock(condition, steps)]) },
         },
       },
     ],
   },
 });
+
+/** The common case: no setup, straight into the loop. */
+const exportedLoopProgram = (description, condition, steps) =>
+  exportedProgram(description, [], condition, steps);
 
 /** Keyed by the component id the lab was opened from. */
 export const LAB_PROGRAMS = {
@@ -261,6 +284,19 @@ export const LAB_PROGRAMS = {
     'DS18B20 temp probe test code',
     boolTrue(),
     [print(readDs18b20('2', 'TEMP_C')), wait(1, 'SECONDS')],
+  ),
+
+  // Anemometer's 1.3-inch OLED. The first export with setup: the panel is
+  // initialised once inside TITAN Start, before the loop, then the loop draws
+  // text at 0,0 every second. SH1106 is the 1.3-inch controller, which is the
+  // panel this kit ships - a 0.96-inch kit would want SSD1306 instead, so this
+  // is kit-scoped rather than keyed on the bare 'oled-display' that 8 other
+  // kits also use.
+  'anemometer/oled-display': exportedProgram(
+    'oled test code',
+    [oledInit('SH1106')],
+    boolTrue(),
+    [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
   ),
 };
 
