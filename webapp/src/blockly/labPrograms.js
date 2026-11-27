@@ -298,6 +298,20 @@ export const LAB_PROGRAMS = {
     boolTrue(),
     [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
   ),
+
+  // Anti-Icing Systems' 1.3-inch OLED, the same export as the Anemometer one.
+  // With its DS18B20 already seeded, this kit's next step is putting the probe
+  // reading on the screen - this gets the panel drawing first.
+  //
+  // Kit-scoped because the panels differ: star-spectrum-decoder's OLED is a
+  // 2.42-inch, which needs SSD1309 rather than SH1106, so a bare
+  // 'oled-display' key would init the wrong controller there.
+  'anti-icing-systems/oled-display': exportedProgram(
+    'oled test code',
+    [oledInit('SH1106')],
+    boolTrue(),
+    [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
+  ),
 };
 
 /**
