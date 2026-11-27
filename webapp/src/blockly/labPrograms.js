@@ -360,6 +360,18 @@ export const LAB_PROGRAMS = {
   // AquaNova's water sensor: print the analog value on S1 once a second.
   // Analog rather than digital - the sensor reports how far up the probe the
   // water reaches, not just wet or dry, so the number moves as the level does.
+  // AquaNova's OLED, completing that kit. The component name does not state a
+  // size, but this kit's own firmware initialises an SH1106, so the panel is
+  // the 1.3-inch one and that is the controller to init here. Worth checking
+  // the firmware rather than assuming: SSD1306 on an SH1106 leaves the screen
+  // blank, and the two are told apart only by the init sequence.
+  'aquanova/oled-display': exportedProgram(
+    'oled test code',
+    [oledInit('SH1106')],
+    boolTrue(),
+    [oledPrint(text('lof'), 0, 0, '1'), wait(1, 'SECONDS')],
+  ),
+
   'aquanova/water-sensor': exportedLoopProgram(
     'water sensor test code',
     boolTrue(),
