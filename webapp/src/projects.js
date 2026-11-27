@@ -10594,22 +10594,20 @@ while True:
       },
       {
         id: 'tb6612fng-motor-driver',
-        shortName: 'TB6612FNG',
-        name: 'TB6612FNG Motor Driver',
-        image: 'v1788949905/lof-titan/lost-bots-navigation/tb6612fng-motor-driver',
-        pinMapping: 'MOTOR CONTROL INTERFACE',
-        whatIsIt: 'An electronic driver that controls the direction and movement of the rover’s DC motors.',
-        howItWorks: 'The ESP32-S3 sends control signals to the TB6612FNG. The driver then controls the motors so the rover can move forward, reverse, stop, or turn during obstacle avoidance.'
+        shortName: 'TB6612FNG + BO Motor',
+        name: 'TB6612FNG Motor Driver + BO Motor',
+        // The driver and the motors it powers, kept as one entry: neither is
+        // useful without the other, and the lab tests them together.
+        images: [
+          'v1788949905/lof-titan/lost-bots-navigation/tb6612fng-motor-driver',
+          'v1788949906/lof-titan/lost-bots-navigation/bo-motor',
+        ],
+        pinMapping: 'MOTOR CONTROL INTERFACE | 2-PIN RMC MOTOR CONNECTION',
+        whatIsIt:
+          'The driver board and the geared DC motors it powers. The ESP32-S3 cannot drive motors directly, so the TB6612FNG sits between them, and the motors turn the wheels that move the rover.',
+        howItWorks:
+          'The ESP32-S3 sends control signals to the TB6612FNG, which switches power through to the motors. Driving the left and right motors in different directions lets the rover move forward, reverse, stop or turn during obstacle avoidance.',
       },
-      {
-        id: 'bo-motor',
-        shortName: 'BO Motor',
-        name: 'BO Motor',
-        image: 'v1788949906/lof-titan/lost-bots-navigation/bo-motor',
-        pinMapping: '2-PIN RMC MOTOR CONNECTION',
-        whatIsIt: 'A geared DC motor used to drive the wheels of the rover.',
-        howItWorks: 'Electrical power from the motor driver rotates the motor shaft. By controlling the direction of the left and right motors, the rover can move and change its path.'
-      }
     ],
 
     faqTitle: 'FAQ & Hardware Troubleshooting',
